@@ -23,7 +23,7 @@ export const EXHIBITS = [
     height: 1.55,
     pitch: 1.3,
     desc:
-      'Kapüşonunu 1vDOQUZ gecelerinde hiç indirmeyen chibi okçu. Dokuz DOG’a karşı tek başına; sadağında tam dokuz ok var, tesadüf değil.',
+      'Kapüşonunu 1vDOQUZ gecelerinde hiç indirmeyen chibi okçu. Dokuz DOG’a karşı tek başına; sadağı hiç boşalmıyor, çünkü her DOG’a ayrı bir ok gerekiyor.',
     fallbackArt: 'portrait-legend',
     fallbackArch: 'legend',
   },

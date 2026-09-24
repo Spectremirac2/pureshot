@@ -177,7 +177,7 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
       ),
       h('div', { class: 'table-wrap' },
         h('table', { class: 'table gl-inv-table' },
-          h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Anahtar'), h('th', { scope: 'col', class: 'gl-inv-epcol' }, 'fal.ai uç noktası'), h('th', { scope: 'col' }, 'Çıktı'), h('th', { scope: 'col' }, 'Durum'))),
+          h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Anahtar'), h('th', { scope: 'col', class: 'gl-inv-epcol' }, h('span', { lang: 'en' }, 'fal.ai'), ' uç noktası'), h('th', { scope: 'col' }, 'Çıktı'), h('th', { scope: 'col' }, 'Durum'))),
           h('tbody', null, inventory),
         ),
       ),

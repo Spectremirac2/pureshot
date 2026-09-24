@@ -11,7 +11,7 @@ import { art, modelAvailable, fetchModel } from './sources.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { byId } from '../../data/archetypes.js';
 import { EXHIBITS, buildExhibit, stoneTexture } from './exhibits.js';
-import { likeTracker } from './likes.js';
+import { likeTracker, likesLocalOnly } from './likes.js';
 
 const THEMES = [
   { id: 'kor', label: 'Kor', token: '--ember', alt: '--aegis-2' },
@@ -231,7 +231,9 @@ export function mountMuseum(el, ctx) {
 
   const likes = likeTracker(() => updateLike());
   let likeBtn = null;
+  let likeNote = null;
   function updateLike() {
+    if (likeNote) likeNote.textContent = likesLocalOnly() ? 'Salt okunur görüntüleme: beğenin yalnızca bu cihazda sayılır.' : 'Beğeniler galeriyle ortak sayılır.';
     if (!likeBtn) return;
     const key = EXHIBITS[current].key;
     const on = likes.liked(key);
@@ -278,10 +280,17 @@ export function mountMuseum(el, ctx) {
       else sound.click();
       updateLike();
     });
+    likeNote = h('span', { class: 'xsmall dim' });
     append(plaque, [
       h('div', { class: 'gl-plaque-top' }, h('span', { class: 'eyebrow' }, `Eser No. ${ex.no}`), badge),
       h('h2', { class: 'gl-plaque-title' }, ex.name),
-      h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '), h('span', { lang: 'en' }, 'fal.ai Trellis 2'), ' · kaynak görsel ', h('span', { lang: 'en' }, 'Nano Banana 2')),
+      // Malzeme satırı sergilenen şeyi anlatsın: yedekte fal modeli yok
+      h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '),
+        state === 'procedural'
+          ? ['kodla çizilmiş ', h('span', { lang: 'en' }, 'three.js'), ' önizlemesi']
+          : state === '2d'
+            ? '2D yedek görsel'
+            : [h('span', { lang: 'en' }, 'fal.ai Trellis 2'), ' · kaynak görsel ', h('span', { lang: 'en' }, 'Nano Banana 2')]),
       h('hr', { class: 'divider' }),
       h('p', { class: 'gl-plaque-desc' }, ex.desc),
       h('dl', { class: 'gl-plaque-stats' }, rows.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))),
@@ -291,7 +300,7 @@ export function mountMuseum(el, ctx) {
         : state === '2d'
           ? h('p', { class: 'gl-plaque-note' }, icon('info', { size: 16 }), h('span', null, 'Tarayıcın WebGL desteklemediği için 3D sahne yerine 2D önizleme gösteriliyor.'))
           : null,
-      h('div', { class: 'gl-plaque-foot' }, likeBtn, h('span', { class: 'xsmall dim' }, 'Beğeniler galeriyle ortak sayılır.')),
+      h('div', { class: 'gl-plaque-foot' }, likeBtn, likeNote),
     ]);
     updateLike();
   }

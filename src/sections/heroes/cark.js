@@ -95,7 +95,11 @@ export function mountCark(host, env) {
       g.textAlign = 'right';
       g.textBaseline = 'middle';
       const name = hero.name.toUpperCase();
-      const room = R * 0.6;
+      // Ad, göbeğe yakın yüzde etiketiyle çakışmasın: kalan alanı yüzdenin gerçek genişliğine göre hesapla
+      const pctText = `%${comm.get(hero.id).liveRound}`;
+      g.font = `700 ${Math.round(s * 0.026)}px "JetBrains Mono", monospace`;
+      const pctEnd = R * 0.235 + g.measureText(pctText).width + 8;
+      const room = Math.min(R * 0.6, R - 12 - pctEnd);
       let fs = s * 0.034;
       g.font = `800 ${fs.toFixed(1)}px Unbounded, "Arial Black", sans-serif`;
       const wText = g.measureText(name).width;
@@ -111,7 +115,7 @@ export function mountCark(host, env) {
       g.font = `700 ${Math.round(s * 0.026)}px "JetBrains Mono", monospace`;
       g.fillStyle = '#ffb27a';
       g.textAlign = 'left';
-      g.fillText(`%${comm.get(hero.id).liveRound}`, R * 0.235, 0);
+      g.fillText(pctText, R * 0.235, 0);
       g.restore();
     }
     // göbek
@@ -196,8 +200,7 @@ export function mountCark(host, env) {
         h('button', { class: 'btn gold sm', type: 'button', onclick: () => env.openHero(hero.id) }, icon('eye', { size: 16 }), 'Dosyasını aç'),
       ),
     );
-    // .stamp büyük harfe çevirir; özel yazım (1vDOQUZ) .meme ile korunur
-    ctx.fx.stamp(v.stamp === '1vDOQUZ' ? h('span', { class: 'meme' }, v.stamp) : v.stamp, { variant: v.variant });
+    ctx.fx.stamp(v.stamp, { variant: v.variant }); // fx.stamp "1vDOQUZ" yazımını .meme ile korur
     if (t.id === 'S' || t.id === 'A') ctx.sound.dogdogdog();
     else if (t.id === 'D') ctx.sound.win();
     else ctx.sound.good();

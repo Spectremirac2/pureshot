@@ -3,6 +3,9 @@
 
 import { store, agg } from '../../core/store.js';
 
+/** Paylaşılan veride salt okunur ziyaretçi: beğeniler yalnızca bu cihazda kalır (sunucuya yazılmaz). */
+export const likesLocalOnly = () => !!(store.shared && !store.canWrite());
+
 export function likeTracker(onChange) {
   let others = {};
   const unsubFans = store.fans((fans) => {

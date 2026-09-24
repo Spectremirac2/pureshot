@@ -132,8 +132,7 @@ export function mountDaha(host, env) {
     );
     overBox.hidden = false;
     if (final >= 10) {
-      // .stamp büyük harfe çevirir; özel yazım (1vDOQUZ) .meme ile korunur
-      ctx.fx.stamp(h('span', { class: 'meme' }, '1vDOQUZ'), { variant: 'gold' });
+      ctx.fx.stamp('1vDOQUZ', { variant: 'gold' }); // fx.stamp yazımı .meme ile korur
       ctx.sound.win();
     } else {
       ctx.fx.stamp('DOG DOG DOG');

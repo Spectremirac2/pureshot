@@ -318,6 +318,8 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 .gm-crumbs a { color: var(--text-2); text-decoration: none; }
 .gm-crumbs a:hover { color: var(--aegis); }
 .gm-crumbs [aria-current] { color: var(--aegis); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Cinzel küçük harf çizmez: 1vDOQUZ'daki "v" büyük görünmesin diye meme gövde yazısıyla */
+.gm-crumbs .meme { font-family: var(--font-body); font-size: 12px; letter-spacing: 0.06em; }
 
 .gm-play {
   display: grid;

@@ -124,7 +124,7 @@ export function mountDetail(host, env, hero) {
   cleanups.push(gauge.destroy);
   const tierStamp = h('span', { class: 'hr-d-stamp' });
   const biasLine = h('p', { class: 'small muted hr-d-biasline' });
-  const voteLine = h('p', { class: 'small hr-d-voteline' });
+  const voteLine = h('p', { class: 'small hr-d-voteline', 'aria-live': 'polite' });
   const split = h('div', { class: 'hr-split', 'aria-hidden': 'true' }, h('span', { class: 'is-dog' }), h('span', { class: 'is-not' }));
   const dogBtn = h('button', { class: 'btn primary lg hr-vote is-dog', type: 'button', 'aria-pressed': 'false' }, icon('paw', { size: 20 }), 'DOG');
   const notBtn = h('button', { class: 'btn jade lg hr-vote is-not', type: 'button', 'aria-pressed': 'false' }, icon('shield', { size: 20 }), 'DOG değil');

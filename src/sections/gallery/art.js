@@ -6,7 +6,7 @@ import { icon } from '../../core/icons.js';
 import { mountComments } from '../../components/comments.js';
 import { GROUPS, IMAGE_KEYS, MODEL_KEYS, galleryItems, fontsReady } from './catalog.js';
 import { EXHIBITS } from './exhibit-data.js';
-import { likeTracker } from './likes.js';
+import { likeTracker, likesLocalOnly } from './likes.js';
 
 export function mountArt(el, ctx, { onHow } = {}) {
   const { sound, fx } = ctx;
@@ -21,6 +21,7 @@ export function mountArt(el, ctx, { onHow } = {}) {
 
   const body = h('div', { class: 'gl-art-body' }, h('div', { class: 'gl-art-loading' }, h('span', { class: 'spinner' })));
   const topList = h('ol', { class: 'gl-top-list' });
+  const topNote = h('p', { class: 'xsmall dim' }, 'Görsellerde ve müze eserlerinde verilen beğeniler toplanır.');
   const commentsHost = h('div', { class: 'panel gl-comments' });
   const root = h('div', { class: 'gl-art' },
     body,
@@ -29,7 +30,7 @@ export function mountArt(el, ctx, { onHow } = {}) {
       h('aside', { class: 'panel raised gl-top' },
         h('div', { class: 'gl-top-head' }, h('span', { class: 'eyebrow' }, 'Skor tablosu'), h('h3', { class: 'h3' }, 'En çok beğenilen eserler')),
         topList,
-        h('p', { class: 'xsmall dim' }, 'Görsellerde ve müze eserlerinde verilen beğeniler toplanır.'),
+        topNote,
       ),
     ),
   );
@@ -174,6 +175,9 @@ export function mountArt(el, ctx, { onHow } = {}) {
   }
 
   function renderTop() {
+    topNote.textContent = likesLocalOnly()
+      ? 'Salt okunur görüntüleme: beğenilerin yalnızca bu cihazda sayılır, tabloya eklenmez.'
+      : 'Görsellerde ve müze eserlerinde verilen beğeniler toplanır.';
     const pool = [
       ...items.map((it) => ({ key: it.key, title: it.title, kind: it.kicker })),
       ...EXHIBITS.map((ex) => ({ key: ex.key, title: ex.name, kind: '3D eser' })),

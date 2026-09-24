@@ -612,6 +612,13 @@
 @media (max-width: 420px) {
   .hr-dnav-pn span { display: none; }
   .hr-dnav-pn { min-width: 48px; justify-content: center; padding-inline: 12px; }
+  /* Dar ekranda "Tür analizine git" düğmesi üç satıra kırılmasın: düğme tam genişlikte alta iner */
+  .hr-d-arch { grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: 6px var(--sp-3); }
+  .hr-d-arch-img { grid-row: 1 / span 3; }
+  .hr-d-arch-body { display: contents; }
+  .hr-d-arch-body > * { grid-column: 2; }
+  .hr-d-arch-body > div:last-child { grid-column: 1 / -1; margin-top: var(--sp-2); }
+  .hr-d-arch-body .btn { width: 100%; justify-content: center; }
   .hr-tab { padding: 12px 9px; gap: 0; }
   .hr-tab svg { display: none; }
 }

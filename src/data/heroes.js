@@ -69,7 +69,7 @@ export const HEROES = [
     dogPotential: 34,
     archetype: "ward",
     prejudice: "Topluluk der ki: Abaddon oyuncusu destek diye seçer, Aphotic Shield’ı hep kendine atar ve on beşinci dakikada Radiance’la “aslında carry’yim” der.",
-    why: "Mist Coil’i dostuna atınca kendi canı gidiyor, Aphotic Shield’ı kendine atınca geri geliyor; ortada kusursuz bir döngü var ve takım o döngünün dışında. Borrowed Time açılınca kendini ölümsüz sanıyor — beş saniyeliğine haklı.",
+    why: "Mist Coil’i dostuna atınca kendi canından gidiyor, Aphotic Shield’ı kendine atınca da zararı telafi ettiğine inanıyor; ortada kusursuz bir döngü var ve takım o döngünün dışında. Borrowed Time açılınca kendini ölümsüz sanıyor — beş saniyeliğine haklı.",
     famousMove: "Borrowed Time bittiği saniye kuleye dalmak",
     defense: "Abaddon oyunun en affedici kahramanı, oyuncusu da öyle. Kalkanı kendine atıyorsa belki de o an kalkanı hak eden başka kimse yoktur.",
     tags: ["kendine kalkan","Radiance destek","ölümsüzlük yanılgısı"],
@@ -734,7 +734,7 @@ export const HEROES = [
     prejudice: "Topluluk der ki: Huskar oyuncusu mid ister, koridoru kazanır; sonra canı azaldıkça güçlendiğine inanıp beş kişinin ortasına dalar.",
     why: "Kendi canını harcayarak vuruyor; canı azaldıkça güçleniyor, özgüveni de. Pub’da sürpriz pick olarak seçiliyor, can çubuğu bitmek üzereyken Life Break ile beş kişinin ortasına zıplıyor.",
     famousMove: "Life Break ile düşman takımın tam ortasına iniş",
-    defense: "Huskar pub’da bir sürpriz kahraman ama doğru ellerde profesyonel sahnede bile ilk sıralarda seçilir. Kendi canını harcayarak vurmak, fedakârlığın ta kendisi.",
+    defense: "Huskar pub’da bir sürpriz kahraman ama doğru ellerde profesyonel sahnede de korkulan bir seçim oldu. Kendi canını harcayarak vurmak, fedakârlığın ta kendisi.",
     tags: ["mid kavgası","Life Break dalışı","Armlet dansı"],
   },
   {
@@ -1176,7 +1176,7 @@ export const HEROES = [
     prejudice: "Topluluk der ki: Muerta oyuncusu Pierce the Veil’i açınca herkesi indireceğini sanır; tam o an düşman BKB basar.",
     why: "Pierce the Veil açılınca ruh hâline geçip herkese büyü hasarı yağdırıyor; o birkaç saniyede kendini bir efsane sanıyor. Dead Shot’u ağaçtan sektirip düşmana çarptırmak bir sanat; çoğu zaman sanat eseri boşluğa gidiyor.",
     famousMove: "Pierce the Veil’i BKB’li düşmana açmak",
-    defense: "Muerta yeni ve güçlü bir carry; iyi oynayanın elinde geç oyunda korkutucu. Silahşorluk da nişan almadan öğrenilmez.",
+    defense: "Muerta iyi oynayanın elinde geç oyunda korkutucu bir silahşor. Silahşorluk da nişan almadan öğrenilmez.",
     tags: ["ruh modu","Dead Shot sekmesi"],
   },
   {
@@ -1719,9 +1719,9 @@ export const HEROES = [
     archetype: "afk",
     prejudice: "Topluluk der ki: Sniper oyuncusu en arkadan ateş eder; o kadar arkada ki savaşın bittiğini de en son o duyar.",
     why: "Savaşa haritanın öbür ucundan katılıyor; o kadar arkada ki takımı onun maçta olduğunu yalnızca skor tablosundan anlıyor. Spirit Breaker’ı görünce ise gerçek AFK moduna geçiyor.",
-    famousMove: "Assassinate kanalize ederken arkadan gelen Charge’ı fark etmemek",
+    famousMove: "Assassinate için nişan alırken arkadan gelen Charge’ı fark etmemek",
     defense: "Sniper uzaktan güvenli hasar verir; hayatta kaldığı sürece takımına sürekli katkı sağlar. Uzakta durmak korkaklık değil, menzil.",
-    tags: ["en arkadan","Assassinate kanalı","yakın dövüş fobisi"],
+    tags: ["en arkadan","Assassinate nişanı","yakın dövüş fobisi"],
   },
   {
     id: "spectre",

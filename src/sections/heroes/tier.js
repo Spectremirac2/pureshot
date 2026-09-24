@@ -164,7 +164,13 @@ export function mountTier(host, env) {
       if (ev.clientY < edge + 60) window.scrollBy(0, -12);
       else if (ev.clientY > innerHeight - edge - 80) window.scrollBy(0, 12);
     };
-    const up = () => {
+    // commit=false: bölüm kapanırken yarım kalan sürüklemeyi yerleştirmeden iptal et.
+    // Biten sürükleme activeDrag'dan hemen düşer; yoksa temizlikte eski hedefe yeniden yerleştirirdi.
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      if (activeDrag === cancel) activeDrag = null;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
@@ -176,13 +182,16 @@ export function mountTier(host, env) {
       setTimeout(() => { delete tok.dataset.dragged; }, 0);
       if (over && zones.get(over)) zones.get(over).el.classList.remove('is-over');
       dragging = null;
+      if (!commit) return;
       if (over) place(hero.id, over === 'pool' ? null : over);
       if (dirtyWhileDrag) { dirtyWhileDrag = false; render(); }
     };
+    const up = () => finish(true);
+    const cancel = () => finish(false);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
-    activeDrag = () => { up(); };
+    activeDrag = cancel;
   }
   let activeDrag = null;
   cleanups.push(() => { if (activeDrag) activeDrag(); });
