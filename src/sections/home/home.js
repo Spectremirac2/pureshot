@@ -15,6 +15,7 @@ import { portraitEl } from '../../components/portrait.js';
 import { attachTilt } from '../../components/tilt.js';
 
 const KICK_URL = 'https://kick.com/cureshotkick';
+let roLikeNoted = false;
 
 // Espri arşivi boşken kullanılan küçük hayran yapımı yedek liste.
 const FALLBACK_JOKES = [
@@ -539,6 +540,11 @@ function buildJoke(ctx, cleanups) {
 
   likeBtn.addEventListener('click', () => {
     const on = store.me.toggleLike('jk:' + list[idx].id);
+    // Salt okunur paylaşımda beğeni yalnızca bu cihazda kalır: bir kez söyle
+    if (on && !roLikeNoted && store.shared && !store.canWrite()) {
+      roLikeNoted = true;
+      ctx.fx.toast('Salt okunur görüntüleme: DOG’ların yalnızca bu cihazda sayılır, topluluk sayısına eklenmez.', 'ember');
+    }
     if (on) {
       ctx.sound.bark(1.15);
       const r = likeBtn.getBoundingClientRect();

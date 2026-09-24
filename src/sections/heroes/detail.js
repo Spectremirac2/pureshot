@@ -103,7 +103,9 @@ export function mountDetail(host, env, hero) {
     crestWrap,
     h('div', { class: 'hr-d-id' },
       h('span', { class: 'eyebrow' }, `DOG dosyası · ön yargı sırası ${RANK.get(hero.id)}/${HEROES.length}`),
-      h('h1', { class: 'display hr-d-name', lang: 'en' }, hero.name),
+      // Ad, en uzun sözcüğü satıra sığacak kadar küçülür (Dawnbreaker, Broodmother… hece ortasından bölünmesin)
+      h('div', { class: 'hr-d-namebox' },
+        h('h1', { class: 'display hr-d-name', lang: 'en', style: { '--hr-nl': String(Math.max(...hero.name.split(/\s+/).map((w) => w.length))) } }, hero.name)),
       h('div', { class: 'row hr-d-meta' },
         h('span', { class: `hr-attr-badge hr-a-${hero.attr}` }, h('span', { class: 'hr-dot' }), attr.label),
         h('span', { class: 'badge' }, ATTACKS[hero.attack]),

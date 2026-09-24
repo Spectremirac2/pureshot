@@ -53,6 +53,13 @@ function normalizeText(s) {
 }
 
 let lastPostAt = Number(ls.get('jk:lastPost', 0)) || 0;
+// Salt okunur paylaşımda beğeniler yalnızca bu cihazda kalır; bunu oturumda bir kez söyle
+let roLikeNoted = false;
+function noteReadOnlyLike(fx) {
+  if (roLikeNoted || !(store.shared && !store.canWrite())) return;
+  roLikeNoted = true;
+  fx.toast('Salt okunur görüntüleme: DOG’ların yalnızca bu cihazda sayılır, topluluk sayısına eklenmez.', 'ember');
+}
 
 export default {
   mount(el, ctx) {
@@ -149,6 +156,7 @@ export default {
       if (act === 'like') {
         const key = card.dataset.likeKey;
         const on = store.me.toggleLike(key);
+        if (on) noteReadOnlyLike(fx);
         if (on) {
           sound.bark(1.15);
           const r = btn.getBoundingClientRect();

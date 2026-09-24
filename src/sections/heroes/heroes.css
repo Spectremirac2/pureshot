@@ -267,7 +267,10 @@
 .hr-d-crest { position: relative; border-radius: 50%; }
 .hr-d-crest .hr-crest { filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 22px color-mix(in srgb, var(--hr-c) 35%, transparent)); }
 .hr-d-id { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.hr-d-namebox { container-type: inline-size; min-width: 0; }
 .hr-d-name { font-size: clamp(2rem, 1.2rem + 3vw, 3.6rem); overflow-wrap: anywhere; }
+/* --hr-nl: adın en uzun sözcüğündeki harf sayısı; Unbounded 900 büyük harf ≤ 1.02em/harf */
+.hr-d-name { font-size: min(clamp(2rem, 1.2rem + 3vw, 3.6rem), calc(100cqi / (var(--hr-nl, 8) * 1.04))); }
 .hr-d-meta { gap: 8px; }
 .hr-d-meta .badge { min-height: 24px; }
 .hr-pips { display: inline-flex; gap: 3px; margin-left: 4px; }
@@ -580,10 +583,11 @@
   .hr-d-band > .hr-d-crest { grid-row: 1 / span 2; margin-top: 0; }
   .hr-d-id { display: contents; }
   .hr-d-id > * { grid-column: 1 / -1; }
-  .hr-d-id > .eyebrow, .hr-d-id > .hr-d-name { grid-column: 2; }
+  .hr-d-id > .eyebrow, .hr-d-id > .hr-d-namebox { grid-column: 2; }
   .hr-d-id > .eyebrow { align-self: end; }
-  .hr-d-id > .hr-d-name { align-self: start; }
+  .hr-d-id > .hr-d-namebox { align-self: start; }
   .hr-d-name { font-size: clamp(1.6rem, 1rem + 4vw, 2.2rem); }
+  .hr-d-name { font-size: min(clamp(1.6rem, 1rem + 4vw, 2.2rem), calc(100cqi / (var(--hr-nl, 8) * 1.04))); }
   .hr-d-cards { grid-template-columns: 1fr; }
   .hr-d-arch { grid-template-columns: 96px minmax(0, 1fr); }
   .hr-dnav-pn span { max-width: 9ch; }
@@ -608,6 +612,12 @@
   .hr-daha-quote { display: none; }
   .hr-daha-val { font-size: 1.7rem; }
   .hr-cark-legend { grid-template-columns: 1fr 1fr; font-size: var(--fs-xs); }
+}
+@media (max-width: 480px) {
+  /* Telefonda arma + üst başlık bir satır, kahraman adı altında tam genişlik: uzun adlar okunur boyda kalır */
+  .hr-d-band > .hr-d-crest { grid-row: 1; }
+  .hr-d-id > .eyebrow { align-self: center; }
+  .hr-d-id > .hr-d-namebox { grid-column: 1 / -1; }
 }
 @media (max-width: 420px) {
   .hr-dnav-pn span { display: none; }
