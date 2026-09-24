@@ -37,7 +37,7 @@ function shapeEl(attr, scale, cls) {
   return def.tag === 'path' ? h('path', { d: def.d, class: cls }) : h('polygon', { points: def.points, class: cls });
 }
 
-const abbrSize = (abbr) => (abbr.length <= 2 ? 25 : abbr.length === 3 ? 20 : 16);
+const abbrSize = (abbr, attr) => (abbr.length <= 2 ? 23 : abbr.length === 3 ? 18 : 14.5) * (attr === 'agi' ? 0.88 : 1);
 
 /**
  * SVG arma. value: 0–100 DOG% (halka). ring=false ise halka çizilmez.
@@ -67,7 +67,7 @@ export function crestSvg(hero, { value = hero.dogRate, ring = true, cls = '', ti
       class: 'hr-crest-text',
       'text-anchor': 'middle',
       'dominant-baseline': 'central',
-      'font-size': String(abbrSize(hero.abbr) * (ring ? 1 : 1.12)),
+      'font-size': (abbrSize(hero.abbr, hero.attr) * (ring ? 1 : 1.12)).toFixed(1),
     }, hero.abbr),
   );
   return svg;

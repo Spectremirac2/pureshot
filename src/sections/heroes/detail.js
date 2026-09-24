@@ -110,6 +110,10 @@ export function mountDetail(host, env, hero) {
       ),
       h('ul', { class: 'hr-roles', 'aria-label': 'Roller' }, hero.roles.map((r) => h('li', { class: 'hr-role' }, ROLES[r] || r))),
       h('div', { class: 'hr-tags', 'aria-label': 'Etiketler' }, hero.tags.map((t) => h('span', { class: 'hr-tag' }, '#', t))),
+      h('div', { class: 'hr-d-prejudice' },
+        h('h2', { class: 'hr-d-h' }, icon('chat', { size: 18 }), 'Topluluk der ki'),
+        h('p', { class: 'hr-quote hr-quote-lg' }, hero.prejudice.replace(/^Topluluk der ki:\s*/, '')),
+      ),
     ),
   );
   cleanups.push(attachTilt(crestWrap, { max: 14 }));
@@ -187,10 +191,6 @@ export function mountDetail(host, env, hero) {
 
   // ---------------------------------------------------------------- metin kartları
   const cardsGrid = h('div', { class: 'hr-d-cards' },
-    h('article', { class: 'hr-d-card is-prejudice panel' },
-      h('h2', { class: 'hr-d-h' }, icon('chat', { size: 18 }), 'Topluluk der ki'),
-      h('p', { class: 'hr-quote hr-quote-lg' }, hero.prejudice.replace(/^Topluluk der ki:\s*/, '')),
-    ),
     h('article', { class: 'hr-d-card is-why panel' },
       h('h2', { class: 'hr-d-h' }, icon('question', { size: 18 }), 'Neden?'),
       h('p', null, hero.why),

@@ -122,7 +122,8 @@
 /* ---------- Duvar: öne çıkan dava + şeritler ---------- */
 .hr-wall-host { display: flex; flex-direction: column; gap: var(--sp-5); }
 .hr-wall-top { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--sp-4); }
-.hr-feat { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: var(--sp-5); align-items: center; }
+.hr-feat { display: grid; grid-template-columns: minmax(150px, 230px) minmax(0, 1fr); gap: var(--sp-5); align-items: center; }
+.hr-feat-why { max-width: 62ch; }
 .hr-feat-art { position: relative; display: block; border-radius: 50%; color: inherit; }
 .hr-feat-art .hr-crest { filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55)); }
 .hr-feat-tier {
@@ -239,7 +240,8 @@
 .hr-dnav .btn { min-height: 44px; text-decoration: none; }
 .hr-dnav-pn span { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0.02em; }
 .hr-d-top { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--sp-4); }
-.hr-d-band { display: grid; grid-template-columns: minmax(120px, 210px) minmax(0, 1fr); gap: var(--sp-5); align-items: center; }
+.hr-d-band { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
+.hr-d-band > .hr-d-crest { margin-top: var(--sp-3); }
 .hr-d-crest { position: relative; border-radius: 50%; }
 .hr-d-crest .hr-crest { filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 22px color-mix(in srgb, var(--hr-c) 35%, transparent)); }
 .hr-d-id { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
@@ -291,19 +293,18 @@
 .hr-d-biasline { font-size: var(--fs-xs); }
 .hr-d-note:empty { display: none; }
 
-.hr-d-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.hr-d-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
+.hr-d-prejudice { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.hr-d-prejudice .hr-d-h { color: var(--ember-2); }
 .hr-d-card { display: flex; flex-direction: column; gap: var(--sp-3); }
 .hr-d-card p { color: var(--text-2); }
-.hr-d-card.is-prejudice { border-left: 3px solid var(--ember); }
 .hr-d-card.is-defense { border-left: 3px solid var(--radiant); background: linear-gradient(180deg, rgba(67, 214, 160, 0.06), transparent 60%), var(--bg-2); }
-.hr-d-card.is-prejudice .hr-quote { border-left: 0; padding-left: 0; }
 .hr-d-h {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-lore); font-weight: 700; font-size: var(--fs-xs);
   letter-spacing: 0.22em; text-transform: uppercase; color: var(--aegis);
 }
 .hr-d-card.is-defense .hr-d-h { color: var(--radiant); }
-.hr-d-card.is-prejudice .hr-d-h { color: var(--ember-2); }
 .hr-move { display: flex; align-items: center; gap: var(--sp-4); }
 .hr-move-slot {
   position: relative;
@@ -505,6 +506,8 @@
   .hr-wall-top { grid-template-columns: 1fr; }
   .hr-strips { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
   .hr-d-top, .hr-d-bottom { grid-template-columns: 1fr; }
+  .hr-d-cards { grid-template-columns: 1fr 1fr; }
+  .hr-d-card.is-defense { grid-column: 1 / -1; }
   .hr-daha { grid-template-columns: 1fr; }
   .hr-cark-grid { grid-template-columns: 1fr; gap: var(--sp-4); }
 }
@@ -514,8 +517,12 @@
   .hr-tab-short { display: inline; }
   .hr-tab { padding: 12px 12px; }
   .hr-ring { height: 270px; }
-  .hr-feat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
-  .hr-feat-tier { width: 34px; height: 34px; font-size: 1rem; right: -4px; bottom: -2px; }
+  .hr-feat { position: relative; display: flex; flex-direction: column; gap: var(--sp-3); }
+  .hr-feat-art { position: absolute; top: var(--sp-4); right: var(--sp-4); width: 92px; z-index: 1; }
+  .hr-feat-body > .eyebrow, .hr-feat-name { padding-right: 104px; }
+  .hr-feat-body > .eyebrow { min-height: 2.6em; }
+  .hr-feat-why { display: none; }
+  .hr-feat-tier { width: 32px; height: 32px; font-size: 0.95rem; right: -6px; bottom: -4px; }
   .hr-feat-actions .btn { flex: 1 1 auto; }
   .hr-strips { grid-template-columns: 1fr; }
   .hr-filter-top { grid-template-columns: 1fr; }

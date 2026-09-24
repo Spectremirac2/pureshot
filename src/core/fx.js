@@ -149,9 +149,9 @@ export const fx = {
    * Sayfa içi modal. content: Node. Döndürülen close() ile kapatılır.
    * Esc ve arka plana tıklama kapatır.
    */
-  modal(content, { label = 'Pencere', onClose } = {}) {
+  modal(content, { label = 'Pencere', onClose, cls = '' } = {}) {
     const prev = document.activeElement;
-    const box = h('div', { class: 'modal panel raised frame', role: 'dialog', 'aria-modal': 'true', 'aria-label': label }, content);
+    const box = h('div', { class: `modal panel raised frame ${cls}`.trim(), role: 'dialog', 'aria-modal': 'true', 'aria-label': label }, content);
     const back = h('div', { class: 'modal-backdrop' }, box);
     let closed = false;
     const close = () => {

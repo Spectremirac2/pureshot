@@ -6,8 +6,8 @@ import { portraitUrl } from '../core/assets.js';
 const cache = new Map();
 
 /** Prosedürel arma: altıgen kalkan, köpek kafası silueti, parıltılar. Data URL döndürür. */
-export function proceduralPortrait(arch, size = 512) {
-  const key = arch.id + ':' + size;
+export function proceduralPortrait(arch, size = 512, { label = true } = {}) {
+  const key = arch.id + ':' + size + (label ? '' : ':nolabel');
   if (cache.has(key)) return cache.get(key);
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -90,7 +90,8 @@ export function proceduralPortrait(arch, size = 512) {
     g.fillRect(x, y, 1 + rnd() * 2.5, 1 + rnd() * 2.5);
   }
 
-  // Alt yazı şeridi
+  // Alt yazı şeridi (label: false ise çizilmez; üstüne başlık bindiren bileşenler için)
+  if (label) {
   g.fillStyle = 'rgba(0,0,0,0.45)';
   g.fillRect(0, s * 0.86, s, s * 0.14);
   g.fillStyle = '#f3eadb';
@@ -98,6 +99,7 @@ export function proceduralPortrait(arch, size = 512) {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(arch.name.toLocaleUpperCase('tr-TR'), s / 2, s * 0.93, s * 0.9);
+  }
 
   const url = c.toDataURL('image/png');
   cache.set(key, url);

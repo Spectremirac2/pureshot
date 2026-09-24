@@ -67,7 +67,7 @@ export function mountRing(host, { heroes, getValue, onPick }) {
   const fogColor = new THREE.Color('#0d0b14');
   scene.fog = new THREE.Fog(fogColor, 10, 30);
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-  const LOOK = new THREE.Vector3(0, 0.25, 0);
+  const LOOK = new THREE.Vector3(0, -0.15, 0);
 
   scene.add(new THREE.HemisphereLight(0xffe7c0, 0x1a1026, 1.4));
   const key = new THREE.DirectionalLight(0xffd9a0, 2.4);
@@ -210,10 +210,10 @@ export function mountRing(host, { heroes, getValue, onPick }) {
     renderer.setSize(W, H, false);
     camera.aspect = W / H;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-    const dW = 7.4 / (t * camera.aspect);
-    const dH = 5.4 / t;
+    const dW = 7.2 / (t * camera.aspect);
+    const dH = 6.1 / t;
     const d = Math.max(dW, dH, 13);
-    const elev = 0.3;
+    const elev = 0.26;
     camera.position.set(0, LOOK.y + d * Math.sin(elev), d * Math.cos(elev));
     camera.lookAt(LOOK);
     camera.updateProjectionMatrix();
