@@ -561,6 +561,35 @@ export const ORACLE_EXAMPLES = [
   'Invoker oynamalı mıyım?',
 ];
 
+/**
+ * Kahraman DOG Endeksi'ndeki (data/heroes.js) bir kahraman anıldığında kullanılan havuz.
+ * {name} → kahraman adı, {p} → endeksteki DOG potansiyeli (0–100). Bant, potansiyele göre seçilir.
+ */
+export const HERO_POOL = {
+  high: [
+    ['U', 'Rüzgâr {name} adını duyunca üç kez havladı. Kahraman DOG Endeksi’nde DOG potansiyeli %{p}. Seçmeden önce iki kez düşün.'],
+    ['D', '{name}… Kökler bu ismi iyi tanır. Endekste %{p} DOG potansiyeli; ward’ını al, dua et.'],
+    ['D', '{name} mi? Kahraman DOG Endeksi %{p} diyor. Kahraman masum; ama seçen eller genelde değil.'],
+  ],
+  mid: [
+    ['Y', '{name} ne tam DOG ne tam kahraman. Endeks %{p} diyor; gerisi senin ellerinde.'],
+    ['Y', 'Kökler {name} için ikiye bölündü: Kahraman DOG Endeksi’nde %{p}. İyi oynarsan efsane, kötü oynarsan meme.'],
+    ['S', '{name} mi? Endeksteki %{p} bir uyarı değil, bir davettir. Kaderi sen yazarsın.'],
+  ],
+  low: [
+    ['N', '{name} mi? Endekste yalnızca %{p} DOG potansiyeli. Kökler onaylıyor: sağlam seçim.'],
+    ['N', '{name} sağlam bir ruh. Kahraman DOG Endeksi’ne göre %{p}; DOG’luk ancak oyuncudan gelir.'],
+    ['Y', '{name} düşük DOG potansiyelli (%{p}) ama unutma: en güvenli kahraman bile ward’sız ormanda DOG olur.'],
+  ],
+  unknown: [
+    ['S', '{name} mi? Kahraman DOG Endeksi’ne bak; topluluk her kahramanı tek tek tarttı.'],
+    ['Y', '{name} hakkında kökler bir şey fısıldıyor ama anlaşılmıyor. Kahraman DOG Endeksi’nde topluluğun hükmü yazılı.'],
+  ],
+};
+
+// Türkçe sözcüklerle çakışan kısa kahraman adları (yalnızca eşleştirmede atlanır)
+const HERO_STOP = new Set(['kez', 'mars', 'io']);
+
 // ------------------------------------------------------------------ eşleştirme
 function compileKey(raw) {
   const prefix = raw.endsWith('*');
@@ -587,10 +616,7 @@ function keyMatches(tokens, key) {
   return false;
 }
 
-/** Soruya en uygun konuyu bulur (yoksa null). */
-export function findTopic(question) {
-  const tokens = normalizeTr(question).split(' ').filter(Boolean);
-  if (!tokens.length) return null;
+function bestTopic(tokens) {
   let best = null;
   let bestScore = 0;
   for (const { topic, keys } of COMPILED) {
@@ -598,23 +624,90 @@ export function findTopic(question) {
     for (const k of keys) if (keyMatches(tokens, k)) score += k.weight;
     if (score > bestScore) { best = topic; bestScore = score; }
   }
-  return best;
+  return { topic: best, score: bestScore };
+}
+
+// Kahraman listesi derlemesi (liste kimliğine göre önbellek)
+const heroCache = new WeakMap();
+function compileHeroes(heroes) {
+  if (!Array.isArray(heroes) || !heroes.length) return [];
+  if (heroCache.has(heroes)) return heroCache.get(heroes);
+  const out = [];
+  for (const hero of heroes) {
+    if (!hero || !hero.name) continue;
+    const variants = new Set([normalizeTr(hero.name), normalizeTr(String(hero.name).replace(/['’`]/g, ''))]);
+    const keys = [];
+    for (const v of variants) {
+      if (!v || HERO_STOP.has(v)) continue;
+      // Kısa adlar tam kelime, uzun adlar son kelimede önek (Axe → yalnızca "axe"; Invoker → "invokerla")
+      keys.push(compileKey(v.replace(/\s+/g, ' ') + (v.length > 4 ? '*' : '')));
+    }
+    if (keys.length) out.push({ hero, keys });
+  }
+  heroCache.set(heroes, out);
+  return out;
+}
+
+function bestHero(tokens, heroes) {
+  let best = null;
+  let bestScore = 0;
+  for (const { hero, keys } of compileHeroes(heroes)) {
+    let score = 0;
+    for (const k of keys) if (keyMatches(tokens, k)) score = Math.max(score, k.weight);
+    if (score > bestScore) { best = hero; bestScore = score; }
+  }
+  return { hero: best, score: bestScore };
+}
+
+/** Soruya en uygun konuyu bulur (yoksa null). */
+export function findTopic(question) {
+  const tokens = normalizeTr(question).split(' ').filter(Boolean);
+  if (!tokens.length) return null;
+  return bestTopic(tokens).topic;
 }
 
 function mix(a, b) {
   return (Math.imul(a ^ (b >>> 0), 2654435761) ^ (a >>> 13)) >>> 0;
 }
 
+function heroPool(hero) {
+  const p = Number(hero.dogPotential);
+  const band = !Number.isFinite(p) ? 'unknown' : p >= 75 ? 'high' : p >= 45 ? 'mid' : 'low';
+  const pct = Number.isFinite(p) ? String(Math.round(p)) : '';
+  return HERO_POOL[band].map(([v, t]) => [v, t.replace(/\{name\}/g, hero.name).replace(/\{p\}/g, pct)]);
+}
+
 /**
  * Saf kehanet: aynı (soru, seed, nth) her zaman aynı cevabı verir.
  * @param {string} question
- * @param {{ seed?: number, nth?: number, avoid?: number|null }} opts
- * @returns {{ text: string, verdict: string, verdictLabel: string|null, tone: string|null, topic: string|null, topicLabel: string|null, index: number }}
+ * @param {{ seed?: number, nth?: number, avoid?: number|null, heroes?: Array<{id?:string,name:string,dogPotential?:number}> }} opts
+ *   heroes: isteğe bağlı kahraman listesi (Kahraman DOG Endeksi). Verilirse soruda anılan kahraman tanınır.
+ * @returns {{ text: string, verdict: string, verdictLabel: string|null, tone: string|null, topic: string|null,
+ *   topicLabel: string|null, hero: boolean, heroId: string|null, index: number }}
  */
-export function consult(question, { seed = 0, nth = 0, avoid = null } = {}) {
+export function consult(question, { seed = 0, nth = 0, avoid = null, heroes = null } = {}) {
   const norm = normalizeTr(question);
-  const topic = norm.replace(/\s/g, '').length >= 2 ? findTopic(norm) : null;
-  const pool = norm.replace(/\s/g, '').length < 2 ? SILENCE : topic ? topic.answers : GENERIC;
+  const tokens = norm.split(' ').filter(Boolean);
+  const silent = norm.replace(/\s/g, '').length < 2;
+
+  let topic = null;
+  let heroHit = null;
+  let pool = SILENCE;
+  if (!silent) {
+    const t = bestTopic(tokens);
+    const hh = heroes ? bestHero(tokens, heroes) : { hero: null, score: 0 };
+    // Yerleşik kahraman konuları (Pudge, Invoker…) kendi havuzunu kullanır; diğer kahramanlar endeks havuzunu
+    if (hh.hero && !(t.topic && t.topic.hero && t.topic.id !== 'kahraman') && hh.score + 4 >= t.score) {
+      heroHit = hh.hero;
+      pool = heroPool(hh.hero);
+    } else if (t.topic) {
+      topic = t.topic;
+      pool = topic.answers;
+    } else {
+      pool = GENERIC;
+    }
+  }
+
   const rnd = seeded(mix(mix(hashStr(norm), seed >>> 0), nth + 1));
   let index = Math.floor(rnd() * pool.length);
   if (avoid != null && pool.length > 1 && index === avoid) {
@@ -630,8 +723,10 @@ export function consult(question, { seed = 0, nth = 0, avoid = null } = {}) {
     verdict,
     verdictLabel: v ? v.label : null,
     tone: v ? v.tone : null,
-    topic: topic ? topic.id : null,
-    topicLabel: topic ? topic.label : null,
+    topic: heroHit ? 'kahraman-endeksi' : topic ? topic.id : null,
+    topicLabel: heroHit ? heroHit.name : topic ? topic.label : null,
+    hero: !!heroHit || !!(topic && topic.hero),
+    heroId: heroHit ? heroHit.id || null : topic && topic.hero && topic.id !== 'kahraman' ? topic.id : null,
     index,
   };
 }
@@ -642,19 +737,20 @@ export const FIXED_SEED = 0x1d06d06;
 /**
  * Oturum kâhini: aynı soru aynı oturumda tekrar sorulursa farklı kehanet (önceki cevabı tekrarlamaz).
  * Tohum verilirse bütün dizi tekrarlanabilir; `fixed: true` ile her soru tek, değişmez cevabını alır.
+ * `heroes` verilirse (data/heroes.js HEROES) kahraman adları tanınır.
  */
-export function createOracle({ seed } = {}) {
+export function createOracle({ seed, heroes = null } = {}) {
   const baseSeed = seed != null ? seed >>> 0 : (Math.random() * 4294967296) >>> 0;
   const counts = new Map();
   const last = new Map();
   return {
     seed: baseSeed,
     ask(question, { fixed = false } = {}) {
-      if (fixed) return consult(question, { seed: FIXED_SEED, nth: 0 });
+      if (fixed) return consult(question, { seed: FIXED_SEED, nth: 0, heroes });
       const key = normalizeTr(question);
       const n = counts.get(key) || 0;
       counts.set(key, n + 1);
-      const r = consult(question, { seed: baseSeed, nth: n, avoid: last.has(key) ? last.get(key) : null });
+      const r = consult(question, { seed: baseSeed, nth: n, avoid: last.has(key) ? last.get(key) : null, heroes });
       last.set(key, r.index);
       return r;
     },
