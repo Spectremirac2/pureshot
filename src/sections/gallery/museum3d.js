@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
-import { h, clear, fmtNum, ls, clamp, prefersReducedMotion } from '../../core/dom.js';
+import { h, clear, append, fmtNum, ls, clamp, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { art, modelAvailable, fetchModel } from './sources.js';
 import { proceduralPortrait } from '../../components/portrait.js';
@@ -279,7 +279,7 @@ export function mountMuseum(el, ctx) {
       else sound.click();
       updateLike();
     });
-    plaque.append(
+    append(plaque, [
       h('div', { class: 'gl-plaque-top' }, h('span', { class: 'eyebrow' }, `Eser No. ${ex.no}`), badge),
       h('h2', { class: 'gl-plaque-title' }, ex.name),
       h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '), 'fal.ai Trellis 2 · kaynak görsel Nano Banana 2'),
@@ -293,7 +293,7 @@ export function mountMuseum(el, ctx) {
           ? h('p', { class: 'gl-plaque-note' }, icon('info', { size: 16 }), h('span', null, 'Tarayıcın WebGL desteklemediği için 3D sahne yerine 2D önizleme gösteriliyor.'))
           : null,
       h('div', { class: 'gl-plaque-foot' }, likeBtn, h('span', { class: 'xsmall dim' }, 'Beğeniler galeriyle ortak sayılır.')),
-    );
+    ]);
     updateLike();
   }
 
@@ -363,7 +363,7 @@ export function mountMuseum(el, ctx) {
     scene.fog = new THREE.FogExp2(bgCol.clone(), 0.058);
 
     camera = new THREE.PerspectiveCamera(36, 1, 0.1, 60);
-    camera.position.set(0, 2.45, 5.7);
+    camera.position.set(0, 2.4, 5.15);
     scene.add(camera);
 
     // Ortam yansıması: karanlık oda + üstte softbox + yanlarda renkli şeritler
@@ -480,13 +480,13 @@ export function mountMuseum(el, ctx) {
     scene.add(inlay);
 
     // Kaide
-    stoneTex = stoneTexture('#51496a', 11);
+    stoneTex = stoneTexture('#443c58', 11);
     ownTextures.push(stoneTex);
     const shaftTex = stoneTex.clone();
     shaftTex.repeat.set(3, 1);
     shaftTex.needsUpdate = true;
     ownTextures.push(shaftTex);
-    const pedMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.82, metalness: 0.02 });
+    const pedMat = new THREE.MeshStandardMaterial({ color: new THREE.Color('#a49bb6'), map: stoneTex, roughness: 0.82, metalness: 0.02 });
     const shaftMat = new THREE.MeshStandardMaterial({ map: shaftTex, roughness: 0.8, metalness: 0.02 });
     const ped = new THREE.Group();
     scene.add(ped);
@@ -610,7 +610,7 @@ export function mountMuseum(el, ctx) {
 
     // Kontroller
     controls = new OrbitControls(camera, canvas);
-    controls.target.set(0, 1.45, 0);
+    controls.target.set(0, 1.55, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.enablePan = false;
@@ -814,7 +814,8 @@ export function mountMuseum(el, ctx) {
   }
 
   // ---------------------------------------------------------------- döngü
-  function update(dt) {
+  function update(dt, dtA = dt) {
+    // dt: sıkıştırılmış (toz, boşta animasyon), dtA: geçişler için gerçek zamana yakın adım
     clock += dt;
     const t = clock;
     // eser boşta animasyonu
@@ -824,7 +825,7 @@ export function mountMuseum(el, ctx) {
     // çıkan eserler
     if (outgoing.length) {
       for (const o of outgoing) {
-        o.t += dt;
+        o.t += dtA;
         const p = Math.min(1, o.t / 0.22);
         o.g.scale.setScalar(Math.max(0.001, 1 - p * p));
         o.g.rotation.y += dt * 9;
@@ -834,7 +835,7 @@ export function mountMuseum(el, ctx) {
     }
     // giren eser
     if (appear && presenter) {
-      appear.t += dt;
+      appear.t += dtA;
       const p = clamp((appear.t - 0.14) / 0.7, 0, 1);
       presenter.scale.setScalar(Math.max(0.001, easeOutBack(p)));
       presenter.rotation.y = (1 - easeOutCubic(p)) * -1.8;
@@ -842,7 +843,7 @@ export function mountMuseum(el, ctx) {
     }
     // DOG! zıplaması
     if (jumpAnim) {
-      jumpAnim.t += dt;
+      jumpAnim.t += dtA;
       const D = reduced ? 0.5 : 1.0;
       const p = Math.min(1, jumpAnim.t / D);
       const H = reduced ? 0.1 : 0.65;
@@ -858,8 +859,8 @@ export function mountMuseum(el, ctx) {
     }
     // ışık teması geçişi
     if (themeT < 1) {
-      themeT = Math.min(1, themeT + dt * 1.6);
-      const k = 1 - Math.exp(-dt * 7);
+      themeT = Math.min(1, themeT + dtA * 1.6);
+      const k = 1 - Math.exp(-dtA * 7);
       spot.color.lerp(themeTargets.spot, k);
       rim.color.lerp(themeTargets.rim, k);
       cone.material.uniforms.uColor.value.lerp(themeTargets.cone, k);
@@ -899,7 +900,7 @@ export function mountMuseum(el, ctx) {
     const raw = Math.max(0.001, (now - lastT) / 1000);
     const dt = Math.min(0.05, raw);
     lastT = now;
-    update(dt);
+    update(dt, Math.min(0.25, raw));
     controls.update(dt);
     renderer.render(scene, camera);
     // Uyarlanır kalite: 2 sn ortalaması ~28 fps altındaysa bir kademe düşür

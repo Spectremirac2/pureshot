@@ -6,7 +6,9 @@ import { ARCHETYPES } from '../../data/archetypes.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok, hexA } from './kit.js';
 
 const ROUND = 60;
-const WAVE_EVERY = 15;
+const WAVE_EVERY = 12;
+const CS = 1.45; // creep / kahraman çizim ölçeği (dokunma dostu boyut)
+const MID = 26 * CS; // creep gövde ortası (mermi hedefi)
 const HERO_DMG = [50, 56];
 const WINDUP = 0.12;
 const ARROW_TIME = 0.23; // toplam ≈ 0.35 sn
@@ -15,8 +17,8 @@ const DENY_BONUS = 12;
 const H = 380;
 
 const TYPES = {
-  melee: { hp: 300, dmg: [18, 23], range: 38, interval: 1.0, speed: 60, w: 34, h: 46, bounty: [36, 42] },
-  ranged: { hp: 220, dmg: [20, 26], range: 128, interval: 1.05, speed: 60, w: 30, h: 46, bounty: [44, 50], proj: 360 },
+  melee: { hp: 300, dmg: [18, 23], range: 54, interval: 1.0, speed: 84, w: 34, h: 46, bounty: [36, 42] },
+  ranged: { hp: 220, dmg: [20, 26], range: 150, interval: 1.05, speed: 84, w: 30, h: 46, bounty: [44, 50], proj: 360 },
 };
 
 const STEALERS = ['farm', 'ward'];
@@ -116,10 +118,10 @@ export function mount(el, ctx, nav) {
   let seq = 0;
 
   const layout = () => ({
-    rows: [H * 0.585, H * 0.665, H * 0.745],
+    rows: [H * 0.6, H * 0.71, H * 0.82],
     center: Lw * (Lw < 600 ? 0.56 : 0.54),
-    hero: { x: Lw < 600 ? 34 : 64, y: H * 0.9 },
-    mate: { x: Lw < 600 ? 92 : 140, y: H * 0.93 },
+    hero: { x: Lw < 600 ? 30 : 60, y: H * 0.93 },
+    mate: { x: Lw < 600 ? 88 : 132, y: H * 0.94 },
   });
 
   function newState(mode) {
@@ -146,8 +148,8 @@ export function mount(el, ctx, nav) {
     const lay = layout();
     for (const side of ['ally', 'enemy']) {
       const dir = side === 'ally' ? 1 : -1;
-      const x0 = side === 'ally' ? -30 : Lw + 30;
-      [0, 1, 2].forEach((row, i) => addCreep(side, 'melee', x0 - dir * i * 16, lay.rows[row]));
+      const x0 = side === 'ally' ? -20 : Lw + 20;
+      [0, 1, 2].forEach((row, i) => addCreep(side, 'melee', x0 - dir * i * 18, lay.rows[row]));
       addCreep(side, 'ranged', x0 - dir * 70, (lay.rows[0] + lay.rows[1]) / 2);
     }
     st.waves++;
@@ -195,7 +197,7 @@ export function mount(el, ctx, nav) {
           const tg = c.target;
           if (alive(tg)) {
             if (c.type === 'melee') damage(tg, randInt(c.T.dmg[0], c.T.dmg[1]), 'creep');
-            else st.shots.push({ kind: 'creep', side: c.side, x: c.x + (c.side === 'ally' ? 12 : -12), y: c.y - 34, target: tg, dmg: randInt(c.T.dmg[0], c.T.dmg[1]), speed: c.T.proj });
+            else st.shots.push({ kind: 'creep', side: c.side, x: c.x + (c.side === 'ally' ? 12 : -12), y: c.y - 34 * CS, target: tg, dmg: randInt(c.T.dmg[0], c.T.dmg[1]), speed: c.T.proj });
           }
         }
         continue;
@@ -241,7 +243,7 @@ export function mount(el, ctx, nav) {
       if (s.kind === 'creep') {
         const tg = s.target;
         if (!alive(tg)) { s.done = true; continue; }
-        const tx = tg.x, ty = tg.y - 26;
+        const tx = tg.x, ty = tg.y - MID;
         const dx = tx - s.x, dy = ty - s.y;
         const d = Math.hypot(dx, dy);
         const step = s.speed * dt;
@@ -251,7 +253,7 @@ export function mount(el, ctx, nav) {
         // Oyuncunun oku ya da DOG takım arkadaşının "pati mermisi": sabit süreli, hedefe güdümlü
         s.t += dt;
         const tg = s.target;
-        if (tg) { s.tx = tg.x; s.ty = tg.y - 26; }
+        if (tg) { s.tx = tg.x; s.ty = tg.y - MID; }
         const k = clamp(s.t / s.dur, 0, 1);
         s.x = lerp(s.x0, s.tx, k);
         s.y = lerp(s.y0, s.ty, k) - Math.sin(k * Math.PI) * (s.kind === 'hero' ? 40 : 26);
@@ -291,7 +293,7 @@ export function mount(el, ctx, nav) {
     if (!killed) {
       st.misses++;
       st.early++;
-      floatAt(tg.x, tg.y - 64, 'Iska · erken', C['text-2'], 14);
+      floatAt(tg.x, tg.y - 84, 'Iska · erken', C['text-2'], 14);
       pushFeed(`Erken vurdun (−${dmg} can)`, 'dim');
       ctx.sound.hit();
       return;
@@ -300,7 +302,7 @@ export function mount(el, ctx, nav) {
       const b = randInt(tg.T.bounty[0], tg.T.bounty[1]);
       st.lh++;
       st.gold += b;
-      floatAt(tg.x, tg.y - 64, `+${b}`, C.aegis, 20);
+      floatAt(tg.x, tg.y - 84, `+${b}`, C.aegis, 20);
       burst(tg.x, tg.y - 30, C.aegis, 14);
       pushFeed(`Last hit! +${b} altın`, 'gold');
       ctx.sound.coin();
@@ -310,8 +312,8 @@ export function mount(el, ctx, nav) {
     } else {
       st.dn++;
       st.gold += DENY_BONUS;
-      floatAt(tg.x, tg.y - 64, '!', C.text, 34);
-      floatAt(tg.x, tg.y - 92, 'DENY', C.radiant, 14);
+      floatAt(tg.x, tg.y - 84, '!', C.text, 34);
+      floatAt(tg.x, tg.y - 110, 'DENY', C.radiant, 14);
       burst(tg.x, tg.y - 30, C.radiant, 10);
       pushFeed(`Deny! +${DENY_BONUS} bonus`, 'jade');
       ctx.sound.good();
@@ -327,7 +329,7 @@ export function mount(el, ctx, nav) {
     const prey = st.creeps.filter((c) => alive(c) && c.side === 'enemy' && c.hp <= 64 && !st.shots.some((s) => s.kind === 'dog' && s.target === c));
     if (!prey.length) return;
     const tg = pick(prey);
-    st.shots.push({ kind: 'dog', target: tg, t: 0, dur: 0.26, x0: lay.mate.x + 8, y0: lay.mate.y - 36, x: lay.mate.x, y: lay.mate.y, tx: tg.x, ty: tg.y - 26 });
+    st.shots.push({ kind: 'dog', target: tg, t: 0, dur: 0.26, x0: lay.mate.x + 8 * CS, y0: lay.mate.y - 36 * CS, x: lay.mate.x, y: lay.mate.y, tx: tg.x, ty: tg.y - MID });
     st.mateAnim = 0.3;
     st.nextSteal = st.t + rand(9, 14);
   }
@@ -340,7 +342,7 @@ export function mount(el, ctx, nav) {
       return;
     }
     if (c.side === 'ally' && c.hp / c.maxHp >= 0.5) {
-      floatAt(c.x, c.y - 64, 'Deny için can %50 altı olmalı', C['text-2'], 12);
+      floatAt(c.x, c.y - 84, 'Deny için can %50 altı olmalı', C['text-2'], 12);
       ctx.sound.miss();
       return;
     }
@@ -350,7 +352,7 @@ export function mount(el, ctx, nav) {
     ctx.sound.whoosh();
     runner.after(WINDUP, () => {
       if (!st || st.mode === 'dead') return;
-      st.shots.push({ kind: 'hero', target: c, t: 0, dur: ARROW_TIME, x0: lay.hero.x + 18, y0: lay.hero.y - 44, x: lay.hero.x, y: lay.hero.y, tx: c.x, ty: c.y - 26, ang: 0 });
+      st.shots.push({ kind: 'hero', target: c, t: 0, dur: ARROW_TIME, x0: lay.hero.x + 18 * CS, y0: lay.hero.y - 44 * CS, x: lay.hero.x, y: lay.hero.y, tx: c.x, ty: c.y - MID, ang: 0 });
     });
   }
 
@@ -483,15 +485,15 @@ export function mount(el, ctx, nav) {
     g.globalAlpha = fade;
     // Gölge
     g.fillStyle = 'rgba(0,0,0,0.4)';
-    g.beginPath(); g.ellipse(c.x, c.y + 2, w * 0.55, 5, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(c.x, c.y + 2, w * 0.55 * CS, 6, 0, 0, Math.PI * 2); g.fill();
     // Seçim / üzerine gelme halkası
     if (!c.dead && (c === hover || c === selected)) {
       g.strokeStyle = c === selected ? C.aegis : hexA(C.aegis, 0.7);
       g.lineWidth = 2;
-      g.beginPath(); g.ellipse(c.x, c.y + 2, w * 0.75, 8, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.ellipse(c.x, c.y + 2, w * 0.8 * CS, 10, 0, 0, Math.PI * 2); g.stroke();
     }
     g.translate(c.x + dir * lunge, c.y + sink + bob);
-    g.scale(dir, 1);
+    g.scale(dir * CS, CS);
     if (c.type === 'melee') {
       // bacaklar
       g.fillStyle = C.bg;
@@ -561,8 +563,8 @@ export function mount(el, ctx, nav) {
     g.restore();
     // Can çubuğu (düz, çevrilmeden)
     if (!c.dead) {
-      const bw = 42, bh = 6;
-      const bx = c.x - bw / 2, by = c.y - ht - 16 + bob;
+      const bw = 50, bh = 7;
+      const bx = c.x - bw / 2, by = c.y - ht * CS - 14 + bob;
       g.fillStyle = 'rgba(0,0,0,0.75)';
       g.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
       g.fillStyle = hexA(C.text, 0.55);
@@ -581,6 +583,8 @@ export function mount(el, ctx, nav) {
 
   function drawHero(g, lay) {
     const { x, y } = lay.hero;
+    g.save();
+    g.translate(x, y); g.scale(CS, CS); g.translate(-x, -y);
     const pull = st && st.heroAnim > 0 ? Math.sin(clamp(st.heroAnim / (WINDUP + 0.1), 0, 1) * Math.PI) : 0;
     g.save();
     g.fillStyle = 'rgba(0,0,0,0.45)';
@@ -610,6 +614,7 @@ export function mount(el, ctx, nav) {
     g.textAlign = 'center';
     g.fillText('SEN', x, y - 70);
     g.restore();
+    g.restore();
   }
 
   function drawMate(g, lay) {
@@ -620,6 +625,7 @@ export function mount(el, ctx, nav) {
     g.fillStyle = 'rgba(0,0,0,0.45)';
     g.beginPath(); g.ellipse(x, y + 2, 16, 5, 0, 0, Math.PI * 2); g.fill();
     g.translate(x, y - hop);
+    g.scale(1.3, 1.3);
     // gövde
     g.fillStyle = C['bg-4'];
     roundRect(g, -14, -26, 28, 22, 9);
@@ -642,7 +648,7 @@ export function mount(el, ctx, nav) {
     g.font = `700 10px ${'JetBrains Mono'}, monospace`;
     g.textAlign = 'center';
     g.fillStyle = hexA(C.ember, 0.95);
-    g.fillText(st && st.mate ? st.mate.name.replace(' Köpeği', ' DOG').toUpperCase() : 'DOG', x + 4, y + 14 > H - 4 ? y - 66 : y + 14);
+    g.fillText(st && st.mate ? st.mate.name.replace(' Köpeği', ' DOG').toUpperCase() : 'DOG', x + 4, y + 14 > H - 4 ? y - 80 : y + 14);
     if (st && st.bubble && st.bubble.t > 0) {
       const bx = x + 30, by = y - 70;
       g.font = '700 12px Barlow, sans-serif';
@@ -782,8 +788,8 @@ export function mount(el, ctx, nav) {
     let bd = Infinity;
     for (const c of st.creeps) {
       if (c.dead) continue;
-      const hw = Math.max(c.T.w * 0.7, minHalf);
-      const top = c.y - c.T.h - 20;
+      const hw = Math.max(c.T.w * 0.62 * CS, minHalf);
+      const top = c.y - c.T.h * CS - 18;
       const bottom = c.y + 8;
       const cy = (top + bottom) / 2;
       const hh = Math.max((bottom - top) / 2, minHalf);

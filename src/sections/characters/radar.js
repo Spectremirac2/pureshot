@@ -4,9 +4,9 @@ import { STAT_LABELS } from '../../data/archetypes.js';
 import { prefersReducedMotion } from '../../core/dom.js';
 import { s, STAT_KEYS, GOOD_STATS } from './util.js';
 
-const W = 420;
+const W = 440;
 const H = 346;
-const CX = 210;
+const CX = 220;
 const CY = 176;
 const R = 118;
 const LABEL_R = R + 16;

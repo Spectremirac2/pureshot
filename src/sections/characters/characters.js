@@ -186,6 +186,7 @@ function createInstance(el, ctx) {
       viewCleanup = null;
     }
     currentTab = r.tab;
+    root.classList.toggle('is-deep', r.view === 'detail' || r.view === 'vs');
     for (const [id, b] of tabBtns) {
       const on = id === r.tab;
       b.setAttribute('aria-selected', String(on));

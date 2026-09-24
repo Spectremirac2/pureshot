@@ -81,7 +81,8 @@ export function parseJoke(text) {
   if (rows[0].type === 'note' && rows.length > 1) title = rows.shift().text;
   const lineRows = rows.filter((r) => r.type === 'line');
   const quoted = lineRows.filter((r) => /^[“"]/.test(r.text)).length;
-  const report = rows.length >= 3 && lineRows.length === rows.length && quoted <= 1 && rows.every((r) => r.text.length <= 60);
+  const reportTitle = !!title && /rapor|istatisti|tablo|skor/i.test(fold(title));
+  const report = rows.length >= 3 && lineRows.length === rows.length && rows.every((r) => r.text.length <= 60) && (quoted === 0 || reportTitle);
   return { kind: 'log', title, rows, report };
 }
 

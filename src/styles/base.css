@@ -41,6 +41,9 @@ body::after {
 
 #app { position: relative; z-index: 1; }
 
+/* hidden özniteliği her zaman kazanır (bileşen display kurallarını ezer) */
+[hidden] { display: none !important; }
+
 img, svg, canvas, video { max-width: 100%; display: block; }
 img { height: auto; }
 button, input, textarea, select { font: inherit; color: inherit; }

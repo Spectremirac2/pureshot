@@ -189,6 +189,7 @@ export function gameLayout(el, meta, { nav } = {}) {
 
   const root = h('div', { class: `gm-play gm-play-${meta.id}`, style: { '--gc': meta.color } },
     h('div', { class: 'gm-play-main' },
+      h('div', { class: 'gm-play-top' },
       h('header', { class: 'gm-play-head' },
         h('span', { class: 'gm-slot gm-slot-lg', 'aria-hidden': 'true' }, icon(meta.icon, { size: 30 })),
         h('div', { class: 'gm-play-titles' },
@@ -198,6 +199,7 @@ export function gameLayout(el, meta, { nav } = {}) {
         ),
       ),
       hud,
+      ),
       stageFrame,
       live,
     ),

@@ -3,6 +3,8 @@
    Kategori rengi: [data-jkcat] → --cat
    ========================================================================== */
 
+/* varsayılan: DOG koru; kategori seçicileri aşağıda */
+.jk-card, .jk-quote, .jk-screen-body { --cat: var(--ember); }
 [data-jkcat='dog'] { --cat: var(--ember); }
 [data-jkcat='1v9'] { --cat: var(--aegis); }
 [data-jkcat='maraton'] { --cat: var(--arcane); }
@@ -218,7 +220,6 @@
 
 /* ---------------------------------------------------------------- kart */
 .jk-card {
-  --cat: var(--ember);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -231,6 +232,7 @@
   border: 1px solid var(--line);
   box-shadow: inset 3px 0 0 var(--cat);
   clip-path: var(--clip);
+  overflow: hidden;
   transition: border-color 0.2s, transform 0.2s var(--ease-out);
 }
 .jk-card:hover { border-color: color-mix(in srgb, var(--cat) 50%, var(--line)); }
@@ -375,20 +377,19 @@
     var(--bg-2); }
 .jk-card.jk-new { border-color: var(--aegis); animation: jk-glow 1.6s ease-out 3; }
 @keyframes jk-glow { 0% { box-shadow: inset 3px 0 0 var(--cat), 0 0 0 0 color-mix(in srgb, var(--aegis) 60%, transparent); } 100% { box-shadow: inset 3px 0 0 var(--cat), 0 0 0 14px color-mix(in srgb, var(--aegis) 0%, transparent); } }
-.jk-card.jk-new::after {
+.jk-card.jk-new .jk-card-head::after {
   content: 'YENİ';
-  position: absolute;
-  top: 10px;
-  right: -26px;
-  padding: 2px 30px;
-  transform: rotate(35deg);
+  order: 0;
+  padding: 2px 8px;
   background: var(--grad-aegis);
   color: var(--on-aegis);
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 10px;
   letter-spacing: 0.12em;
+  clip-path: var(--clip-sm);
 }
+.jk-card.jk-new .jk-card-head > .spacer, .jk-card.jk-new .jk-card-head > .jk-byline { order: 1; }
 
 /* ---------------------------------------------------------------- günün damgası */
 .jk-feature {
@@ -536,7 +537,7 @@
 .jk-cmodal, .jk-roll { display: flex; flex-direction: column; gap: var(--sp-4); }
 .jk-cmodal-head { display: flex; align-items: center; gap: var(--sp-2); }
 .jk-cmodal-head .spacer { flex: 1; }
-.jk-quote { --cat: var(--ember); margin: 0; padding: 12px 14px; background: var(--bg); border-left: 3px solid var(--cat); }
+.jk-quote { margin: 0; padding: 12px 14px; background: var(--bg); border-left: 3px solid var(--cat); }
 .jk-roll-stage { position: relative; padding-top: 18px; }
 .jk-card--roll { border-color: color-mix(in srgb, var(--aegis) 40%, transparent); }
 .jk-slam {

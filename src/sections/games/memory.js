@@ -60,7 +60,7 @@ export function mount(el, ctx, nav) {
     const picks = shuffle(ARCHETYPES).slice(0, PAIRS);
     const deck = shuffle([...picks, ...picks]);
     cards = deck.map((arch, i) => {
-      const img = faceArt(arch, { zoom: 1.3, pzoom: 1, ratio: 4 / 3, cls: 'gm-mm-img' });
+      const img = faceArt(arch, { zoom: 1.6, pzoom: 1.1, cls: 'gm-mm-img' });
       const inner = h('span', { class: 'gm-mm-inner' },
         h('span', { class: 'gm-mm-face gm-mm-back', 'aria-hidden': 'true' },
           h('span', { class: 'gm-mm-crest' }, icon('paw', { size: 26, stroke: 2.2 })),

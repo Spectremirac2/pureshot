@@ -1,7 +1,7 @@
 // Sanat Galerisi: fal.ai görselleri gruplu, asimetrik ızgarada; lightbox (← →), beğeni, yorumlar.
 // mountArt(el, ctx) → temizlik fonksiyonu.
 
-import { h, clear, fmtNum } from '../../core/dom.js';
+import { h, clear, append, fmtNum } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { mountComments } from '../../components/comments.js';
 import { GROUPS, IMAGE_KEYS, MODEL_KEYS, galleryItems, fontsReady } from './catalog.js';
@@ -238,12 +238,12 @@ export function mountArt(el, ctx, { onHow } = {}) {
       title.textContent = it.title;
       desc.textContent = it.desc;
       clear(meta);
-      meta.append(
+      append(meta, [
         it.procedural ? h('span', { class: 'badge ember' }, 'prosedürel yer tutucu') : h('span', { class: 'badge gold' }, 'fal.ai · ' + it.model),
         it.spec ? h('span', { class: 'badge' }, it.spec) : null,
         it.arch ? h('span', { class: 'badge', style: { color: 'var(--arch)', '--arch': it.arch.color } }, `DOG seviyesi ${it.arch.dogLevel}/5`) : null,
         h('span', { class: 'mono xsmall dim' }, it.key),
-      );
+      ]);
       paintLike();
       // komşuları önceden yükle
       for (const d of [-1, 1]) { const nb = items[(idx + d + items.length) % items.length]; if (nb) { const pre = new Image(); pre.src = nb.url; } }

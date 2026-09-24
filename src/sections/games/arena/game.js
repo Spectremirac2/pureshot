@@ -155,7 +155,7 @@ export function createGame(emit) {
     g.score += 100;
     if (src === 'ult') g.ultKills += 1;
     // çoklu öldürme zinciri (Dota tarzı)
-    if (g.time - g.lastKill <= 2.6) g.chain += 1;
+    if (g.time - g.lastKill <= 1.8) g.chain += 1;
     else g.chain = 1;
     g.lastKill = g.time;
     g.bestChain = Math.max(g.bestChain, g.chain);
