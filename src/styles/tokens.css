@@ -1,0 +1,104 @@
+/*
+  DOG DOG DOG Üssü — tasarım jetonları
+  Tek bir görsel dünya: Dire gecesi. Obsidyen-mor zemin, kor turuncusu (DOG alarmı),
+  Aegis altını (skor/başarım), Radiant yeşimi (iyi takım arkadaşı), Dire kanı (feed).
+  Site bilinçli olarak tek temalıdır; zemin ve tüm renkler açıkça boyanır.
+*/
+:root {
+  color-scheme: dark;
+
+  /* Zemin katmanları */
+  --bg: #0d0b14;
+  --bg-2: #15121f;
+  --bg-3: #1e1a2b;
+  --bg-4: #282238;
+  --line: #2f2842;
+  --line-2: #433a5c;
+
+  /* Metin */
+  --text: #f3eadb;
+  --text-2: #b9aec4;
+  --text-3: #7f7592;
+
+  /* Vurgular */
+  --ember: #ff6a2b;
+  --ember-2: #ff9a3d;
+  --ember-deep: #c2410c;
+  --aegis: #e9b949;
+  --aegis-2: #f6d98a;
+  --radiant: #43d6a0;
+  --radiant-deep: #1f8a63;
+  --dire: #e0354b;
+  --dire-deep: #8f1d2c;
+  --arcane: #8b7cff;
+  --kick: #53fc18;
+
+  /* Metin içinde kullanılacak "üzerinde" renkleri */
+  --on-ember: #1a0d05;
+  --on-aegis: #1c1405;
+
+  /* Degradeler */
+  --grad-ember: linear-gradient(135deg, #ff9a3d 0%, #ff6a2b 45%, #e0354b 100%);
+  --grad-aegis: linear-gradient(135deg, #f6d98a 0%, #e9b949 50%, #b9822a 100%);
+  --grad-radiant: linear-gradient(135deg, #8ff0c9 0%, #43d6a0 55%, #1f8a63 100%);
+  --grad-night: radial-gradient(1200px 600px at 85% -10%, rgba(255, 106, 43, 0.16), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(67, 214, 160, 0.10), transparent 60%),
+    radial-gradient(700px 500px at 50% 50%, rgba(139, 124, 255, 0.06), transparent 70%);
+
+  /* Tipografi */
+  --font-display: 'Unbounded', 'Arial Black', 'Segoe UI', system-ui, sans-serif;
+  --font-lore: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif;
+  --font-body: 'Barlow', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --fs-xs: 0.75rem;   /* 12 */
+  --fs-sm: 0.875rem;  /* 14 */
+  --fs-md: 1rem;      /* 16 */
+  --fs-lg: 1.25rem;   /* 20 */
+  --fs-xl: clamp(1.5rem, 1.1rem + 1.6vw, 2rem);
+  --fs-2xl: clamp(2rem, 1.2rem + 3.4vw, 3.5rem);
+  --fs-3xl: clamp(2.6rem, 1.2rem + 6.4vw, 6.5rem);
+
+  --lh-tight: 1.05;
+  --lh-snug: 1.25;
+  --lh-body: 1.6;
+
+  /* Boşluk */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+  --sp-9: 96px;
+
+  --gutter: clamp(16px, 4vw, 40px);
+  --maxw: 1240px;
+  --maxw-text: 68ch;
+
+  /* Pah kırılmış köşeler (Dota arayüz butonları gibi) */
+  --chamfer: 10px;
+  --chamfer-sm: 6px;
+  --clip: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+  --clip-sm: polygon(var(--chamfer-sm) 0, 100% 0, 100% calc(100% - var(--chamfer-sm)), calc(100% - var(--chamfer-sm)) 100%, 0 100%, 0 var(--chamfer-sm));
+
+  --radius: 4px;
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(255, 106, 43, 0.5), 0 0 24px rgba(255, 106, 43, 0.35);
+
+  --hud-h: 56px;
+  --bar-h: 84px;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --hud-h: 52px;
+    --bar-h: 70px;
+    --chamfer: 8px;
+  }
+}

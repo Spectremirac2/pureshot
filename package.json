@@ -1,0 +1,24 @@
+{
+  "name": "cureshotkick-fan-hub",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CureShotKick resmi olmayan hayran üssü — DOG DOG DOG, 1vDOQUZ, mini oyunlar, quizler, espri duvarı, fal.ai atölyesi.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/build-artifact.mjs",
+    "preview": "vite preview",
+    "fetch:fal": "node scripts/fetch-fal-assets.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0",
+    "vite": "^6.4.3"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/unbounded": "^5.3.0",
+    "three": "^0.170.0"
+  }
+}

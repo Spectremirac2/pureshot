@@ -1,0 +1,109 @@
+{
+  "hero-keyart": {
+    "endpoint": "fal-ai/nano-banana-pro",
+    "request_id": "01a0d4f7-d18b-7330-a069-7e841a45ca20",
+    "url": "https://v3b.fal.media/files/b/0aabbfe4/12bwveNxgbMedFlnvoUoE_fcD0GZal.jpg"
+  },
+  "poster-dogdogdog": {
+    "endpoint": "fal-ai/nano-banana-pro",
+    "request_id": "01a0d508-903a-7c80-a30e-531876311b56",
+    "superseded": "01a0d4f7-dd00-77f0-bc78-9d4d57efaf3f",
+    "url": "https://v3b.fal.media/files/b/0aabc052/etxK3v8ZxClCuJl1e1S2Q_lqXQDmEF.jpg"
+  },
+  "poster-1vdoquz": {
+    "endpoint": "fal-ai/nano-banana-pro",
+    "request_id": "01a0d4f7-e585-7c72-835b-8256a2c77bf2",
+    "url": "https://v3b.fal.media/files/b/0aabbfe5/pD93yZPU1X2tvuf--lB7F_eZGVjtAM.jpg"
+  },
+  "portrait-farm": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-0526-73a3-bd66-aac1c58f7aab",
+    "url": "https://v3b.fal.media/files/b/0aabbfe5/clv47TALYPqUWhOv1AfFc_1kBfoZSO.jpg"
+  },
+  "portrait-feed": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-0c08-7eb2-8fac-166336d48d1c",
+    "url": "https://v3b.fal.media/files/b/0aabbfe6/nsid3XkjAtFIz338oFDfG_TB2pTLoV.jpg"
+  },
+  "portrait-pause": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d508-b969-74e3-bbfc-e7512baa2b2e",
+    "superseded": "01a0d4f8-155f-7583-b3a2-52b637e6939a",
+    "url": "https://v3b.fal.media/files/b/0aabc053/kOtYN24JMkCU1W90_C-nx_OdAt2dt3.jpg"
+  },
+  "portrait-afk": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-1e1d-7eb3-88aa-77f416186414",
+    "url": "https://v3b.fal.media/files/b/0aabbfe6/8iduSLnJW7WsTP0aDn68C_jI05LJPE.jpg"
+  },
+  "portrait-kurye": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-27a7-7e93-9744-453e186f35cc",
+    "url": "https://v3b.fal.media/files/b/0aabbfe6/YynEnOUYf011Neb2DA9T9_LlXsRrm3.jpg"
+  },
+  "portrait-rapier": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-2da7-7130-a6fd-d63b3bd48b9b",
+    "url": "https://v3b.fal.media/files/b/0aabbfe6/nQh3NWLfv3Ill4DPhwpc7_HrBniijY.jpg"
+  },
+  "portrait-mid": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-3eab-7070-87fc-5e91e5085956",
+    "url": "https://v3b.fal.media/files/b/0aabbfe7/ncSJIETxvmLJfvj4dixzU_umVNiAMm.jpg"
+  },
+  "portrait-ward": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-47b2-7b81-8907-2fd2a0290275",
+    "url": "https://v3b.fal.media/files/b/0aabbfe7/ndiEAHmW6mBsBm1gLJpS6_4hVmlbmA.jpg"
+  },
+  "portrait-smurf": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-4ecc-7cf0-8860-40b1c474cad0",
+    "url": "https://v3b.fal.media/files/b/0aabbfe7/FCaN-gRqZPqJzHPTBaiRw_oYkqQ4oI.jpg"
+  },
+  "portrait-chat": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-5833-7b91-b32e-0ad0d2309bd7",
+    "url": "https://v3b.fal.media/files/b/0aabbfe8/KWwN1jbw_XqfHpElPV5oF_XEZ6mxmE.jpg"
+  },
+  "portrait-legend": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-61d1-7340-8dad-38378af2c215",
+    "url": "https://v3b.fal.media/files/b/0aabbfe8/ru-3bQNVPF7LSn_sx6lys_9r3Vll2U.jpg"
+  },
+  "texture-arena": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-6865-7f20-bdc5-728eb9712adf",
+    "url": "https://v3b.fal.media/files/b/0aabbfe8/nVmTlnaI9QbjX34Gkgjvn_bj4nwpcL.jpg"
+  },
+  "src3d-dog": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-7be7-7272-9a5b-1e4068f26a73",
+    "url": "https://v3b.fal.media/files/b/0aabbfe8/M5ITzsHoMFpCWa12XPMr1_ok29j3TR.png"
+  },
+  "src3d-archer": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-8523-77a0-b5e7-a7eeef1b763b",
+    "url": "https://v3b.fal.media/files/b/0aabbfe9/1ALwi_GOcCaLk-KdM0wa1_Ts0c0FQ5.png"
+  },
+  "src3d-aegis": {
+    "endpoint": "fal-ai/nano-banana-2",
+    "request_id": "01a0d4f8-8b81-73f2-acb6-89878abd0e4c",
+    "url": "https://v3b.fal.media/files/b/0aabbfe9/wsJbljKIUSjkuDlSnszDV_iwG5cV0L.png"
+  },
+  "model-dog": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0d4fc-7f27-7223-a776-96d767019242",
+    "url": "https://v3b.fal.media/files/b/0aabc005/CYaWKQ-tMZdfg-lycx6-i_trellis2_ef90ffc68cc84d7793d09dc6a16f86a8.glb"
+  },
+  "model-archer": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0d4fc-83f3-74d0-8aa9-b0b54b6432be",
+    "url": "https://v3b.fal.media/files/b/0aabc005/-QCde45MS7K6GBWb5Zmkx_trellis2_58dfb5e4e63e4c509c9dc9aa39b71738.glb"
+  },
+  "model-aegis": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0d4fc-8584-7123-963e-fb96de360560",
+    "url": "https://v3b.fal.media/files/b/0aabc007/b1Ox4SRUv4oLNGuzoLMc2_trellis2_45943a34377f4b1b8b8a1c9ad59b70f0.glb"
+  }
+}

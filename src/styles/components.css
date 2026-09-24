@@ -1,0 +1,67 @@
+/* ---------- Yorumlar ---------- */
+.cmt-box { display: flex; flex-direction: column; gap: var(--sp-3); }
+.cmt-form { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cmt-form-foot { gap: var(--sp-2); }
+.cmt-form-foot .chip { text-transform: none; letter-spacing: 0.02em; }
+.cmt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cmt {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--line-2);
+}
+.cmt:hover { border-left-color: var(--ember); }
+.cmt-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.cmt-nick { font-weight: 700; color: var(--aegis-2); font-size: var(--fs-sm); }
+.cmt-text { margin-top: 4px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.cmt-like, .cmt-del {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 28px; padding: 2px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+}
+.cmt-like:hover { color: var(--ember-2); border-color: rgba(255, 106, 43, 0.35); }
+.cmt-like.on { color: var(--ember); background: rgba(255, 106, 43, 0.12); }
+.cmt-del:hover { color: var(--dire); }
+.cmt-box.compact .cmt { padding: 8px 10px; }
+
+/* ---------- Skor tablosu ---------- */
+.lb { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.lb-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: var(--fs-sm);
+}
+.lb-row.me { background: rgba(255, 106, 43, 0.1); box-shadow: inset 2px 0 0 var(--ember); }
+.lb-rank { color: var(--text-3); font-weight: 700; text-align: center; }
+.lb-rank.top { color: var(--aegis); }
+.lb-nick { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-score { color: var(--text); font-weight: 700; }
+
+/* ---------- Portreler ---------- */
+.portrait {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--bg-3);
+  max-width: 100%;
+}
+
+/* 3D eğilen kart (fare ile) — .tilt öğesine data-tilt ile JS bağlanır */
+.tilt { transform-style: preserve-3d; transition: transform 0.2s var(--ease-out); will-change: transform; }
+.tilt-shine {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.18), transparent 45%);
+  mix-blend-mode: overlay;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.tilt:hover .tilt-shine { opacity: 1; }
