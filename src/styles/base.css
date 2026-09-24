@@ -127,6 +127,8 @@ p { margin: 0; }
 
 /* "1vDOQUZ" gibi özel yazımlar büyük harf dönüşümünden korunur */
 .meme { text-transform: none; letter-spacing: 0.01em; }
+/* Cinzel'de küçük harf yok: lore/etiket bağlamlarında özel yazım gövde fontuyla gösterilir */
+.eyebrow .meme, .label .meme, .lore .meme { font-family: var(--font-body); font-weight: 700; letter-spacing: 0.04em; }
 
 /* Meme damgası: DOG DOG DOG / 1vDOQUZ */
 .stamp {
