@@ -25,6 +25,9 @@ export function mountDaha(host, env) {
   const status = h('p', { class: 'hr-daha-status', 'aria-live': 'polite' });
   const arena = h('div', { class: 'hr-daha-arena' });
   const overBox = h('div', { class: 'hr-daha-over panel raised frame', hidden: true });
+  const roNote = h('p', { class: 'hint', hidden: true }, 'Salt okunur görüntüleme: rekorun yalnızca bu cihazda saklanır, skor tablosuna gönderilmez.');
+  const syncRo = () => { roNote.hidden = !env.readOnly(); };
+  store.ready.then(() => { if (host.isConnected) syncRo(); });
 
   function best() { return Number((store.me.get().scores || {}).daha) || 0; }
   function renderScore() {
@@ -179,6 +182,7 @@ export function mountDaha(host, env) {
         arena,
         overBox,
         status,
+        roNote,
       ),
       lbHost,
     ),

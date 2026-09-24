@@ -85,6 +85,8 @@ function createApp(el, ctx) {
     /** Bölüm içinde gezin (geçmişe kayıt ekler → onSub). */
     go(sub) { ctx.go('kahramanlar', sub && sub !== 'duvar' ? sub : null); },
     openHero(id) { ctx.sound.click(); ctx.go('kahramanlar', id); },
+    /** Paylaşılan veride salt okunur ziyaretçi: oy/tier/rekor yalnızca bu cihazda kalır (sunucuya yazılmaz). */
+    readOnly: () => !!(ctx.store.shared && !ctx.store.canWrite()),
   };
 
   // Halka: sikkeye tıklayınca detay

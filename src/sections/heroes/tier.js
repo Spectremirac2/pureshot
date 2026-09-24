@@ -234,7 +234,8 @@ export function mountTier(host, env) {
     resetBtn.hidden = mode !== 'kendi';
     intro.textContent = mode === 'topluluk'
       ? 'Sütunlar Topluluk DOG Endeksi’ne göre dizildi: ön yargı tabanı + canlı oylar. Bir kahramana dokun, dosyası açılsın.'
-      : 'Kahramanı sürükleyip bir sütuna bırak. Dokunmatikte: önce kahramana, sonra sütun başlığına dokun. Klavye: seçip 1–5 (S–D), 0 (havuz). Köşedeki harf topluluğun ortalama tier’i.';
+      : 'Kahramanı sürükleyip bir sütuna bırak. Dokunmatikte: önce kahramana, sonra sütun başlığına dokun. Klavye: seçip 1–5 (S–D), 0 (havuz). Köşedeki harf topluluğun ortalama tier’i.'
+        + (env.readOnly() ? ' Salt okunur görüntüleme: listen yalnızca bu cihazda saklanır, topluluk ortalamasına eklenmez.' : '');
 
     const buckets = new Map([...zones.keys()].map((k) => [k, []]));
     for (const hero of HEROES) buckets.get(placementOf(hero)).push(hero);

@@ -129,6 +129,8 @@ export function mountDetail(host, env, hero) {
   const dogBtn = h('button', { class: 'btn primary lg hr-vote is-dog', type: 'button', 'aria-pressed': 'false' }, icon('paw', { size: 20 }), 'DOG');
   const notBtn = h('button', { class: 'btn jade lg hr-vote is-not', type: 'button', 'aria-pressed': 'false' }, icon('shield', { size: 20 }), 'DOG değil');
   const voteNote = h('p', { class: 'hint hr-d-note' });
+  const roNote = h('p', { class: 'hint hr-d-ro', hidden: true },
+    'Salt okunur görüntüleme: verdiğin oy yalnızca bu cihazda sayılır, topluluk endeksine eklenmez.');
 
   const castVote = (value, btn) => {
     const now = comm.vote(hero.id, value);
@@ -163,6 +165,7 @@ export function mountDetail(host, env, hero) {
       voteLine,
       biasLine,
       voteNote,
+      roNote,
     ),
   );
 
@@ -186,6 +189,7 @@ export function mountDetail(host, env, hero) {
       : 'Henüz oy yok. İlk hükmü sen ver.';
     biasLine.textContent = `Ön yargı tabanı %${s.bias} (${s.biasTier.label}) · endeks = (taban×${K} + DOG oyu×100) ÷ (${K} + toplam oy)`;
     voteNote.textContent = s.myVote ? 'Oy kaydedildi. Değiştirmek için diğer düğmeye, geri almak için aynısına bas.' : '';
+    roNote.hidden = !env.readOnly();
   }
   cleanups.push(comm.subscribe(renderLive));
   renderLive();
