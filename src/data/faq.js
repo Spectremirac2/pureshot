@@ -86,7 +86,7 @@ export const FAQ = [
     tone: 'arcane',
     q: 'Yorumlar, sorular ve esprilerim nerede saklanıyor?',
     a: [
-      ['Paylaşılan önizlemede (claude.ai) ', { b: 'topluluk veritabanında' }, ' saklanır; sayfayı açan herkes aynı içeriği görür.'],
+      ['Topluluk sürümünde ', { b: 'ortak topluluk veritabanında' }, ' saklanır; sayfayı açan herkes aynı içeriği görür.'],
       ['Sitenin statik bir kopyası bağlı bir sunucu olmadan çalışıyorsa içerik ', { b: 'yalnızca senin tarayıcında' }, ' (bu cihazda) tutulur. Sayfada “önizleme modu” notunu görüyorsan durum budur.'],
       'Beğenilerin, skorların ve takma adın sana ait fan profilinde tutulur.',
     ],

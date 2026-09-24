@@ -212,6 +212,7 @@ async function detectApi() {
   if (platform.inArtifact) return null;
   if (!/^https?:$/.test(location.protocol)) return null;
   const base = (import.meta.env && import.meta.env.VITE_API_BASE) || window.__CSK_API__ || '/api';
+  if (base === 'none') return null; // statik yayın (ör. GitHub Pages): sunucu yok, veriler tarayıcıda
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1500);
