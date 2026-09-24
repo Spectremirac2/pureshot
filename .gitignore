@@ -4,3 +4,4 @@ dist/
 *.log
 .wrangler/
 assets-src/raw/
+scripts/tmp-*
