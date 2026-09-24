@@ -6,7 +6,7 @@ import { icon } from '../../core/icons.js';
 import { ALL_TYPES } from '../../data/archetypes.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { IMAGE_KEYS, MODEL_KEYS, metaFor, proceduralPoster } from './catalog.js';
-import { EXHIBITS } from './exhibits.js';
+import { EXHIBITS } from './exhibit-data.js';
 import { art, modelAvailable } from './sources.js';
 
 const EP_PRO = 'fal-ai/nano-banana-pro';

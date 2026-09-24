@@ -5,7 +5,7 @@ import { h, clear, append, fmtNum } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { mountComments } from '../../components/comments.js';
 import { GROUPS, IMAGE_KEYS, MODEL_KEYS, galleryItems, fontsReady } from './catalog.js';
-import { EXHIBITS } from './exhibits.js';
+import { EXHIBITS } from './exhibit-data.js';
 import { likeTracker } from './likes.js';
 
 export function mountArt(el, ctx, { onHow } = {}) {

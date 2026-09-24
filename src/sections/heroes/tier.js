@@ -35,6 +35,7 @@ export function mountTier(host, env) {
   const resetBtn = h('button', { class: 'btn ghost sm', type: 'button' }, icon('trash', { size: 16 }), 'Sıfırla');
   const copyBtn = h('button', { class: 'btn gold sm', type: 'button' }, icon('copy', { size: 16 }), 'Metin olarak kopyala');
   const intro = h('p', { class: 'small muted hr-tier-intro' });
+  const view = h('section', { class: 'hr-tierview', 'aria-label': 'DOG Tier Listesi' });
   const info = h('div', { class: 'hr-tier-info', 'aria-live': 'polite' });
 
   fillBtn.addEventListener('click', async () => {
@@ -228,7 +229,7 @@ export function mountTier(host, env) {
   function render() {
     if (dragging) { dirtyWhileDrag = true; return; }
     modeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
-    host.classList.toggle('is-own', mode === 'kendi');
+    view.classList.toggle('is-own', mode === 'kendi');
     fillBtn.hidden = mode !== 'kendi';
     resetBtn.hidden = mode !== 'kendi';
     intro.textContent = mode === 'topluluk'
@@ -307,19 +308,18 @@ export function mountTier(host, env) {
     return lines.join('\n');
   }
 
-  host.append(
-    h('section', { class: 'hr-tierview', 'aria-label': 'DOG Tier Listesi' },
-      h('div', { class: 'section-head hr-sub-head' },
-        h('span', { class: 'eyebrow' }, 'S’ten D’ye'),
-        h('h2', { class: 'h2' }, 'DOG Tier Listesi'),
-        intro,
-      ),
-      toolbar,
-      info,
-      board,
-      pool,
+  view.append(
+    h('div', { class: 'section-head hr-sub-head' },
+      h('span', { class: 'eyebrow' }, 'S’ten D’ye'),
+      h('h2', { class: 'h2' }, 'DOG Tier Listesi'),
+      intro,
     ),
+    toolbar,
+    info,
+    board,
+    pool,
   );
+  host.append(view);
 
   let raf = 0;
   cleanups.push(comm.subscribe(() => {
