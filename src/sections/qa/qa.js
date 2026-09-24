@@ -142,6 +142,9 @@ function createQA(el, ctx) {
   };
   const pendingAccept = new Map();
   const nickLabels = new Set();
+  // Giriş animasyonu yalnızca ilk kez görünen öğelere (yeniden çizimde titreme olmasın)
+  const seen = new Set();
+  const fresh = (key) => { if (reduced || seen.has(key)) return false; seen.add(key); return true; };
   const built = {};
 
   // -------------------------------------------------------------- yardımcılar
@@ -429,7 +432,7 @@ function createQA(el, ctx) {
     const n = answerCount(q);
     const solved = isSolved(q);
     const href = '#soru-cevap--' + encodeQid(q.id);
-    return h('li', { class: `qa-row${solved ? ' is-solved' : ''}${n ? '' : ' is-open'}` },
+    return h('li', { class: `qa-row${solved ? ' is-solved' : ''}${n ? '' : ' is-open'}${fresh('q:' + q.id) ? ' is-new' : ''}` },
       voteBtn('q:' + q.id, { label: 'Soruya oy ver' }),
       h('div', { class: 'qa-row-main' },
         h('a', { class: 'qa-row-title', href },
@@ -451,15 +454,15 @@ function createQA(el, ctx) {
     );
   }
 
+  const ideas = shuffle(IDEAS).slice(0, 4); // bağlama başına bir kez (yeniden çizimde karışmasın)
   function firstCard() {
-    const ideas = shuffle(IDEAS).slice(0, 4);
     return h('li', { class: 'qa-first' },
       h('span', { class: 'qa-first-glyph', 'aria-hidden': 'true' }, '?'),
       h('span', { class: 'eyebrow' }, 'Meclis henüz sessiz'),
       h('h3', { class: 'h2' }, 'İlk soruyu ', h('em', null, 'sen'), ' sor'),
       h('p', { class: 'muted' }, 'Bir fikre dokun, form senin için dolsun ya da kendi sorunu yaz. İlk soru, meclisin ilk ward’ıdır.'),
       h('div', { class: 'qa-ideas' },
-        ideas.map((t) => h('button', { class: 'qa-idea', type: 'button', onclick: () => fillAsk(t) }, icon('arrowRight', { size: 16 }), h('span', null, t))),
+        ideas.map((t, i) => h('button', { class: 'qa-idea', type: 'button', dataset: { focusKey: 'idea:' + i }, onclick: () => fillAsk(t) }, icon('arrowRight', { size: 16 }), h('span', null, t))),
       ),
       h('p', { class: 'xsmall dim' }, 'Bu örnekler kaydedilmez; yalnızca formu doldurur.'),
     );
@@ -690,7 +693,8 @@ function createQA(el, ctx) {
       ? h('button', { class: 'qa-del', type: 'button', 'aria-label': 'Cevabı sil', title: 'Sil', dataset: { focusKey: 'del:' + a.id } }, icon('trash', { size: 15 }))
       : null;
     if (delBtn) delBtn.addEventListener('click', () => deleteAnswer(q, a));
-    return h('li', { class: `qa-ans${accepted ? ' is-accepted frame' : ''}`, style: reduced ? null : { animationDelay: `${Math.min(idx, 8) * 40}ms` } },
+    const isNew = fresh('a:' + a.id);
+    return h('li', { class: `qa-ans${accepted ? ' is-accepted frame' : ''}${isNew ? ' is-new' : ''}`, style: isNew ? { animationDelay: `${Math.min(idx, 8) * 40}ms` } : null },
       voteBtn('a:' + a.id, { label: 'Cevaba oy ver' }),
       h('div', { class: 'qa-ans-main' },
         accepted ? h('div', { class: 'qa-ans-crown' }, icon('crown', { size: 15 }), 'Meclisin seçimi · Kabul edildi') : null,
@@ -750,7 +754,7 @@ function createQA(el, ctx) {
       writeBtn.addEventListener('click', () => { scrollToEl(form); d.ta.focus({ preventScroll: true }); });
       const title = h('h2', { class: 'qa-q-title', tabindex: '-1', id: 'qa-q-title' }, q.title || 'Başlıksız soru');
       clear(qBox).appendChild(
-        h('article', { class: `panel raised qa-q${solved ? ' is-solved' : ''}`, 'aria-labelledby': 'qa-q-title' },
+        h('article', { class: `panel raised qa-q${solved ? ' is-solved' : ''}${fresh('card:' + q.id) ? ' is-new' : ''}`, 'aria-labelledby': 'qa-q-title' },
           voteBtn('q:' + q.id, { label: 'Soruya oy ver', lg: true }),
           h('div', { class: 'qa-q-main' },
             h('div', { class: 'qa-q-tags' },
@@ -1097,26 +1101,28 @@ function createQA(el, ctx) {
     });
     syncToggle();
 
+    const helpCard = (mod) => h('section', { class: `panel tight qa-faq-help ${mod} stack` },
+      h('span', { class: 'eyebrow' }, 'Cevabı bulamadın mı?'),
+      h('p', { class: 'small muted' }, 'Meclise sor; topluluk cevaplasın.'),
+      h('button', {
+        class: 'btn primary sm', type: 'button',
+        onclick: () => {
+          sound.click();
+          ctx.setSub('sorular');
+          show('sorular');
+          later(() => { if (built.askPanel) { scrollToEl(built.askPanel); built.askTitle.focus({ preventScroll: true }); } }, 30);
+        },
+      }, icon('chat', { size: 16 }), 'Soru sor'),
+    );
+
     const aside = h('aside', { class: 'qa-faq-aside stack' },
       h('span', { class: 'eyebrow' }, 'Eşya açıklamaları'),
       h('h2', { class: 'h2' }, 'Sık sorulan ', h('em', null, 'sorular')),
       h('p', { class: 'muted small' }, 'Sitenin, memelerin ve maratonun kısa kılavuzu. Her madde bir eşya açıklaması gibi: aç, oku, ward’ını al.'),
       h('div', { class: 'row' }, toggleAll),
-      h('section', { class: 'panel tight qa-faq-help stack' },
-        h('span', { class: 'eyebrow' }, 'Cevabı bulamadın mı?'),
-        h('p', { class: 'small muted' }, 'Meclise sor; topluluk cevaplasın.'),
-        h('button', {
-          class: 'btn primary sm', type: 'button',
-          onclick: () => {
-            sound.click();
-            ctx.setSub('sorular');
-            show('sorular');
-            later(() => { if (built.askPanel) { scrollToEl(built.askPanel); built.askTitle.focus({ preventScroll: true }); } }, 30);
-          },
-        }, icon('chat', { size: 16 }), 'Soru sor'),
-      ),
+      helpCard('qa-faq-help--side'),
     );
-    panel.appendChild(h('div', { class: 'qa-faq' }, aside, h('div', { class: 'qa-faq-list' }, items)));
+    panel.appendChild(h('div', { class: 'qa-faq' }, aside, h('div', { class: 'qa-faq-list' }, items, helpCard('qa-faq-help--end'))));
     built.sss = true;
   }
 

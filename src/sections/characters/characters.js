@@ -43,7 +43,7 @@ function scopeEl() {
     const y = 50 + Math.sin(((ang - 90) * Math.PI) / 180) * rad;
     return h('span', {
       class: `ch-blip${a.id === 'legend' ? ' is-legend' : ''}`,
-      style: { left: `${x}%`, top: `${y}%`, '--ch-c': a.color, '--d': `${(ang / 360) * 4}s` },
+      style: { left: `${x}%`, top: `${y}%`, '--ch-c': a.color, '--d': `${((ang / 360) * 4 - 4).toFixed(2)}s` },
       title: a.name,
     });
   });

@@ -118,6 +118,10 @@ const BEST = {
   harita: [(v) => `Öte yandan harita bakışın ${v}/100 — mini haritayı gerçekten okuyan nadir türdensin.`],
   takim: [(v) => `Takım oyunun ${v}/100: takım arkadaşların seni gizli hazine gibi saklıyor.`],
 };
+const BEST_MEH = [
+  (k, v) => `En az DOG yanın bile ${k} (${v}/100). Yine de bir başlangıç.`,
+  (k, v) => `Kurtarıcı yanını aradık; en yakın aday ${k} (${v}/100). Aramaya devam.`,
+];
 const CLOSERS = [
   () => 'Bu rapor mizah amaçlıdır; MMR’ın bu rapordan etkilenmez (maalesef).',
   () => 'Bir dahaki maçta “DOG DOG DOG” duyarsan, bil ki bu rapor haklıydı.',
@@ -135,7 +139,8 @@ function report(res, nick) {
   const lines = [];
   lines.push(t.id === 'legend' ? pick(LEGEND_OPENERS)(nick, res.best.pct) : pick(OPENERS)(nick, res.best.pct, t.name));
   if (bad(worst) >= 45) lines.push(pick(WORST[worst])(res.radar[worst]));
-  lines.push(pick(BEST[best])(res.radar[best]));
+  if (bad(best) >= 45) lines.push(pick(BEST_MEH)(STAT_LABELS[best].toLocaleLowerCase('tr'), res.radar[best]));
+  else lines.push(pick(BEST[best])(res.radar[best]));
   lines.push(`Türünün klasik repliği: ${t.chatQuote}`);
   lines.push(pick(CLOSERS)());
   return lines;

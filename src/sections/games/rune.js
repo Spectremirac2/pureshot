@@ -24,6 +24,7 @@ export const meta = {
   color: 'var(--radiant)',
   kind: 'Anlık · Refleks',
   blurb: 'Nehirde rune belirdiği an kap. Erken davranan DOG olur.',
+  lore: 'Nehir sessizse rune yakındır. Parmağın hazır olsun.',
   time: '5 tur',
   diff: 2,
   unit: 'ms',

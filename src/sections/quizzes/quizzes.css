@@ -293,8 +293,7 @@
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
-.qz-q:focus { outline: none; }
-.qz-q:focus-visible { outline: 2px solid var(--aegis); outline-offset: 6px; }
+.qz-q:focus, .qz-q:focus-visible { outline: none; }
 
 .qz-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .qz-opt {
@@ -438,7 +437,7 @@
 .tone-ember .qz-big, .tone-blood .qz-big { background: var(--grad-ember); -webkit-background-clip: text; background-clip: text; }
 .tone-jade .qz-big { background: var(--grad-radiant); -webkit-background-clip: text; background-clip: text; }
 .qz-big-unit { font-family: var(--font-lore); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2); font-size: var(--fs-sm); }
-.qz-tier { font-size: clamp(1.5rem, 1rem + 2.2vw, 2.4rem); margin: 6px 0 12px; padding: 0 4px; }
+.qz-tier { font-size: clamp(1.5rem, 1rem + 2.2vw, 2.4rem); line-height: 1.08; margin: 6px 0 12px; padding: 0 4px; }
 .qz-kv { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .qz-kv > span {
   display: flex; flex-direction: column;
@@ -449,7 +448,7 @@
 }
 .qz-kv small { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
 .qz-kv b { font-size: var(--fs-lg); color: var(--text); }
-.qz-record { padding: 4px 10px; }
+.qz-record { padding: 4px 10px; align-self: flex-start; }
 
 .qz-res-panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .qz-panel-title { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-lg); }
@@ -716,7 +715,7 @@
 .qz-dm-recap { margin: 0; }
 .qz-dm-comm { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: var(--sp-3); border-top: 1px solid var(--line); }
 .qz-dm-comm-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.qz-dm-comm-head b { color: var(--ember-2); font-size: var(--fs-lg); }
+.qz-dm-comm-head b { color: var(--ember-2); font-family: var(--font-display); font-weight: 800; font-size: var(--fs-lg); }
 .qz-dm-split { display: flex; gap: 2px; height: 14px; }
 .qz-dm-split > span { display: block; height: 100%; min-width: 0; transition: width 0.6s var(--ease-out); }
 .qz-dm-split .dog { background: var(--ember); border-radius: 4px 0 0 4px; }

@@ -102,7 +102,6 @@ export function mountDogMu(root, { quiz, back }) {
       actions.replaceChildren(dogBtn, notBtn);
       dogBtn.disabled = false;
       notBtn.disabled = false;
-      card.focus({ preventScroll: true });
       live.textContent = `Kart ${idx + 1}: ${c.text} Bu DOG mu?`;
     }
 
@@ -201,7 +200,7 @@ export function mountDogMu(root, { quiz, back }) {
         h('p', { class: 'qz-dm-recap xsmall dim' }, `${c.t} · ${c.who}: ${c.text}`),
         h('div', { class: 'qz-dm-comm' },
           h('div', { class: 'qz-dm-comm-head' },
-            h('span', null, 'Topluluğun ', h('b', { class: 'num' }, pctText(k.pct)), ' DOG dedi'),
+            h('span', null, 'Topluluğun ', h('b', null, pctText(k.pct)), ' DOG dedi'),
             h('span', { class: 'xsmall dim num' }, `${fmtNum(k.total)} oy`),
           ),
           h('div', { class: 'qz-dm-split', role: 'img', 'aria-label': `${k.dog} DOG, ${k.not} DOG değil oyu` },

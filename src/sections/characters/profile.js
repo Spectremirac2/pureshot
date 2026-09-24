@@ -182,7 +182,7 @@ function mountMarathon(host, env) {
   }
   const hourLabels = [0, 6, 12, 18].map((hh) => {
     const a = (hh / 24) * Math.PI * 2 - Math.PI / 2;
-    return s('text', { class: 'ch-mara-hl', x: (130 + Math.cos(a) * 62).toFixed(1), y: (130 + Math.sin(a) * 62 + 4).toFixed(1), 'text-anchor': 'middle' }, String(hh));
+    return s('text', { class: 'ch-mara-hl', x: (130 + Math.cos(a) * 60).toFixed(1), y: (130 + Math.sin(a) * 60 + 3.5).toFixed(1), 'text-anchor': 'middle' }, String(hh));
   });
   const nodes = MILESTONES.map((m) => {
     const a = (m.h / 24) * Math.PI * 2 - Math.PI / 2;
@@ -230,7 +230,7 @@ function mountMarathon(host, env) {
     const inLap = virt - curLap * DAY;
     if (curLap > lap) {
       lap = curLap;
-      lastReached = 0;
+      lastReached = -1;
       ctx.sound.win();
       const r = ring.getBoundingClientRect();
       if (r.width) ctx.fx.confetti(r.left + r.width / 2, r.top + r.height / 2, 70);
@@ -246,7 +246,7 @@ function mountMarathon(host, env) {
     const hrs = inLap / 3600;
     let reached = 0;
     MILESTONES.forEach((m, i) => {
-      const on = hrs >= m.h || lap > 0 && false;
+      const on = hrs >= m.h;
       nodes[i].classList.toggle('on', on);
       items[i].classList.toggle('on', on);
       if (on) reached = m.h;
@@ -304,7 +304,7 @@ export function renderProfile(el, env) {
 
   const artCol = h('div', { class: 'ch-pro-art frame' },
     h('span', { class: 'ch-pro-ribbon' }, icon('info', { size: 14 }), DISCLAIMER),
-    h('div', { class: 'ch-pro-visual' }, visual),
+    h('div', { class: `ch-pro-visual${art ? ' is-img' : ''}` }, visual),
     h('div', { class: 'ch-pro-plate' },
       h('span', { class: 'ch-pro-plate-name' }, 'CureShotKick'),
       h('span', { class: 'ch-pro-plate-sub' }, 'Kick · Dota 2 · Maraton'),
@@ -367,8 +367,8 @@ export function renderProfile(el, env) {
       ),
       h('p', { class: 'ch-abil-desc' }, ab.desc),
       h('dl', { class: 'ch-abil-lines' }, ab.lines.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', null, v)))),
-      castBtn,
     );
+    if (castBtn) detail.append(castBtn);
   }
   select(0);
 

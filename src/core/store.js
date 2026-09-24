@@ -406,13 +406,26 @@ export const store = {
 
   /** Tüm fan belgelerine abone ol (toplam DOG sayısı, beğeni sayıları, liderlik tabloları için). */
   fans(cb) {
-    return store.subscribe('fans', { limit: 1000 }, (docs) => {
-      // Kendi belgemizin en güncel yerel halini kullan (yazma gecikmesini gizler)
+    // Kendi belgemizin en güncel yerel halini kullan (yazma gecikmesini gizler) ve
+    // kendi profilimiz değişince (beğeni, oy, skor) sunucu yanıtını beklemeden yeniden yayınla.
+    let last = null;
+    let raf = 0;
+    const emit = () => {
+      raf = 0;
+      if (!last) return;
       const id = meState.id;
-      const merged = docs.filter((d) => d.id !== id);
+      const merged = last.filter((d) => d.id !== id);
       merged.push({ ...meState.data, id: id || 'me' });
       cb(merged);
-    });
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(emit); };
+    const unsub = store.subscribe('fans', { limit: 1000 }, (docs) => { last = docs; if (raf) { cancelAnimationFrame(raf); raf = 0; } emit(); });
+    meState.cbs.add(schedule);
+    return () => {
+      unsub();
+      meState.cbs.delete(schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
   },
 };
 

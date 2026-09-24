@@ -105,9 +105,10 @@ function buildHero(ctx, cleanups, reduced) {
       'Kick’te izle', h('span', { class: 'hm-kick-url' }, 'kick.com/cureshotkick'), icon('arrowRight', { size: 14 })),
   );
 
+  const capSub = h('span', { class: 'hm-cap-sub' }, 'Canlı diorama · DOG’lara tıkla');
   const caption = h('div', { class: 'hm-caption', 'aria-hidden': 'true' },
     h('span', { class: 'hm-cap-row' }, h('b', { class: 'hm-cap-one' }, '1'), h('i', null, 'vs'), h('b', { class: 'hm-cap-nine' }, '9')),
-    h('span', { class: 'hm-cap-sub' }, 'Canlı diorama · DOG’lara tıkla'),
+    capSub,
   );
 
   const el = h('section', { class: 'hm-hero', 'aria-label': 'Karşılama' },
@@ -144,6 +145,7 @@ function buildHero(ctx, cleanups, reduced) {
     clear(stage);
     stage.appendChild(fallbackDiorama());
     getFocus(stage.clientWidth || 1, stage.clientHeight || 1);
+    capSub.textContent = '1 kahraman · 9 DOG';
     el.classList.add('hm-hero--flat');
   }
 
@@ -155,7 +157,12 @@ function buildHero(ctx, cleanups, reduced) {
           getFocus,
           reduced,
           pointerEl: el,
-          onLost: () => { scene = null; showFallback(); },
+          onLost: () => {
+            const s = scene;
+            scene = null;
+            try { if (s) s.destroy(); } catch { /* bağlam zaten kayıp */ }
+            showFallback();
+          },
           onPoke: (arch, x, y) => {
             ctx.sound.bark(0.9 + Math.random() * 0.4);
             ctx.fx.floatText(arch.name.toLocaleUpperCase('tr-TR'), x, y - 20, { size: 15, color: arch.color });
@@ -293,8 +300,10 @@ function buildLive(cleanups, reduced) {
 
   return h('section', { class: 'hm-live frame', 'aria-label': 'Canlı skor' },
     h('div', { class: 'hm-live-tag' },
-      h('span', { class: 'hm-live-dot', 'aria-hidden': 'true' }),
-      h('span', { class: 'hm-live-title' }, 'Canlı skor'),
+      h('span', { class: 'hm-live-head' },
+        h('span', { class: 'hm-live-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'hm-live-title' }, 'Canlı skor'),
+      ),
       modeNote,
     ),
     h('div', { class: 'hm-live-cells' }, dog.node, fans.node, jokes.node, notes.node),
@@ -443,7 +452,7 @@ function buildPortals(ctx, cleanups) {
     return card;
   });
   return h('section', { class: 'hm-sec', 'aria-labelledby': 'hm-portal-h' },
-    withId(head('02', 'Yetenek çubuğu', 'Nereye ışınlanıyoruz?', `Kısayollar klavyede de çalışır: ${keys}. Üsse dönmek için H.`), 'hm-portal-h'),
+    withId(head('02', 'Yetenek çubuğu', 'Nereye ışınlanıyoruz?', `Klavyede de çalışır: ${keys} · Üs için H.`), 'hm-portal-h'),
     h('div', { class: 'hm-slots' }, cards),
   );
 }

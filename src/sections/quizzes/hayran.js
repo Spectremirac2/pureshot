@@ -39,6 +39,7 @@ export function mountHayran(root, { quiz, back }) {
     const correct = results.filter((r) => r.ok).length;
     const tier = tierFor(HAYRAN_TIERS, correct);
     // Kullanıcı eylemi ("Sonuçları gör") üzerine yaz
+    const prevBest = (store.me.get().scores || {})['hayran'];
     const record = store.me.submitScore('hayran', correct);
     saveLast('hayran', { correct, total, title: tier.title });
 
@@ -65,7 +66,7 @@ export function mountHayran(root, { quiz, back }) {
             h('div', { class: 'qz-big-wrap' }, bigEl, h('span', { class: 'qz-big-unit' }, `/ ${total} doğru`)),
             h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, tier.title),
             h('p', { class: 'muted' }, tier.note),
-            record && correct > 0 ? h('span', { class: 'badge gold qz-record' }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
+            record && prevBest != null ? h('span', { class: 'badge gold qz-record' }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
           ),
           ladder,
         ),

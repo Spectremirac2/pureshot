@@ -90,7 +90,7 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
   const rnd = seeded(1109);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(col('bg'), 15, 46);
+  scene.fog = new THREE.Fog(col('bg'), 14, 40);
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 260);
   const world = new THREE.Group();
   scene.add(world);
@@ -342,7 +342,7 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
 
   let heroModel = null;
   if (hasModel('model-archer')) {
-    loadModel('model-archer', { height: 1.35 }).then((m) => {
+    loadModel('model-archer', { height: 1.8 }).then((m) => {
       if (disposed) return;
       heroModel = m || buildArcher(keep, hex);
       heroSpin.add(heroModel);
@@ -395,10 +395,10 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
       });
     } else {
       const g = glowSprite(base.clone(), 0.5, 0.85);
-      g.position.set(0, 0.82, 0);
+      g.position.set(0, 0.95, 0);
       rig.add(g);
       eyeGlows.push(g);
-      loadModel('model-dog', { height: 0.66 }).then((m) => {
+      loadModel('model-dog', { height: 0.8 }).then((m) => {
         if (disposed) return;
         if (m) rig.add(m);
         else {
@@ -422,22 +422,21 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
   const shock2 = new THREE.Mesh(shockGeo, shockMat2);
   [shock1, shock2].forEach((m) => { m.rotation.x = -Math.PI / 2; m.position.y = 0.05; m.visible = false; world.add(m); });
 
-  // ------------------------------------------------------------ uzak adacıklar
+  // ------------------------------------------------------------ uzak adacıklar (sağda ve arkada; metnin arkasına düşmez)
   const islets = [];
-  const isletMat = keep(new THREE.MeshStandardMaterial({ color: col('bg4'), roughness: 0.95, flatShading: true }));
+  const isletMat = keep(new THREE.MeshStandardMaterial({ color: col('line2'), roughness: 0.9, flatShading: true }));
   const isletGeo = keep(new THREE.DodecahedronGeometry(1, 0));
-  [[-11, 1.6, -9, 1.2], [12, -0.6, -12, 1.6], [-14, -3.2, 2, 0.9], [9.5, 3.4, -18, 1.1], [15, -3.5, 3, 0.8], [-6, 4.6, -20, 1.3], [4, -5.2, -8, 0.7]].forEach(([x, y, z, s], i) => {
+  [[10, 2.4, -19, 1.0, 'jade'], [13.5, -2.6, -5, 0.8, 'dire'], [3.5, 4.2, -26, 0.9, 'dire']].forEach(([x, y, z, s, kind], i) => {
     const g = new THREE.Group();
     const m = new THREE.Mesh(isletGeo, isletMat);
-    m.scale.set(s * 1.4, s * 0.9, s * 1.3);
-    m.position.y = -s * 0.4;
-    g.add(m);
-    if (i % 2 === 0) {
-      const c = new THREE.Mesh(shardGeo, i % 4 === 0 ? jadeMat : direMat);
-      c.scale.set(1.2 * s, 2.6 * s, 1.2 * s);
-      c.position.y = s * 0.55;
-      g.add(c);
-    }
+    m.scale.set(s * 1.5, s * 0.8, s * 1.3);
+    m.position.y = -s * 0.45;
+    const c = new THREE.Mesh(shardGeo, kind === 'jade' ? jadeMat : direMat);
+    c.scale.set(1.1 * s, 2.4 * s, 1.1 * s);
+    c.position.y = s * 0.5;
+    const glow = glowSprite(col(kind === 'jade' ? 'radiant' : 'ember'), 2.4 * s, 0.35);
+    glow.position.y = s * 0.55;
+    g.add(m, c, glow);
     g.position.set(x, y, z);
     g.rotation.y = i * 1.1;
     g.userData = { y, phase: i * 1.7 };
@@ -545,7 +544,15 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
 
     // Kahraman: sırayla DOG'lara nişan alır
     aimTimer -= dt;
-    if (aimTimer <= 0) { aimIdx = (aimIdx + 4) % dogs.length; aimTimer = 1.7; }
+    if (aimTimer <= 0) {
+      // yalnızca kameraya dönük yarıdaki DOG'lara nişan al (kahramanın yüzü görünsün)
+      const camA = Math.atan2(camera.position.x - target.x, camera.position.z - target.z);
+      for (let k = 1; k <= dogs.length; k++) {
+        const cand = (aimIdx + k * 4) % dogs.length;
+        if (Math.cos(dogAngle(dogs[cand]) - camA) > 0.25) { aimIdx = cand; break; }
+      }
+      aimTimer = 1.9;
+    }
     const aimA = dogAngle(dogs[aimIdx]) + 0.25;
     let diff = aimA - heroYaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -640,8 +647,10 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
     renderer.setSize(w, hgt, false);
     camera.aspect = w / hgt;
     const f = (getFocus && getFocus(w, hgt)) || { x: w / 2, y: hgt / 2, w, h: hgt };
-    const ppu = Math.max(8, Math.min(f.w / 10.8, f.h / 8.4));
+    const ppu = Math.max(8, Math.min(f.w / 9.2, f.h / 7.6));
     dist = Math.min(80, Math.max(9, hgt / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * ppu)));
+    scene.fog.near = dist - 3;
+    scene.fog.far = dist + 26;
     camera.setViewOffset(w, hgt, w / 2 - f.x, hgt / 2 - f.y, w, hgt);
     camera.updateProjectionMatrix();
     embers.material.uniforms.uScale.value = hgt / 2;
@@ -1069,7 +1078,12 @@ void main() {
   float tile = hash(vec2(ringIdx, floor(angN)));
   float grain = fbm(p * 2.2);
   vec3 stone = mix(uStoneDark, uStone, 0.35 + tile * 0.35 + grain * 0.35);
-  if (uHasTex > 0.5) stone = mix(stone, texture2D(uTex, p * 0.22 + 0.5).rgb, 0.7);
+  if (uHasTex > 0.5) {
+    vec3 tx = texture2D(uTex, p * 0.2 + 0.5).rgb;
+    float lum = dot(tx, vec3(0.299, 0.587, 0.114));
+    tx = mix(vec3(lum), tx, 0.45) * vec3(0.95, 0.9, 1.05);
+    stone = mix(stone, tx * 0.95, 0.5);
+  }
   stone *= 1.0 - groove * 0.55;
 
   // Takım tarafları: Radiant yosunlu, Dire kavrulmuş

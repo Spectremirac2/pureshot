@@ -206,6 +206,29 @@ function statBars(arch) {
   );
 }
 
+/** DOG indeksi + en DOG yanı / tek kurtarıcı yanı. */
+function dogSummary(arch) {
+  const bad = (k) => (GOOD_STATS.has(k) ? 100 - arch.stats[k] : arch.stats[k]);
+  const sorted = STAT_KEYS.slice().sort((a, b) => bad(b) - bad(a));
+  const worst = sorted[0];
+  const best = sorted[sorted.length - 1];
+  const di = dogIndex(arch.stats);
+  const isLegend = arch.id === 'legend';
+  return h('div', { class: 'ch-dogidx' },
+    h('div', { class: 'ch-dogidx-num' },
+      h('span', { class: 'num' }, String(di)),
+      h('span', { class: 'ch-lore-label' }, 'DOG indeksi'),
+    ),
+    h('div', { class: 'ch-dogidx-meter' },
+      h('span', { class: 'meter' }, h('span', { style: { width: di + '%' } })),
+      h('dl', { class: 'ch-dogidx-dl' },
+        h('div', null, h('dt', null, isLegend ? 'Zayıf noktası' : 'En DOG yanı'), h('dd', null, `${STAT_LABELS[worst]} · ${arch.stats[worst]}`)),
+        h('div', null, h('dt', null, isLegend ? 'Süper gücü' : 'Tek kurtarıcı yanı'), h('dd', null, `${STAT_LABELS[best]} · ${arch.stats[best]}`)),
+      ),
+    ),
+  );
+}
+
 function loreSlot(iconName, label, text) {
   return h('div', { class: 'ch-slot' },
     h('span', { class: 'ch-slot-icon', 'aria-hidden': 'true' }, icon(iconName, { size: 24 })),
@@ -294,6 +317,7 @@ export function renderDetail(el, env, arch) {
       h('div', { class: 'panel-head' }, h('h3', { class: 'h3' }, 'DOG-metre'), pawsEl(arch, { size: 14 })),
       statBars(arch),
       h('p', { class: 'xsmall dim' }, 'Feed, farm hırsı, tilt ve chat: yüksek = daha DOG. Harita ve takım oyunu: yüksek = iyi.'),
+      dogSummary(arch),
     ),
   );
 

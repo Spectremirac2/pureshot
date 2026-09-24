@@ -29,6 +29,7 @@ export const meta = {
   color: 'var(--aegis)',
   kind: 'Hedefli · Tek hedef',
   blurb: 'Creep’in son vuruşunu zamanla, altını topla, müttefik creep’i deny et.',
+  lore: 'Altın, son vuruşu yapanındır. Farm Köpeği bunu senden iyi bilir.',
   time: '60 sn',
   diff: 3,
   unit: 'altın',
@@ -89,7 +90,7 @@ export function mount(el, ctx, nav) {
     const w = Math.round(wrap.clientWidth);
     if (!w || (w === cssW && !force)) return;
     cssW = w;
-    if (!st || st.mode !== 'play') Lw = w < 600 ? 480 : 760;
+    if (!st || st.mode !== 'play') Lw = w < 600 ? 420 : 760;
     scale = cssW / Lw;
     cssH = Math.round(H * scale);
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -739,7 +740,7 @@ export function mount(el, ctx, nav) {
   }
 
   // ---------------------------------------------------------------- döngü
-  function frame(dt) {
+  function frame(dt, _t, lastStep = true) {
     if (!st) return;
     st.t += dt;
     if (st.mode === 'demo' || st.mode === 'end') {
@@ -766,7 +767,7 @@ export function mount(el, ctx, nav) {
     st.sparks = st.sparks.filter((p) => p.t < p.dur);
     for (const f of st.floats) f.t += dt;
     st.floats = st.floats.filter((f) => f.t < f.dur);
-    if (visible) draw();
+    if (visible && lastStep) draw();
   }
 
   // ---------------------------------------------------------------- giriş
@@ -845,7 +846,7 @@ export function mount(el, ctx, nav) {
 
   function start() {
     if (closeOverlay) { closeOverlay(); closeOverlay = null; }
-    Lw = cssW < 600 ? 480 : 760;
+    Lw = cssW < 600 ? 420 : 760;
     resize(true);
     st = newState('play');
     st.lastTick = 99;
@@ -897,6 +898,8 @@ export function mount(el, ctx, nav) {
 
   startDemo();
   resize(true);
+  // TMP-TEST-HOOK
+  window.__gmLH = () => ({ st, Lw, H, rect: canvas.getBoundingClientRect() });
   closeOverlay = showOverlay(L.stage, introCard(meta, { onStart: start, note: 'Arkada creep’ler çoktan dövüşüyor. Isın.' }));
 
   return () => {

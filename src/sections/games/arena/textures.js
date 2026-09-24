@@ -168,8 +168,8 @@ export function floorCanvases(S = 1024, { withStones = true } = {}) {
     g.clearRect(0, 0, S, S);
   }
 
-  // Çatlaklar (hem harita hem parıltı)
-  for (let i = 0; i < 30; i++) {
+  // Çatlaklar (hem harita hem parıltı). fal dokusu kendi çatlaklarını getirir; o zaman çizme.
+  for (let i = 0; i < (withStones ? 30 : 0); i++) {
     const a = rnd() * Math.PI * 2;
     const rr = C * (0.3 + rnd() * 0.62);
     crack(g, e, rnd, C + Math.cos(a) * rr, C + Math.sin(a) * rr, 18 + Math.floor(rnd() * 34), ember);
@@ -213,13 +213,15 @@ export function floorCanvases(S = 1024, { withStones = true } = {}) {
     g.fillStyle = 'rgba(6,4,10,0.9)';
     paw(g, C, C, C * 0.16);
   }
-  drawRingText(e, hexA(gold, 0.75), 6);
+  drawRingText(e, hexA(gold, 0.6), 5);
   ringLines(e, hexA(gold, 0.45), 2);
   e.save();
   e.shadowColor = ember;
-  e.shadowBlur = 18;
-  e.fillStyle = hexA(ember, 0.85);
-  paw(e, C, C, C * 0.15);
+  e.shadowBlur = 14;
+  e.strokeStyle = hexA(ember, 0.7);
+  e.lineWidth = S * 0.004;
+  e.fillStyle = hexA(ember, 0.22);
+  paw(e, C, C, C * 0.12);
   e.restore();
   // dış altın kakma halkası
   e.strokeStyle = hexA(gold, 0.28);

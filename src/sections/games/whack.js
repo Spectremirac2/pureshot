@@ -18,6 +18,7 @@ export const meta = {
   color: 'var(--ember)',
   kind: 'Aktif · Alan etkili',
   blurb: 'Çukurdan kafasını çıkaran her DOG’u report et. Altın parlayan 1vDOQUZ’a dokunma.',
+  lore: 'Report tuşunun bekleme süresi yoktur. Kullan.',
   time: '45 sn',
   diff: 2,
   unit: 'puan',

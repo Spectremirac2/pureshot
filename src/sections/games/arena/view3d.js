@@ -135,6 +135,7 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
       t.anisotropy = 8;
       bin.add(t);
       floorMat.map = t;
+      floorMat.color.set('#b7aec4');
       floorMat.needsUpdate = true;
     });
   }
@@ -343,8 +344,8 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
     camera.aspect = W / H;
     const t = Math.tan((FOV * Math.PI) / 360);
     const portrait = W / H < 0.9;
-    const halfW = portrait ? 6.2 : 9.5;
-    const halfH = portrait ? 11 : 7.4;
+    const halfW = portrait ? 6.2 : 9;
+    const halfH = portrait ? 11 : 6.6;
     cam.dist = Math.max(halfH / t, halfW / (t * camera.aspect));
     camera.far = cam.dist + 90;
     camera.updateProjectionMatrix();

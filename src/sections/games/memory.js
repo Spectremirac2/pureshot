@@ -16,6 +16,7 @@ export const meta = {
   color: 'var(--arcane)',
   kind: 'Pasif · Zihin',
   blurb: 'On altı kart, sekiz DOG çifti. Hangi köpek nerede saklanıyor, aklında tut.',
+  lore: 'Kim ward almadı, kim Rapier düşürdü… iyi bir kaptan hepsini hatırlar.',
   time: '~1 dk',
   diff: 1,
   unit: 'puan',

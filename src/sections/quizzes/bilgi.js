@@ -92,6 +92,7 @@ export function mountBilgi(root, { quiz, back }) {
     const tier = tierFor(BILGI_TITLES, correct);
 
     // Kullanıcı eylemi ("Sonuçları gör" tıklaması) üzerine yaz
+    const prevBest = (store.me.get().scores || {})['bilgi'];
     const record = store.me.submitScore('bilgi', score);
     saveLast('bilgi', { score, correct, title: tier.title });
 
@@ -111,7 +112,7 @@ export function mountBilgi(root, { quiz, back }) {
         h('span', null, h('small', null, 'Hız bonusu'), h('b', { class: 'num' }, `+${fmtNum(bonus)}`)),
         h('span', null, h('small', null, 'Ort. cevap'), h('b', { class: 'num' }, correct ? `${avg.toFixed(1).replace('.', ',')} sn` : '—')),
       ),
-      record ? h('span', { class: `badge ${toneClass('gold')} qz-record` }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
+      record && prevBest != null ? h('span', { class: `badge ${toneClass('gold')} qz-record` }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
       h('div', { class: 'row' }, again, h('button', { class: 'btn ghost', type: 'button', onclick: back }, icon('arrowLeft', { size: 18 }), 'Tüm quizler')),
     );
 

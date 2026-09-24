@@ -20,6 +20,31 @@ const THEMES = [
 ];
 
 const PED_TOP = 1.04;
+
+// Kalite kademeleri: yavaş cihazlarda (ve yazılım WebGL'de) adım adım düşürülür.
+const TIERS = [
+  { pr: 2, reflect: true, shadow: 1024 },
+  { pr: 1.25, reflect: false, shadow: 1024 },
+  { pr: 1, reflect: false, shadow: 512 },
+  { pr: 0.75, reflect: false, shadow: 512 },
+  { pr: 0.5, reflect: false, shadow: 256 },
+];
+
+/** Yazılım tabanlı WebGL (SwiftShader/llvmpipe) mi? Geçici bir bağlamla yoklar. */
+function isSoftwareGL() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return false;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String((ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || '');
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+    return /swiftshader|llvmpipe|software|basic render/i.test(name);
+  } catch {
+    return false;
+  }
+}
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 function tok(name, fb = '#ffffff') {
@@ -281,6 +306,7 @@ export function mountMuseum(el, ctx) {
     const th = THEMES[themeIdx];
     lightLabel.textContent = 'Işık: ' + th.label;
     lightBtn.setAttribute('aria-label', `Işıkları değiştir (şu an: ${th.label})`);
+    lightBtn.style.setProperty('--sw', `var(${th.token})`);
     stage.dataset.light = th.id;
   }
 
@@ -299,6 +325,9 @@ export function mountMuseum(el, ctx) {
   let resumeT = 0;
   let stoneTex = null;
   let io = null, ro = null;
+  const software = isSoftwareGL();
+  let tier = software ? 3 : 0;
+  const perf = { acc: 0, n: 0 };
 
   const pal = {
     ember: tok('--ember', '#ff6a2b'), ember2: tok('--ember-2', '#ff9a3d'), aegis: tok('--aegis', '#e9b949'), aegis2: tok('--aegis-2', '#f6d98a'),
@@ -311,17 +340,17 @@ export function mountMuseum(el, ctx) {
   function initGL() {
     let gl = null;
     try {
-      gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+      gl = canvas.getContext('webgl2', { antialias: !software && (window.devicePixelRatio || 1) < 2, alpha: false, powerPreference: 'high-performance' });
     } catch { gl = null; }
     if (!gl) return false;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true });
+      renderer = new THREE.WebGLRenderer({ canvas, context: gl });
     } catch (e) {
       console.warn('WebGL başlatılamadı', e);
       renderer = null;
       return false;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2, TIERS[tier].pr));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
@@ -370,7 +399,7 @@ export function mountMuseum(el, ctx) {
     spot.position.set(0.2, 7.4, 1.3);
     spot.target.position.set(0, 1.1, 0);
     spot.castShadow = true;
-    spot.shadow.mapSize.set(isMobile ? 512 : 1024, isMobile ? 512 : 1024);
+    spot.shadow.mapSize.set(TIERS[tier].shadow, TIERS[tier].shadow);
     spot.shadow.bias = -0.0004;
     spot.shadow.normalBias = 0.02;
     spot.shadow.camera.near = 2;
@@ -417,7 +446,7 @@ export function mountMuseum(el, ctx) {
 
     // Zemin: yansıma + döşeme
     const floorGeo = new THREE.CircleGeometry(16, 72);
-    if (!isMobile) {
+    if (TIERS[tier].reflect && !isMobile) {
       reflector = new Reflector(floorGeo, { textureWidth: 512, textureHeight: 512, clipBias: 0.003, color: 0x8c8c8c, multisample: 0 });
       reflector.rotation.x = -Math.PI / 2;
       scene.add(reflector);
@@ -549,7 +578,7 @@ export function mountMuseum(el, ctx) {
     }
 
     // Kor tozları
-    const N = isMobile ? 130 : 240;
+    const N = isMobile || software ? 130 : 240;
     const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
     const spd = new Float32Array(N), ph = new Float32Array(N), mix = new Float32Array(N);
     const respawn = (i, anyY) => {
@@ -598,6 +627,7 @@ export function mountMuseum(el, ctx) {
     controls.update();
 
     applyTheme(true);
+    if (import.meta.env && import.meta.env.DEV) window.__glDebug = { renderer, scene, spot, get reflector() { return reflector; }, THREE };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('keydown', onCanvasKey);
     return true;
@@ -866,11 +896,37 @@ export function mountMuseum(el, ctx) {
   function frame(now) {
     if (!running) return;
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, Math.max(0.001, (now - lastT) / 1000));
+    const raw = Math.max(0.001, (now - lastT) / 1000);
+    const dt = Math.min(0.05, raw);
     lastT = now;
     update(dt);
     controls.update(dt);
     renderer.render(scene, camera);
+    // Uyarlanır kalite: 2 sn ortalaması ~28 fps altındaysa bir kademe düşür
+    if (raw < 0.5) { perf.acc += raw; perf.n += 1; }
+    if (perf.acc > 2) {
+      if (clock > 1.5 && perf.acc / perf.n > 1 / 28 && tier < TIERS.length - 1) { tier += 1; applyTier(); }
+      perf.acc = 0;
+      perf.n = 0;
+    }
+  }
+
+  function applyTier() {
+    const T = TIERS[tier];
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2, T.pr));
+    if (!T.reflect && reflector) {
+      scene.remove(reflector);
+      reflector.dispose();
+      reflector = null;
+      floorMat.transparent = false;
+      floorMat.opacity = 1;
+      floorMat.needsUpdate = true;
+    }
+    if (spot.shadow.mapSize.x !== T.shadow) {
+      spot.shadow.mapSize.set(T.shadow, T.shadow);
+      if (spot.shadow.map) { spot.shadow.map.dispose(); spot.shadow.map = null; }
+    }
+    resize();
   }
 
   function renderOnce() {

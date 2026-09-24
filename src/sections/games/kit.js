@@ -1,7 +1,7 @@
 // Mini oyunlar için ortak iskelet: sayfa düzeni, görünürlüğe duyarlı oyun saati,
 // başlangıç/sonuç kartları, HUD istatistikleri ve jeton renk yardımcıları.
 
-import { h, clear, loop, fmtNum, clamp } from '../../core/dom.js';
+import { h, clear, fmtNum, clamp } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
 import { sound } from '../../core/sound.js';
@@ -84,20 +84,35 @@ export function createRunner(onFrame) {
   let seq = 0;
   let hidden = document.hidden;
   let alive = true;
-  const onVis = () => { hidden = document.hidden; };
+  let last = performance.now();
+  let raf = 0;
+  const onVis = () => { hidden = document.hidden; last = performance.now(); };
   document.addEventListener('visibilitychange', onVis);
-  const stop = loop((dt) => {
-    if (!alive || hidden) return;
-    time += dt;
-    if (tasks.length) {
-      const due = [];
-      tasks = tasks.filter((t) => (t.at <= time ? (due.push(t), false) : true));
-      for (const t of due) {
-        try { t.fn(); } catch (e) { console.error(e); }
+  // Gerçek zamanı izler (yavaş cihazda sayaç yavaşlamaz), uzun kesintileri 0,5 sn ile sınırlar
+  // ve simülasyonu en fazla 50 ms'lik alt adımlarla ilerletir.
+  const tick = (now) => {
+    if (!alive) return;
+    let dt = Math.min(0.5, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (!hidden) {
+      while (dt > 0 && alive) {
+        const step = Math.min(dt, 0.05);
+        dt -= step;
+        time += step;
+        if (tasks.length) {
+          const due = [];
+          tasks = tasks.filter((t) => (t.at <= time ? (due.push(t), false) : true));
+          for (const t of due) {
+            try { t.fn(); } catch (e) { console.error(e); }
+          }
+        }
+        if (alive && onFrame) onFrame(step, time, dt <= 0);
       }
     }
-    if (alive && onFrame) onFrame(dt, time);
-  });
+    if (alive) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  const stop = () => cancelAnimationFrame(raf);
   return {
     get time() { return time; },
     get hidden() { return hidden; },
@@ -124,7 +139,10 @@ export function createRunner(onFrame) {
  */
 export function gameLayout(el, meta, { nav } = {}) {
   const hud = h('div', { class: 'gm-hud', role: 'group', 'aria-label': 'Oyun durumu' });
-  const stage = h('div', { class: `gm-stage gm-stage-${meta.id}` });
+  // Sahne: oyun içeriği (stage) ve kaplamalar aynı ızgara hücresinde üst üste durur;
+  // böylece uzun başlangıç/sonuç kartı sahneyi büyütür, kesilmez.
+  const stage = h('div', { class: `gm-stage-body gm-stage-${meta.id}` });
+  const stageFrame = h('div', { class: 'gm-stage' }, stage);
   const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
   const lbHost = h('div', { class: 'gm-aside-lb' });
 
@@ -180,7 +198,7 @@ export function gameLayout(el, meta, { nav } = {}) {
         ),
       ),
       hud,
-      stage,
+      stageFrame,
       live,
     ),
     aside,
@@ -230,7 +248,7 @@ export function hudStat(label, value = '0', { cls = '', ico } = {}) {
 export function showOverlay(stage, node, { cls = '' } = {}) {
   const card = h('div', { class: 'gm-overlay-card panel raised frame' }, node);
   const ov = h('div', { class: `gm-overlay ${cls}` }, card);
-  stage.appendChild(ov);
+  (stage.closest('.gm-stage') || stage).appendChild(ov);
   const btn = ov.querySelector('[data-primary]') || ov.querySelector('button');
   if (btn) {
     try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
@@ -243,6 +261,7 @@ export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
   const start = h('button', { class: 'btn primary lg', type: 'button', 'data-primary': '' }, icon('play', { size: 18 }), startLabel);
   start.addEventListener('click', () => { sound.click(); onStart(); });
   const best = (store.me.get().scores || {})[meta.id];
+  const has = typeof best === 'number';
   return h('div', { class: 'gm-intro stack' },
     h('div', { class: 'row gm-intro-top' },
       h('span', { class: 'gm-slot', 'aria-hidden': 'true' }, icon(meta.icon, { size: 24 })),
@@ -255,7 +274,7 @@ export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
     note ? h('p', { class: 'xsmall dim' }, note) : null,
     h('div', { class: 'row gm-intro-foot' },
       start,
-      h('span', { class: 'small muted' }, 'En iyin: ', h('strong', { class: 'gold num' }, typeof best === 'number' ? meta.format(best) : 'henüz yok')),
+      h('span', { class: 'small muted' }, 'En iyin: ', h('strong', { class: has ? 'gold num' : 'gold' }, has ? meta.format(best) : 'henüz yok')),
     ),
   );
 }
