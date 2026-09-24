@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { loadModel } from '../../../core/models.js';
 import { artUrl } from '../../../core/assets.js';
-import { ARENA_R, PLAY_R, GATE_ANGLES, ABIL } from './game.js';
+import { ARENA_R, PLAY_R, GATE_ANGLES } from './game.js';
 import { TYPE_IDS, archOf } from './dogs.js';
 import * as TX from './textures.js';
 import { Particles, Rings, ambientEmbers } from './fx3d.js';
@@ -68,8 +68,24 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
   const [dogModel, archerModel, aegisModel] = await Promise.all([
     safe(loadModel('model-dog', { height: 0.9 })),
     safe(loadModel('model-archer', { height: 1.6 })),
-    safe(loadModel('model-aegis', { height: 1.7 })),
+    safe(loadModel('model-aegis', { height: 2.3 })),
   ]);
+
+  // Model önbelleğine (core/models.js) ait kaynaklar başka bölümlerce de kullanılır: dispose etme, değiştirme.
+  const MAP_KEYS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
+  const shared = new Set();
+  for (const m of [dogModel, archerModel, aegisModel]) {
+    if (!m) continue;
+    m.traverse((o) => {
+      if (o.geometry) shared.add(o.geometry);
+      if (o.material) {
+        for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
+          shared.add(mat);
+          for (const k of MAP_KEYS) if (mat[k]) shared.add(mat[k]);
+        }
+      }
+    });
+  }
 
   const G = makeGeoms(bin);
   const kit = {
@@ -107,11 +123,11 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
   }
   const heroLight = new THREE.PointLight(new THREE.Color('#ffe2bf'), mobile ? 0 : 7, 7, 2);
   if (!mobile) scene.add(heroLight);
-  const flashLight = new THREE.PointLight(col.ember, 0, 18, 1.6);
-  scene.add(flashLight);
-  const aegisLight = new THREE.PointLight(col.gold, 0, 9, 1.8);
-  aegisLight.position.set(0, 2.2, 0);
-  scene.add(aegisLight);
+  // Tek efekt ışığı: ult parlaması öncelikli, yoksa sahadaki Aegis'i aydınlatır (ışık sayısı sabit kalsın).
+  const fxLight = new THREE.PointLight(col.ember, 0, 18, 1.6);
+  scene.add(fxLight);
+  let flash = 0;
+  const flashPos = new THREE.Vector3();
 
   // ---------------------------------------------------------------- arena
   const floorTexKey = artUrl('texture-arena');
@@ -450,8 +466,8 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
             parts.spawn({ x: d.x + Math.sin(a) * 0.6, z: d.z + Math.cos(a) * 0.6, y: 0.2, vx: Math.sin(a) * 11, vz: Math.cos(a) * 11, vy: 1.5, drag: 2.5, life: 0.7, size: 0.45, size1: 0.1, color: i % 2 ? col.ember : col.gold });
           }
         }
-        flashLight.position.set(d.x, 2.5, d.z);
-        flashLight.intensity = 90;
+        flashPos.set(d.x, 2.5, d.z);
+        flash = 90;
         shake(0.75);
         break;
       }
@@ -561,10 +577,10 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
       f.fg.material.opacity = 0.5;
     }
     floorMat.emissiveIntensity = 0.85 + 0.2 * Math.sin(time * 1.3);
-    if (flashLight.intensity > 0) flashLight.intensity = Math.max(0, flashLight.intensity - dt * 160);
+    if (flash > 0) flash = Math.max(0, flash - dt * 160);
 
     // oyuncu
-    archer.update(p, time, dt, g.state === 'idle' || g.state === 'over' ? 'hidden' : 'shown');
+    archer.update(p, time, dt, g.state === 'over' ? 'hidden' : 'shown');
     heroLight.position.set(p.x, 2.6, p.z + 0.8);
     const showHero = playing;
     playerRing.visible = showHero && !p.dead;
@@ -713,8 +729,18 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
         aegisObj.glowMat.opacity = 0.45 + 0.2 * Math.sin(time * 3);
         aegisObj.beamMat.opacity = 0.3 * e;
       }
-      aegisLight.intensity = aegisOnField ? 14 : 0;
     }
+    if (flash > 12) {
+      fxLight.position.copy(flashPos);
+      fxLight.color.copy(col.ember);
+      fxLight.intensity = flash;
+      fxLight.distance = 18;
+    } else if (aegisOnField) {
+      fxLight.position.set(0, 2.2, 0);
+      fxLight.color.copy(col.gold);
+      fxLight.intensity = 14;
+      fxLight.distance = 9;
+    } else fxLight.intensity = 0;
 
     // efektler
     rings.update(simDt);
@@ -728,18 +754,23 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
     disposed = true;
     parts.dispose();
     rings.dispose();
-    scene.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
+    const disposeTree = (root) => root.traverse((o) => {
+      if (o.geometry && !shared.has(o.geometry)) o.geometry.dispose();
       if (o.material) {
-        const ms = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of ms) {
-          for (const k of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap']) if (m[k]) m[k].dispose();
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (shared.has(m)) continue;
+          for (const k of MAP_KEYS) if (m[k] && !shared.has(m[k])) m[k].dispose();
           m.dispose();
         }
       }
     });
+    disposeTree(scene);
     // havuzdaki (sahnede olmayan) nesneler
-    for (const rig of rigFree) rig.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    for (const rig of rigFree) { disposeTree(rig.root); disposeTree(rig.labelGroup); }
+    for (const m of arrowFree) disposeTree(m.root);
+    for (const r of rapierFree) disposeTree(r.root);
+    for (const b of bubbleFree) disposeTree(b);
+    for (const t of [...shared]) bin.items.delete(t);
     bin.dispose();
     try { renderer.renderLists.dispose(); } catch { /* yok say */ }
     renderer.dispose();
@@ -747,7 +778,19 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
     canvas.remove();
   }
 
-  return { kind: '3d', canvas, resize, render, project, groundAt, event, shake, dispose, modelInfo: { dog: !!dogModel, archer: !!archerModel, aegis: !!aegisModel } };
+  // Uyarlanabilir kalite: kare hızı düşükse piksel oranını kademeli azalt.
+  const baseDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
+  let dprLevel = 0;
+  function lowerQuality() {
+    const steps = [baseDpr, Math.min(baseDpr, 1.25), 1];
+    if (dprLevel >= steps.length - 1) return false;
+    dprLevel += 1;
+    if (steps[dprLevel] >= renderer.getPixelRatio()) return lowerQuality();
+    renderer.setPixelRatio(steps[dprLevel]);
+    resize(W, H);
+    return true;
+  }
+
+  return { kind: '3d', canvas, resize, render, project, groundAt, event, shake, dispose, lowerQuality, modelInfo: { dog: !!dogModel, archer: !!archerModel, aegis: !!aegisModel } };
 }
 
-export { ABIL };

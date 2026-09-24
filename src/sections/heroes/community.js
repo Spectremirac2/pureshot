@@ -60,9 +60,11 @@ export function createCommunity(store) {
     fansCount = n;
   }
 
+  let lastSig = null;
   function recompute() {
     const picks = (store.me.get() && store.me.get().picks) || {};
     const next = new Map();
+    const sig = [];
     for (const hero of HEROES) {
       const o = others.get(hero.id);
       const myVote = picks[voteKey(hero.id)] || null;
@@ -80,6 +82,7 @@ export function createCommunity(store) {
         tlSum += tlCounts[t] * TIER_SCORE[t];
       }
       const tlAvg = tlN ? tlSum / tlN : 0;
+      if (total || tlN) sig.push(`${hero.id}:${dog},${not},${myVote || ''},${myTier || ''},${TIER_IDS.map((t) => tlCounts[t]).join('.')}`);
       next.set(hero.id, {
         id: hero.id,
         bias: hero.dogRate,
@@ -99,6 +102,9 @@ export function createCommunity(store) {
       });
     }
     stats = next;
+    const sigStr = sig.join('|');
+    if (sigStr === lastSig) return; // oy/tier değişmedi: dinleyicileri boşuna uyandırma
+    lastSig = sigStr;
     for (const cb of listeners) {
       try { cb(api); } catch (e) { console.error(e); }
     }

@@ -37,7 +37,7 @@ function shapeEl(attr, scale, cls) {
   return def.tag === 'path' ? h('path', { d: def.d, class: cls }) : h('polygon', { points: def.points, class: cls });
 }
 
-const abbrSize = (abbr, attr) => (abbr.length <= 2 ? 23 : abbr.length === 3 ? 18 : 14.5) * (attr === 'agi' ? 0.88 : 1);
+const abbrSize = (abbr, attr) => (abbr.length <= 2 ? 23 : abbr.length === 3 ? 18 : 13) * (attr === 'agi' ? 0.88 : 1);
 
 /**
  * SVG arma. value: 0–100 DOG% (halka). ring=false ise halka çizilmez.

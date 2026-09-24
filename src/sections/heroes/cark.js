@@ -94,17 +94,24 @@ export function mountCark(host, env) {
       g.rotate(mid);
       g.textAlign = 'right';
       g.textBaseline = 'middle';
-      const name = hero.name.length > 14 ? hero.abbr : hero.name;
-      g.font = `800 ${Math.round(s * 0.036)}px Unbounded, "Arial Black", sans-serif`;
+      const name = hero.name.toUpperCase();
+      const room = R * 0.6;
+      let fs = s * 0.034;
+      g.font = `800 ${fs.toFixed(1)}px Unbounded, "Arial Black", sans-serif`;
+      const wText = g.measureText(name).width;
+      if (wText > room) {
+        fs = Math.max(s * 0.022, fs * (room / wText));
+        g.font = `800 ${fs.toFixed(1)}px Unbounded, "Arial Black", sans-serif`;
+      }
       g.fillStyle = '#fff3dc';
       g.shadowColor = 'rgba(0,0,0,0.7)';
       g.shadowBlur = 4;
-      g.fillText(name.toLocaleUpperCase('tr-TR'), R - 14, 0, R * 0.62);
+      g.fillText(name, R - 12, 0, room);
       g.shadowBlur = 0;
-      g.font = `700 ${Math.round(s * 0.028)}px "JetBrains Mono", monospace`;
+      g.font = `700 ${Math.round(s * 0.026)}px "JetBrains Mono", monospace`;
       g.fillStyle = '#ffb27a';
       g.textAlign = 'left';
-      g.fillText(`%${comm.get(hero.id).liveRound}`, R * 0.2, 0);
+      g.fillText(`%${comm.get(hero.id).liveRound}`, R * 0.235, 0);
       g.restore();
     }
     // göbek

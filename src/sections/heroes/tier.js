@@ -279,16 +279,27 @@ export function mountTier(host, env) {
     clear(info);
     if (mode !== 'kendi') return;
     if (!selected) {
-      info.appendChild(h('span', { class: 'small dim' }, 'Bir kahraman seç ya da sürükle.'));
+      info.appendChild(h('span', { class: 'small dim' }, 'Bir kahraman seç (ya da masaüstünde sürükle); sonra sütuna ya da buradaki S–D düğmelerine dokun.'));
       return;
     }
     const s = comm.get(selected);
     const hero = HEROES.find((x) => x.id === selected);
+    const quick = h('div', { class: 'hr-quick', role: 'group', 'aria-label': `${hero.name} için tier seç` },
+      [...DOG_TIERS.map((t) => t.id), 'pool'].map((z) => h('button', {
+        class: `hr-quick-btn${z !== 'pool' ? ' hr-t-' + z : ''}`,
+        type: 'button',
+        'aria-pressed': String((s.myTier || 'pool') === z),
+        title: z === 'pool' ? 'Havuza geri koy' : `${z} kademesine koy`,
+        onclick: () => place(hero.id, z === 'pool' ? null : z),
+      }, z === 'pool' ? icon('refresh', { size: 16 }) : z)),
+    );
     info.append(
-      crestSvg(hero, { value: s.live, cls: 'hr-crest-sm' }),
-      h('span', { class: 'small' }, h('strong', null, hero.name), ` · senin: ${s.myTier || '—'} · topluluk ort.: ${s.tlAvgTier || '—'}${s.tlN ? ` (${s.tlN})` : ''} · endeks: ${s.tier.id} (%${s.liveRound})`),
+      h('span', { class: 'hr-tier-info-who' },
+        crestSvg(hero, { value: s.live, cls: 'hr-crest-sm' }),
+        h('span', { class: 'small' }, h('strong', null, hero.name), h('span', { class: 'hr-tier-info-meta' }, ` · senin: ${s.myTier || '—'} · topluluk ort.: ${s.tlAvgTier || '—'}${s.tlN ? ` (${s.tlN})` : ''} · endeks: ${s.tier.id} (%${s.liveRound})`)),
+      ),
       h('span', { class: 'spacer' }),
-      h('span', { class: 'xsmall dim hr-tier-info-hint' }, 'Şimdi bir sütuna dokun'),
+      quick,
       h('button', { class: 'btn ghost sm', type: 'button', onclick: () => env.openHero(hero.id) }, 'Dosya'),
     );
   }

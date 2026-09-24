@@ -160,15 +160,14 @@
 .ar-float {
   position: absolute; left: 0; top: 0;
   transform: translate(-50%, -50%);
+  will-change: transform, opacity;
   font-family: var(--font-display); font-weight: 900;
   font-size: 15px;
   color: var(--text);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.75), 0 0 10px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
   opacity: 0;
-  --dx: 0px;
 }
-.ar-float.on { animation: ar-float 0.95s var(--ease-out) forwards; }
 .ar-float.big { font-size: 22px; color: var(--ember-2); }
 .ar-float.gold { color: var(--aegis-2); }
 .ar-float.hurt { color: var(--dire); }
@@ -176,11 +175,6 @@
 .ar-float.mana { color: var(--arcane); }
 .ar-float.ember { color: var(--ember-2); }
 .ar-float.arcane { color: var(--arcane); font-size: 18px; }
-@keyframes ar-float {
-  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
-  15% { opacity: 1; transform: translate(-50%, -90%) scale(1.12); }
-  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -280%) scale(1); }
-}
 
 /* ekran dışı DOG okları */
 .ar-edges { position: absolute; inset: 0; }
@@ -444,7 +438,6 @@
   position: absolute; inset: 0;
   display: flex;
   overflow: auto;
-  overscroll-behavior: contain;
   padding: 18px;
   pointer-events: auto;
   touch-action: pan-y;

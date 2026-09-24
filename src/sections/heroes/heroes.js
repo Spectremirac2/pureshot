@@ -62,7 +62,6 @@ function createApp(el, ctx) {
       const a = h('a', {
         class: 'tab hr-tab',
         href: t.id === 'duvar' ? '#kahramanlar' : `#kahramanlar--${t.id}`,
-        'aria-selected': 'false',
       }, icon(t.icon, { size: 16 }), h('span', { class: 'hr-tab-long' }, t.label), h('span', { class: 'hr-tab-short' }, t.short));
       a.addEventListener('click', () => ctx.sound.click());
       tabLinks.set(t.id, a);
@@ -128,7 +127,6 @@ function createApp(el, ctx) {
 
     for (const [id, a] of tabLinks) {
       const on = id === r.kind;
-      a.setAttribute('aria-selected', String(on));
       if (on) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     }
@@ -178,7 +176,6 @@ function createApp(el, ctx) {
       if (wall) { try { wall.destroy(); } catch (e) { console.error(e); } }
       for (const c of cleanups) { try { c(); } catch (e) { console.error(e); } }
       comm.destroy();
-      ctx.hotkeys(true);
       root.remove();
     },
   };

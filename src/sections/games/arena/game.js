@@ -54,7 +54,6 @@ export function createGame(emit) {
     tangosStolen: 0,
     player: null,
     cds: { q: 0, w: 0, e: 0, r: 0 },
-    aimAuto: false,
     emit: (type, data) => emit(type, data || {}),
   };
 

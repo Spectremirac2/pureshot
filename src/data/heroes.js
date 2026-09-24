@@ -22,7 +22,7 @@
 //   defense       "Savunma avukatı": oyuncuyu savunan karşı görüş
 //   tags          kısa etiketler
 //
-// Bu dosya scratchpad'deki üreteçle (flavor + roster) oluşturuldu; elle düzenlemek serbesttir.
+// Bu dosya resmi liste + içerik birleştirilerek üretildi; elle düzenlemek serbesttir (id'ler roster key'leriyle aynı kalmalı).
 
 export const ATTRS = {
   str: { id: 'str', label: 'Güç', short: 'GÜÇ', color: '#e0354b' },

@@ -129,19 +129,29 @@ export function mountWall(host, env) {
     return b;
   });
   function syncChips() {
+    const n = (state.attr !== 'all' ? 1 : 0) + state.roles.size + (state.attack !== 'all' ? 1 : 0);
+    activeCount.hidden = !n;
+    activeCount.textContent = `${n} seçili`;
     attrChips.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.attr)));
     roleChips.forEach((b) => b.setAttribute('aria-pressed', String(state.roles.has(b.dataset.v))));
     attackChips.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.attack)));
   }
 
+  const activeCount = h('span', { class: 'badge ember hr-more-count', hidden: true });
+  const moreBox = h('details', { class: 'hr-more', open: !matchMedia('(max-width: 720px)').matches },
+    h('summary', { class: 'hr-more-sum' }, icon('target', { size: 16 }), 'Özellik, rol ve saldırı', activeCount, h('span', { class: 'hr-more-chev', 'aria-hidden': 'true' }, icon('arrowRight', { size: 16 }))),
+    h('div', { class: 'hr-more-body' },
+      h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Özellik' }, h('span', { class: 'hr-chip-label' }, 'Özellik'), attrChips),
+      h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Rol' }, h('span', { class: 'hr-chip-label' }, 'Rol'), roleChips),
+      h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Saldırı' }, h('span', { class: 'hr-chip-label' }, 'Saldırı'), attackChips),
+    ),
+  );
   const filters = h('section', { class: 'hr-filters panel tight', 'aria-label': 'Filtreler' },
     h('div', { class: 'hr-filter-top' },
       h('div', { class: 'field hr-search' }, h('label', { for: 'hr-search' }, 'Ara'), search),
       h('div', { class: 'field hr-sort' }, h('label', { for: 'hr-sort' }, 'Sırala'), sortSel),
     ),
-    h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Özellik' }, h('span', { class: 'hr-chip-label' }, 'Özellik'), attrChips),
-    h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Rol' }, h('span', { class: 'hr-chip-label' }, 'Rol'), roleChips),
-    h('div', { class: 'hr-chip-row', role: 'group', 'aria-label': 'Saldırı' }, h('span', { class: 'hr-chip-label' }, 'Saldırı'), attackChips),
+    moreBox,
     h('div', { class: 'row hr-filter-foot' }, countEl, h('span', { class: 'spacer' }), resetBtn),
   );
 
@@ -186,7 +196,7 @@ export function mountWall(host, env) {
     const tierB = h('span', { class: 'hr-tier-badge' });
     const bar = h('span', { class: 'hr-card-bar-fill' });
     const short = hero.prejudice.replace(/^Topluluk der ki:\s*/, '');
-    const card = h('a', { class: `hr-card hr-a-${hero.attr}`, href: `#kahramanlar--${hero.id}`, 'aria-label': `${hero.name} dosyası` },
+    const card = h('a', { class: `hr-card hr-a-${hero.attr}`, href: `#kahramanlar--${hero.id}` },
       h('span', { class: 'hr-card-top' },
         crest,
         h('span', { class: 'hr-card-score' }, pct, pctLabel),

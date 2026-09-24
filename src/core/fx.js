@@ -18,11 +18,17 @@ function host() {
   return toastHost;
 }
 
+/** Efektlerin ekleneceği kap: tam ekrandaysa tam ekran öğesi, değilse body. */
+function fxHost() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.body;
+}
+
 function canvas() {
+  if (fxCanvas && fxCanvas.parentElement !== fxHost()) fxHost().appendChild(fxCanvas);
   if (!fxCanvas) {
     fxCanvas = h('canvas', { class: 'fx-canvas', 'aria-hidden': 'true' });
     Object.assign(fxCanvas.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '80' });
-    document.body.appendChild(fxCanvas);
+    fxHost().appendChild(fxCanvas);
     fxCtx = fxCanvas.getContext('2d');
     const resize = () => {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -140,7 +146,7 @@ export const fx = {
   /** Ekran ortasında büyük meme damgası: "DOG DOG DOG" */
   stamp(text = 'DOG DOG DOG', { variant = '', ms = 1100 } = {}) {
     const el = h('div', { class: 'stamp-overlay', 'aria-hidden': 'true' }, h('span', { class: `stamp ${variant}` }, text));
-    document.body.appendChild(el);
+    fxHost().appendChild(el);
     sound.stamp();
     setTimeout(() => el.remove(), ms);
   },

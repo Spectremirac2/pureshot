@@ -52,6 +52,18 @@ const SCHEMES = {
   },
 };
 
+function webglOk() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isTyping(t) {
   return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable));
 }
@@ -367,13 +379,22 @@ export function mountArena(el, ctx = {}) {
     if (p.behind || p.x < -40 || p.y < -40 || p.x > stageW + 40 || p.y > stageH + 40) return;
     const s = floatPool[floatI];
     floatI = (floatI + 1) % floatPool.length;
-    s.className = 'ar-float';
+    s.className = `ar-float ${cls}`;
     s.textContent = text;
     s.style.left = `${p.x}px`;
     s.style.top = `${p.y}px`;
-    s.style.setProperty('--dx', `${(Math.random() - 0.5) * 30}px`);
-    void s.offsetWidth;
-    s.className = `ar-float on ${cls}`;
+    const dx = (Math.random() - 0.5) * 30;
+    if (s._anim) s._anim.cancel();
+    if (reduced || !s.animate) {
+      s.style.opacity = '1';
+      s._t = later(() => { s.style.opacity = '0'; }, 700);
+      return;
+    }
+    s._anim = s.animate([
+      { opacity: 0, transform: 'translate(-50%, -30%) scale(0.6)' },
+      { opacity: 1, transform: 'translate(-50%, -90%) scale(1.12)', offset: 0.15 },
+      { opacity: 0, transform: `translate(calc(-50% + ${dx}px), -280%) scale(1)` },
+    ], { duration: 950, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' });
   }
 
   let bannerT = 0;
@@ -560,7 +581,7 @@ export function mountArena(el, ctx = {}) {
         gameOver(d.report);
         break;
       case 'reset':
-        for (const s of floatPool) s.className = 'ar-float';
+        for (const s of floatPool) { if (s._anim) s._anim.cancel(); s.style.opacity = '0'; }
         break;
       default:
         break;
@@ -760,6 +781,8 @@ export function mountArena(el, ctx = {}) {
     if (isTyping(e.target)) return;
     if (document.querySelector('.modal-backdrop')) return;
     const code = e.code;
+    const tgt = e.target;
+    if ((code === 'Space' || code === 'Enter') && tgt && tgt.tagName === 'BUTTON') return;
     if (mode === 'playing') {
       if (code === 'Escape' || code === 'KeyP') {
         e.preventDefault();
@@ -954,14 +977,27 @@ export function mountArena(el, ctx = {}) {
         if (e.detail === 0 && mode === 'playing') { game.chargeStart(); game.chargeRelease(); }
       });
     } else {
-      on(s.btn, 'click', (e) => {
-        if (mode !== 'playing') return;
-        e.preventDefault();
+      const cast = () => {
         if (s.key === 'w') game.castW();
         if (s.key === 'e') game.castE();
         if (s.key === 'r') game.castR();
-        if (e.detail !== 0) focusStage();
-      });
+      };
+      if (isTouch) {
+        on(s.btn, 'pointerdown', (e) => {
+          if (mode !== 'playing') return;
+          e.preventDefault();
+          if (!touchMode) setTouchMode(true);
+          cast();
+        });
+        on(s.btn, 'click', (e) => { if (e.detail === 0 && mode === 'playing') cast(); });
+      } else {
+        on(s.btn, 'click', (e) => {
+          if (mode !== 'playing') return;
+          e.preventDefault();
+          cast();
+          if (e.detail !== 0) focusStage();
+        });
+      }
     }
   }
   for (const s of Object.values(slots)) bindSlot(s, false);
@@ -1006,6 +1042,9 @@ export function mountArena(el, ctx = {}) {
     const m = lastStyle.get(k) || {};
     if (m[name] !== v) { m[name] = v; lastStyle.set(k, m); node.style.setProperty(name, v); }
   };
+  const setAttr = (node, name, v) => {
+    if (node.getAttribute(name) !== v) node.setAttribute(name, v);
+  };
   const setCls = (node, cls, v) => {
     if (node.classList.contains(cls) !== !!v) node.classList.toggle(cls, !!v);
   };
@@ -1041,10 +1080,10 @@ export function mountArena(el, ctx = {}) {
     setText(hpText, `${Math.ceil(p.hp)} / ${p.maxHp}`);
     setVar(mpBar, '--f', (p.mana / p.maxMana).toFixed(3));
     setText(mpText, `${Math.floor(p.mana)} / ${p.maxMana}`);
-    hpBar.setAttribute('aria-valuenow', String(Math.ceil(p.hp)));
-    hpBar.setAttribute('aria-valuemax', String(p.maxHp));
-    mpBar.setAttribute('aria-valuenow', String(Math.floor(p.mana)));
-    mpBar.setAttribute('aria-valuemax', String(p.maxMana));
+    setAttr(hpBar, 'aria-valuenow', String(Math.ceil(p.hp)));
+    setAttr(hpBar, 'aria-valuemax', String(p.maxHp));
+    setAttr(mpBar, 'aria-valuenow', String(Math.floor(p.mana)));
+    setAttr(mpBar, 'aria-valuemax', String(p.maxMana));
     setCls(vignette, 'low', mode === 'playing' && hpF < 0.28 && !p.dead);
     const cds = g.cds;
     const st = {
@@ -1151,9 +1190,25 @@ export function mountArena(el, ctx = {}) {
   let lastRender = 0;
   let stopLoop = null;
 
+  // kare hızı izleme (uyarlanabilir kalite)
+  let perfAcc = 0;
+  let perfN = 0;
+  function watchPerf(dt) {
+    if (!view.lowerQuality || mode !== 'playing') return;
+    perfAcc += dt;
+    perfN += 1;
+    if (perfN >= 120) {
+      const fps = perfN / perfAcc;
+      perfAcc = 0;
+      perfN = 0;
+      if (fps < 42) view.lowerQuality();
+    }
+  }
+
   function frameTick(dt) {
     if (!alive || !view) return;
     if (!stageVisible || document.hidden) return;
+    watchPerf(dt);
     let simDt = 0;
     if (mode === 'playing' || mode === 'start' || mode === 'over') {
       const input = mode === 'playing' ? readInput() : { mx: 0, mz: 0, aimX: null, aimZ: null, auto: true };
@@ -1206,6 +1261,7 @@ export function mountArena(el, ctx = {}) {
     showScreen('start');
     let v = null;
     try {
+      if (!webglOk()) throw new Error('WebGL desteklenmiyor');
       const { createView3D } = await import('./view3d.js');
       if (!alive) return;
       v = await createView3D({ mobile: mobileGfx, reduced });
