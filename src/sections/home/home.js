@@ -1,8 +1,585 @@
-// GEÇİCİ TASLAK — bu bölüm paralel yapım aşamasında doldurulacak.
-import { h } from '../../core/dom.js';
+// Ana sayfa (#ana): sitenin tezi. Kahraman alanı + "1 vs 9" 3D diorama, canlı skor şeridi,
+// meme sözlüğü, yetenek çubuğu portalları, günün esprisi, DOG Arşivi vitrini ve ziyaretçi defteri.
+
+import './home.css';
+import { h, clear, fmtNum, hashStr, seeded, prefersReducedMotion } from '../../core/dom.js';
+import { icon } from '../../core/icons.js';
+import { ROUTES } from '../../core/routes.js';
+import { store, agg } from '../../core/store.js';
+import { pressDog } from '../../core/shell.js';
+import { artUrl } from '../../core/assets.js';
+import { ARCHETYPES } from '../../data/archetypes.js';
+import * as jokeData from '../../data/jokes.js';
+import { mountComments } from '../../components/comments.js';
+import { portraitEl } from '../../components/portrait.js';
+import { attachTilt } from '../../components/tilt.js';
+
+const KICK_URL = 'https://kick.com/cureshotkick';
+
+// Espri arşivi boşken kullanılan küçük hayran yapımı yedek liste.
+const FALLBACK_JOKES = [
+  { id: 'hm-1', cat: 'kurye', text: 'Kurye kayboldu. Arama kurtarma ekibi yollandı, onlar da feed’ledi. Teşhis net: DOG DOG DOG.' },
+  { id: 'hm-2', cat: 'destek', text: 'Support’a “ward al” dedik, Midas’la döndü. Harita hâlâ karanlık, Midas ise pırıl pırıl.' },
+  { id: 'hm-3', cat: 'maraton', text: 'Normal insan için 24 saat bir gün eder. Bu yayında ise ısınma turu.' },
+  { id: 'hm-4', cat: '1vdoquz', text: '1vDOQUZ aslında 1v10’dur. Kuryeyi hiç saymadık.' },
+  { id: 'hm-5', cat: 'mid', text: '“Mid or feed” dedi. Sözünü tuttu: ikisini birden yaptı.' },
+  { id: 'hm-6', cat: 'roshan', text: 'Aegis’i 9. dakikada aldı, 10. dakikada çeşmede bekliyordu. Aegis bile şaşırdı.' },
+];
+
+// Portal açıklamaları (bölüm kimliğine göre)
+const PORTAL_TEXT = {
+  espriler: 'Hayran yapımı DOG esprileri: oku, DOG’la, kendininkini duvara as.',
+  oyunlar: 'Kısa, hızlı ve bolca tilt ettiren tarayıcı oyunları. Skor tablosu dahil.',
+  quizler: 'Hangi DOG’sun? Dota bilgin kaç MMR? Birkaç soruda öğren.',
+  arena: 'Dört takım arkadaşı ve beş rakip: dokuz DOG sana doğru geliyor. Elinde tek bir yay var.',
+  karakterler: 'DOG Arşivi: pub maçlarının yaban hayatı için saha rehberi ve analizler.',
+  'soru-cevap': 'Topluluğa sor, cevapla, en iyi cevabı işaretle. Build tartışması serbest.',
+  galeri: 'fal.ai ile üretilmiş görseller ve döndürüp inceleyebileceğin 3D DOG müzesi.',
+  kahramanlar: 'Dota kahramanlarının hayran yapımı DOG endeksi: pick’ten önce bir bak, sonra “ben demiştim” de.',
+};
 
 export default {
-  mount(el) {
-    el.appendChild(h('div', { class: 'wrap view-inner' }, h('p', { class: 'muted' }, 'Yapım aşamasında.')));
+  mount(el, ctx) {
+    const reduced = prefersReducedMotion();
+    const cleanups = [];
+    const root = h('div', { class: 'hm' });
+
+    const hero = buildHero(ctx, cleanups, reduced);
+    const body = h('div', { class: 'wrap hm-body' },
+      buildLive(cleanups, reduced),
+      buildDictionary(),
+      buildPortals(ctx, cleanups),
+      buildJoke(ctx, cleanups),
+      buildArchive(ctx),
+      buildGuestbook(cleanups),
+    );
+    root.append(hero.el, body);
+    el.appendChild(root);
+    hero.start();
+
+    return () => {
+      for (const fn of cleanups) {
+        try { fn(); } catch (e) { console.error(e); }
+      }
+      root.remove();
+    };
   },
 };
+
+// ====================================================================== Kahraman alanı
+function buildHero(ctx, cleanups, reduced) {
+  const keyart = artUrl('hero-keyart');
+  const stage = h('div', { class: 'hm-stage', 'aria-hidden': 'true' });
+  const lines = ['DOG', 'DOG', 'DOG'].map((t, i) => h('span', { class: `hm-line hm-l${i + 1}`, style: { '--i': i }, 'aria-hidden': 'true' },
+    h('span', { class: 'hm-ghost' }, t),
+    h('span', { class: `stamp${i === 1 ? ' gold' : ''}` }, t),
+  ));
+  const title = h('h1', { class: 'display hm-title' }, h('span', { class: 'sr-only' }, 'DOG DOG DOG'), lines);
+
+  let scene = null;
+  let destroyed = false;
+
+  const dogBtn = h('button', { class: 'btn primary lg hm-dogbtn', type: 'button' }, icon('paw', { size: 22, stroke: 2 }), 'DOG’la!');
+  dogBtn.addEventListener('click', () => {
+    pressDog(dogBtn);
+    ctx.fx.stamp('DOG DOG DOG');
+    if (scene) scene.react();
+    if (!reduced) {
+      title.classList.remove('is-hit');
+      void title.offsetWidth;
+      title.classList.add('is-hit');
+    }
+  });
+  const arenaBtn = h('button', { class: 'btn ghost lg hm-arenabtn', type: 'button' },
+    icon('bow', { size: 20 }), '1vDOQUZ Arenasına Gir', h('span', { class: 'kbd', 'aria-hidden': 'true' }, 'R'));
+  arenaBtn.addEventListener('click', () => { ctx.sound.click(); ctx.go('oyunlar', 'arena'); });
+
+  const copy = h('div', { class: 'hm-copy' },
+    h('p', { class: 'eyebrow hm-eyebrow' }, h('span', { class: 'hm-eyebrow-dot', 'aria-hidden': 'true' }), 'CureShotKick hayran üssü · Dota 2'),
+    title,
+    h('p', { class: 'lead hm-lead' },
+      'En kısa yayını ', h('strong', null, '24 saat'), ' süren adamın hayran üssü. Takım feed’liyorsa, rakip trollüyorsa, kurye kaybolduysa: tek kelime yeter.'),
+    h('div', { class: 'hm-cta' }, dogBtn, arenaBtn),
+    h('a', { class: 'hm-kick', href: KICK_URL, target: '_blank', rel: 'noopener noreferrer' },
+      h('span', { class: 'hm-kick-ico', 'aria-hidden': 'true' }, icon('kick', { size: 14, stroke: 2 })),
+      'Kick’te izle', h('span', { class: 'hm-kick-url' }, 'kick.com/cureshotkick'), icon('arrowRight', { size: 14 })),
+  );
+
+  const caption = h('div', { class: 'hm-caption', 'aria-hidden': 'true' },
+    h('span', { class: 'hm-cap-row' }, h('b', { class: 'hm-cap-one' }, '1'), h('i', null, 'vs'), h('b', { class: 'hm-cap-nine' }, '9')),
+    h('span', { class: 'hm-cap-sub' }, 'Canlı diorama · DOG’lara tıkla'),
+  );
+
+  const el = h('section', { class: 'hm-hero', 'aria-label': 'Karşılama' },
+    h('div', { class: 'hm-sky', 'aria-hidden': 'true' }),
+    keyart ? h('img', { class: 'hm-art', src: keyart, alt: '', 'aria-hidden': 'true', decoding: 'async' }) : null,
+    stage,
+    h('div', { class: 'hm-scrim', 'aria-hidden': 'true' }),
+    h('div', { class: 'wrap hm-hero-inner' }, copy),
+    caption,
+  );
+
+  // Dioramanın sığacağı alan: masaüstünde metnin sağı, mobilde metnin altı.
+  function getFocus(w, hh) {
+    const hr = el.getBoundingClientRect();
+    const cr = copy.getBoundingClientRect();
+    let f;
+    if (w >= 900) {
+      const x0 = Math.min(w * 0.55, cr.right - hr.left - 24);
+      const x1 = w - Math.max(16, (w - 1240) / 2);
+      const y0 = 24;
+      const y1 = hh - 64;
+      f = { x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+    } else {
+      const y0 = Math.min(cr.bottom - hr.top + 4, hh - 240);
+      const y1 = hh - 64;
+      f = { x: w / 2, y: (y0 + y1) / 2, w: w - 8, h: Math.max(200, y1 - y0) };
+    }
+    el.style.setProperty('--fx', `${((f.x / w) * 100).toFixed(1)}%`);
+    el.style.setProperty('--fy', `${((f.y / hh) * 100).toFixed(1)}%`);
+    return f;
+  }
+
+  function showFallback() {
+    clear(stage);
+    stage.appendChild(fallbackDiorama());
+    getFocus(stage.clientWidth || 1, stage.clientHeight || 1);
+    el.classList.add('hm-hero--flat');
+  }
+
+  function start() {
+    import('./hero3d.js')
+      .then((m) => {
+        if (destroyed) return;
+        scene = m.createHero3D(stage, {
+          getFocus,
+          reduced,
+          pointerEl: el,
+          onLost: () => { scene = null; showFallback(); },
+          onPoke: (arch, x, y) => {
+            ctx.sound.bark(0.9 + Math.random() * 0.4);
+            ctx.fx.floatText(arch.name.toLocaleUpperCase('tr-TR'), x, y - 20, { size: 15, color: arch.color });
+          },
+        });
+        if (!scene) showFallback();
+        else el.classList.add('hm-hero--3d');
+      })
+      .catch((e) => {
+        console.warn('3D sahne yüklenemedi', e);
+        if (!destroyed) showFallback();
+      });
+  }
+
+  cleanups.push(() => {
+    destroyed = true;
+    if (scene) scene.destroy();
+    scene = null;
+  });
+
+  return { el, start };
+}
+
+/** WebGL yoksa: SVG diorama (altıgen ada, nehir, iki kristal, kahraman, 9 zıplayan DOG). */
+function fallbackDiorama() {
+  const cx = 300;
+  const cy = 215;
+  const pt = (k, dy = 0) => {
+    const a = ((90 + 60 * k) * Math.PI) / 180;
+    return `${(cx + Math.cos(a) * 210).toFixed(1)},${(cy + Math.sin(a) * 80 + dy).toFixed(1)}`;
+  };
+  const top = [0, 1, 2, 3, 4, 5].map((k) => pt(k)).join(' ');
+  const side = [pt(1), pt(0), pt(5), pt(5, 24), pt(0, 24), pt(1, 24)].join(' ');
+  const dogs = [];
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + 0.3;
+    const x = cx + Math.cos(a) * 128;
+    const y = cy + Math.sin(a) * 48;
+    dogs.push(`<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><ellipse class="hm-fb-shadow" cx="0" cy="12" rx="15" ry="4.5"/>
+      <g class="hm-fb-dog" style="animation-delay:${(i * 0.11).toFixed(2)}s"><path class="hm-fb-body" d="M-13 5c0-9 6-13 13-13s13 4 13 13c0 5-4 7-13 7s-13-2-13-7z"/>
+      <path class="hm-fb-ear" d="M-11-4l-6-9 9 3zM11-4l6-9-9 3z"/>
+      <circle class="hm-fb-eye" cx="-4.5" cy="0" r="2.2"/><circle class="hm-fb-eye" cx="4.5" cy="0" r="2.2"/></g></g>`);
+  }
+  const svg = `<svg class="hm-fb" viewBox="0 0 600 430" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <path class="hm-fb-rock" d="M118 279 L300 319 L482 279 L452 318 L400 352 L352 404 L300 426 L262 392 L208 356 L150 318 Z"/>
+    <polygon class="hm-fb-side" points="${side}"/>
+    <polygon class="hm-fb-top" points="${top}"/>
+    <path class="hm-fb-river" d="M209 155 C 250 190, 280 205, 300 215 S 360 250, 391 275"/>
+    <ellipse class="hm-fb-aura" cx="${cx}" cy="${cy}" rx="44" ry="17"/>
+    <polygon class="hm-fb-crystal jade" points="165,188 182,236 165,250 148,236"/>
+    <polygon class="hm-fb-crystal ember" points="432,122 450,166 434,184 416,166"/>
+    <polygon class="hm-fb-crystal ember" points="452,148 462,172 452,182 443,172"/>
+    <g class="hm-fb-hero"><path d="M300 170 l13 36 -13 12 -13 -12z"/><circle cx="300" cy="165" r="9"/></g>
+    ${dogs.join('')}
+  </svg>`;
+  return h('div', { class: 'hm-fb-wrap', html: svg });
+}
+
+// ====================================================================== Canlı skor şeridi
+function counter(numEl, reduced) {
+  let cur = 0;
+  let from = 0;
+  let target = null;
+  let start = 0;
+  let raf = 0;
+  const DUR = 900;
+  const step = (now) => {
+    const p = Math.min(1, (now - start) / DUR);
+    const e = 1 - Math.pow(1 - p, 3);
+    cur = from + (target - from) * e;
+    numEl.textContent = fmtNum(cur);
+    raf = p < 1 ? requestAnimationFrame(step) : 0;
+  };
+  return {
+    set(v, suffix = '') {
+      numEl.dataset.suffix = suffix;
+      if (v === target) return;
+      target = v;
+      if (reduced || document.hidden) {
+        cur = v;
+        numEl.textContent = fmtNum(v);
+        return;
+      }
+      from = cur;
+      start = performance.now();
+      if (!raf) raf = requestAnimationFrame(step);
+    },
+    stop() { cancelAnimationFrame(raf); raf = 0; },
+  };
+}
+
+function buildLive(cleanups, reduced) {
+  const cell = (key, iconName, label, tone) => {
+    const num = h('span', { class: 'hm-live-num num', 'data-suffix': '' }, '0');
+    const sub = h('span', { class: 'hm-live-sub' }, ' ');
+    const node = h('div', { class: `hm-live-cell hm-tone-${tone}` },
+      h('span', { class: 'hm-live-label' }, icon(iconName, { size: 15 }), label),
+      num,
+      sub,
+    );
+    return { node, num, sub, c: counter(num, reduced), key };
+  };
+  const dog = cell('dog', 'paw', 'Toplam DOG', 'ember');
+  const fans = cell('fans', 'user', 'Hayran', 'gold');
+  const jokes = cell('jokes', 'laugh', 'Topluluk esprisi', 'jade');
+  const notes = cell('notes', 'chat', 'Defter imzası', 'arcane');
+  cleanups.push(() => [dog, fans, jokes, notes].forEach((c) => c.c.stop()));
+
+  const modeNote = h('span', { class: 'hm-live-mode' }, 'bağlanıyor…');
+  const archiveCount = (jokeData.JOKES || []).length;
+
+  let others = 0;
+  const renderDog = () => {
+    const mine = Number(store.me.get().dog) || 0;
+    dog.c.set(others + mine);
+    dog.sub.textContent = mine ? `senin payın: ${fmtNum(mine)}` : 'ilk DOG’u sen at';
+  };
+  cleanups.push(store.fans((all) => {
+    const myId = store.uid() || 'me';
+    others = agg.totalDog(all.filter((f) => f.id !== myId));
+    renderDog();
+    fans.c.set(all.length);
+    fans.sub.textContent = all.length > 1 ? 'sen dahil' : 'şimdilik sadece sen';
+    modeNote.textContent = store.shared ? 'tüm hayranlar · canlı' : 'önizleme · bu cihaz';
+  }));
+  cleanups.push(store.me.subscribe(renderDog));
+  cleanups.push(store.subscribe('jokes', { limit: 1000 }, (docs) => {
+    jokes.c.set(docs.length);
+    jokes.sub.textContent = archiveCount ? `+ ${fmtNum(archiveCount)} arşiv esprisi` : 'duvara ilk sen yaz';
+  }));
+  cleanups.push(store.subscribe('comments', { where: ['thread', 'guestbook'], orderBy: 'createdAt', dir: 'desc', limit: 100 }, (docs) => {
+    notes.c.set(docs.length);
+    notes.sub.textContent = docs.length >= 100 ? 'son 100 imza' : 'aşağıda imzala';
+  }));
+
+  return h('section', { class: 'hm-live frame', 'aria-label': 'Canlı skor' },
+    h('div', { class: 'hm-live-tag' },
+      h('span', { class: 'hm-live-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'hm-live-title' }, 'Canlı skor'),
+      modeNote,
+    ),
+    h('div', { class: 'hm-live-cells' }, dog.node, fans.node, jokes.node, notes.node),
+  );
+}
+
+// ====================================================================== Bölüm başlığı
+function head(idx, eyebrow, title, note, actions) {
+  return h('header', { class: 'hm-head' },
+    h('div', { class: 'section-head' },
+      h('span', { class: 'eyebrow' }, h('span', { class: 'hm-idx' }, idx), eyebrow),
+      h('h2', { class: 'h1' }, title),
+    ),
+    note || actions ? h('div', { class: 'hm-head-side' }, note ? h('p', { class: 'muted small' }, note) : null, actions || null) : null,
+  );
+}
+
+// ====================================================================== Meme sözlüğü
+function buildDictionary() {
+  const posterDog = artUrl('poster-dogdogdog');
+  const posterDoq = artUrl('poster-1vdoquz');
+
+  // --- DOG DOG DOG
+  const dogMedia = posterDog
+    ? h('div', { class: 'hm-dict-media hm-dict-media--img' }, h('img', { src: posterDog, alt: '“DOG DOG DOG” yazılı hayran posteri', loading: 'lazy', decoding: 'async' }))
+    : h('div', { class: 'hm-dict-media hm-typo', 'aria-hidden': 'true' },
+      h('div', { class: 'hm-typo-rows' }, Array.from({ length: 7 }, (_, i) => h('span', { class: i % 2 ? 'hm-typo-row alt' : 'hm-typo-row' }, 'DOG DOG DOG DOG DOG DOG'))),
+      h('span', { class: 'stamp hm-typo-stamp' }, 'DOG DOG DOG'),
+      h('span', { class: 'hm-typo-tag' }, icon('skull', { size: 14 }), 'Teşhis konuldu'),
+    );
+  const when = [
+    ['skull', 'Takım arkadaşı 0/7 ile mid’de ısrar ediyorsa'],
+    ['swords', 'Rakip oyunu trollüyor, üstüne bir de dans ediyorsa'],
+    ['bolt', 'Kurye kayboldu, Blink dükkânda seni bekliyorsa'],
+    ['ward', 'Support ward yerine Midas aldıysa'],
+  ];
+  const cardDog = h('article', { class: 'hm-dict hm-dict--dog frame' },
+    dogMedia,
+    h('div', { class: 'hm-dict-body' },
+      h('div', { class: 'hm-dict-word' },
+        h('h3', { class: 'hm-dict-title' }, 'DOG DOG DOG'),
+        h('span', { class: 'hm-dict-pos' }, 'ünlem · üç kez söylenir'),
+      ),
+      h('p', { class: 'hm-dict-def' },
+        'Takım arkadaşı, rakip ya da ortamdaki herhangi biri kötü oynadığında veya oyunu trollediğinde kurulan üç kelimelik teşhis cümlesi. Açıklama gerektirmez; ',
+        h('em', null, 'durumu özetler.')),
+      h('div', { class: 'hm-dict-when' },
+        h('span', { class: 'hm-dict-label' }, 'Ne zaman söylenir?'),
+        h('ul', { class: 'hm-when' }, when.map(([ic, t]) => h('li', null, h('span', { class: 'hm-when-ico', 'aria-hidden': 'true' }, icon(ic, { size: 16 })), t))),
+      ),
+      h('p', { class: 'hm-dict-ex' }, h('span', { class: 'hm-dict-label' }, 'Örnek'), '“Roshan’a beş kişi girdik, Aegis’i rakip aldı.” ', h('b', null, '— DOG DOG DOG.')),
+    ),
+  );
+
+  // --- 1vDOQUZ
+  const paws = (n, cls) => h('span', { class: `hm-eq-paws ${cls}` }, Array.from({ length: n }, () => icon('paw', { size: 18, stroke: 2 })));
+  const cardDoq = h('article', { class: 'hm-dict hm-dict--doq' },
+    posterDoq ? h('div', { class: 'hm-dict-media hm-dict-media--img short' }, h('img', { src: posterDoq, alt: '“1vDOQUZ” yazılı hayran posteri', loading: 'lazy', decoding: 'async' })) : null,
+    h('div', { class: 'hm-dict-body' },
+      h('div', { class: 'hm-dict-word' },
+        h('h3', { class: 'hm-dict-title hm-doq' }, '1vDO', h('span', { class: 'hm-q' }, 'Q'), 'UZ'),
+        h('span', { class: 'hm-dict-pos' }, 'isim · “bire dokuz”'),
+      ),
+      h('div', { class: 'hm-eq', role: 'img', 'aria-label': '1 kişi, 4 takım arkadaşı artı 5 rakibe karşı: toplam 9, yani DOQUZ.' },
+        h('div', { class: 'hm-eq-one' }, h('b', null, '1'), h('span', null, 'sen')),
+        h('span', { class: 'hm-eq-vs' }, 'vs'),
+        h('div', { class: 'hm-eq-nine' },
+          h('div', { class: 'hm-eq-row' }, paws(4, 'jade'), h('span', { class: 'hm-eq-lbl' }, '4 takım arkadaşı')),
+          h('div', { class: 'hm-eq-row' }, paws(5, 'blood'), h('span', { class: 'hm-eq-lbl' }, '+ 5 rakip')),
+          h('div', { class: 'hm-eq-sum' }, '= 9 = DO', h('span', { class: 'hm-q-inline' }, 'Q'), 'UZ'),
+        ),
+      ),
+      h('p', { class: 'hm-dict-def small' }, '1v9: dört takım arkadaşın ve beş rakip, yani dokuz kişiye karşı oyunu tek başına taşımak. “Dokuz” burada Q ile yazılır; ', h('em', null, 'yazım hatası değil, karakter meselesi.')),
+    ),
+  );
+
+  // --- 24 Saat
+  const ticks = Array.from({ length: 24 }, (_, i) => {
+    const a = (i / 24) * Math.PI * 2 - Math.PI / 2;
+    const r1 = i % 6 === 0 ? 38 : 42;
+    return `<line x1="${(60 + Math.cos(a) * r1).toFixed(2)}" y1="${(60 + Math.sin(a) * r1).toFixed(2)}" x2="${(60 + Math.cos(a) * 47).toFixed(2)}" y2="${(60 + Math.sin(a) * 47).toFixed(2)}"/>`;
+  }).join('');
+  const clock = h('div', { class: 'hm-clock', role: 'img', 'aria-label': '24 saatlik dolu kadran: en kısa yayın süresi' , html: `
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="hm-clock-track" cx="60" cy="60" r="53"/>
+      <circle class="hm-clock-fill" cx="60" cy="60" r="53" pathLength="100"/>
+      <g class="hm-clock-ticks">${ticks}</g>
+    </svg>
+    <span class="hm-clock-read"><b>24</b><span>saat · min.</span></span>` });
+  const cardDay = h('article', { class: 'hm-dict hm-dict--day' },
+    h('div', { class: 'hm-dict-body hm-day' },
+      clock,
+      h('div', { class: 'hm-day-text' },
+        h('div', { class: 'hm-dict-word' },
+          h('h3', { class: 'hm-dict-title' }, '24 Saat'),
+          h('span', { class: 'hm-dict-pos' }, 'süre birimi · alt sınır'),
+        ),
+        h('p', { class: 'hm-dict-def small' }, 'Normal takvimde bir gün. Bu yayında ise en kısa yayının süresi. Burada “kısa yayın” dendiğinde 24 saat anlaşılır; gerisi maraton.'),
+        h('p', { class: 'hm-dict-tip xsmall' }, icon('hourglass', { size: 14 }), 'Hayran kuralı: su, atıştırmalık ve şarj aleti yayından önce hazır olur.'),
+      ),
+    ),
+  );
+
+  return h('section', { class: 'hm-sec', 'aria-labelledby': 'hm-dict-h' },
+    withId(head('01', 'Meme sözlüğü', 'Üssün üç temel kelimesi', 'Yeni gelenler için hızlı kurs. Sınavı yok, DOG’u var.'), 'hm-dict-h'),
+    h('div', { class: 'hm-dict-grid' }, cardDog, cardDoq, cardDay),
+  );
+}
+
+function withId(headEl, id) {
+  const h2 = headEl.querySelector('h2');
+  if (h2) h2.id = id;
+  return headEl;
+}
+
+// ====================================================================== Portallar (yetenek slotları)
+function buildPortals(ctx, cleanups) {
+  const list = ROUTES.filter((r) => r.id !== 'ana');
+  const keys = list.map((r) => r.key).join(' ');
+  const cards = list.map((r) => {
+    const ult = !!r.ultimate;
+    const item = !ult && !!r.item;
+    const kind = ult ? ' hm-slot--ult' : item ? ' hm-slot--item' : '';
+    const card = h('a', {
+      class: `hm-slot${kind}`,
+      href: '#' + r.id,
+      'aria-label': `${r.label} (kısayol ${r.key})`,
+    },
+      h('span', { class: 'hm-slot-top' },
+        h('span', { class: 'hm-slot-icon', 'aria-hidden': 'true' },
+          icon(r.icon, { size: ult ? 48 : 28, stroke: ult ? 1.6 : 1.8 }),
+        ),
+        ult ? h('span', { class: 'badge gold hm-ult-badge' }, icon('sparkle', { size: 12 }), 'Ultimate · hazır') : null,
+        item ? h('span', { class: 'badge gold hm-item-badge' }, 'Eşya slotu') : null,
+        h('span', { class: 'kbd hm-slot-kbd', 'aria-hidden': 'true' }, r.key),
+      ),
+      ult ? h('span', { class: 'hm-ult-nine', 'aria-hidden': 'true' }, Array.from({ length: 9 }, (_, i) => h('span', { class: i < 4 ? 'j' : 'b' }, icon('paw', { size: 16, stroke: 2 })))) : null,
+      h('span', { class: 'hm-slot-text' },
+        h('span', { class: 'hm-slot-title' }, r.label),
+        h('span', { class: 'hm-slot-desc' }, PORTAL_TEXT[r.id] || ''),
+      ),
+      h('span', { class: 'hm-slot-go', 'aria-hidden': 'true' }, ult ? 'Ultiyi bas' : item ? 'Eşyayı kullan' : 'Işınlan', icon('arrowRight', { size: 14 })),
+    );
+    card.addEventListener('click', () => ctx.sound.click());
+    cleanups.push(attachTilt(card, { max: ult ? 5 : item ? 3 : 9 }));
+    return card;
+  });
+  return h('section', { class: 'hm-sec', 'aria-labelledby': 'hm-portal-h' },
+    withId(head('02', 'Yetenek çubuğu', 'Nereye ışınlanıyoruz?', `Kısayollar klavyede de çalışır: ${keys}. Üsse dönmek için H.`), 'hm-portal-h'),
+    h('div', { class: 'hm-slots' }, cards),
+  );
+}
+
+// ====================================================================== Günün esprisi
+function catLabel(cat) {
+  const cats = jokeData.JOKE_CATEGORIES || [];
+  for (const c of cats) {
+    if (c && typeof c === 'object' && (c.id === cat || c.key === cat)) return c.label || c.name || cat;
+    if (c === cat) return c;
+  }
+  return cat || 'Hayran esprisi';
+}
+
+function buildJoke(ctx) {
+  const archive = Array.isArray(jokeData.JOKES) ? jokeData.JOKES.filter((j) => j && j.text) : [];
+  const list = archive.length ? archive : FALLBACK_JOKES;
+  const now = new Date();
+  const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  let idx = hashStr('gunun-esprisi:' + dayKey) % list.length;
+  const todayIdx = idx;
+
+  const textEl = h('p', { class: 'hm-joke-text' });
+  const catEl = h('span', { class: 'badge ember' });
+  const noEl = h('span', { class: 'hm-joke-no num' });
+  const kindEl = h('span', { class: 'hm-joke-kind' });
+  const quote = h('blockquote', { class: 'hm-joke-quote', 'aria-live': 'polite' }, textEl);
+
+  const render = (animate) => {
+    const j = list[idx];
+    textEl.textContent = j.text;
+    catEl.textContent = catLabel(j.cat);
+    noEl.textContent = `No. ${String(idx + 1).padStart(3, '0')} / ${String(list.length).padStart(3, '0')}`;
+    kindEl.textContent = idx === todayIdx ? 'Günün esprisi' : 'Bonus espri';
+    if (animate) {
+      quote.classList.remove('pop-in');
+      void quote.offsetWidth;
+      quote.classList.add('pop-in');
+    }
+  };
+  render(false);
+
+  const again = h('button', { class: 'btn ghost', type: 'button' }, icon('refresh', { size: 18 }), 'Başka bir tane');
+  again.addEventListener('click', () => {
+    if (list.length > 1) {
+      let n = idx;
+      while (n === idx) n = Math.floor(Math.random() * list.length);
+      idx = n;
+    }
+    ctx.sound.click();
+    render(true);
+  });
+  const toWall = h('button', { class: 'btn primary', type: 'button' }, 'Espri Duvarına git', icon('arrowRight', { size: 18 }));
+  toWall.addEventListener('click', () => { ctx.sound.click(); ctx.go('espriler'); });
+
+  const date = now.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  return h('section', { class: 'hm-joke', 'aria-label': 'Günün esprisi' },
+    h('div', { class: 'hm-joke-side' },
+      h('span', { class: 'hm-joke-mark', 'aria-hidden': 'true' }, '“'),
+      h('span', { class: 'eyebrow' }, kindEl),
+      h('span', { class: 'hm-joke-date num' }, date),
+    ),
+    h('div', { class: 'hm-joke-main' },
+      h('div', { class: 'hm-joke-meta' }, h('span', { class: 'hm-joke-chan' }, '[Tümü]'), catEl, noEl),
+      quote,
+      h('div', { class: 'hm-joke-actions' }, again, toWall),
+      h('p', { class: 'xsmall dim' }, archive.length ? 'Hayran yapımı espri arşivinden; her gün başka bir tane.' : 'Hayran yapımı espriler; her gün başka bir tane.'),
+    ),
+  );
+}
+
+// ====================================================================== DOG Arşivi vitrini
+function buildArchive(ctx) {
+  const now = new Date();
+  const rnd = seeded(hashStr(`vitrin:${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`));
+  const pool = ARCHETYPES.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picks = pool.slice(0, 5);
+
+  const cards = picks.map((a) => h('a', {
+    class: 'hm-arch',
+    href: `#karakterler--${a.id}`,
+    style: { '--c': a.color },
+    'aria-label': `${a.name}: ${a.tagline}`,
+  },
+    h('span', { class: 'hm-arch-img' }, portraitEl(a, { alt: '' })),
+    h('span', { class: 'hm-arch-body' },
+      h('span', { class: 'hm-arch-lvl', title: `DOG seviyesi ${a.dogLevel}/5` },
+        Array.from({ length: 5 }, (_, i) => h('span', { class: i < a.dogLevel ? 'on' : '' }, icon('paw', { size: 12, stroke: 2.2 }))),
+      ),
+      h('span', { class: 'hm-arch-name' }, a.name),
+      h('span', { class: 'hm-arch-tag' }, a.tagline),
+    ),
+  ));
+
+  const quiz = h('a', { class: 'hm-arch hm-arch--quiz', href: '#quizler--hangidog' },
+    h('span', { class: 'hm-arch-img hm-quiz-art', 'aria-hidden': 'true' }, h('span', { class: 'hm-quiz-q' }, '?'), icon('paw', { size: 40, stroke: 1.6 })),
+    h('span', { class: 'hm-arch-body' },
+      h('span', { class: 'hm-arch-name' }, 'Hangi DOG’sun?'),
+      h('span', { class: 'hm-arch-tag' }, 'Birkaç soru, dürüst cevaplar ve kaçınılmaz teşhis.'),
+      h('span', { class: 'hm-arch-cta' }, 'Quize gir', icon('arrowRight', { size: 14 })),
+    ),
+  );
+
+  const toQuiz = h('button', { class: 'btn gold', type: 'button' }, icon('quiz', { size: 18 }), 'Hangi DOG’sun?');
+  toQuiz.addEventListener('click', () => { ctx.sound.click(); ctx.go('quizler', 'hangidog'); });
+  const toAll = h('button', { class: 'btn ghost', type: 'button' }, 'Tüm arşiv', icon('arrowRight', { size: 18 }));
+  toAll.addEventListener('click', () => { ctx.sound.click(); ctx.go('karakterler'); });
+
+  return h('section', { class: 'hm-sec', 'aria-labelledby': 'hm-arch-h' },
+    withId(head('03', 'DOG Arşivi', 'Pub’ların yaban hayatı', `Arşivde ${ARCHETYPES.length} tür kayıtlı; bugün vitrinde beşi var. Hepsi hayran yapımı mizah.`, h('div', { class: 'hm-head-actions' }, toQuiz, toAll)), 'hm-arch-h'),
+    h('div', { class: 'hm-archs' }, cards, quiz),
+  );
+}
+
+// ====================================================================== Ziyaretçi defteri
+function buildGuestbook(cleanups) {
+  const box = h('div', { class: 'hm-gb-box panel raised' });
+  cleanups.push(mountComments(box, {
+    threadId: 'guestbook',
+    title: 'Ziyaretçi Defteri',
+    placeholder: 'Selam ver, DOG at, 24 saatlik yayına destek ol…',
+  }));
+  return h('section', { class: 'hm-sec hm-gb', 'aria-labelledby': 'hm-gb-h' },
+    h('div', { class: 'hm-gb-intro' },
+      withId(head('04', 'Ziyaretçi defteri', 'Üsse imzanı at'), 'hm-gb-h'),
+      h('p', { class: 'muted' }, 'Hangi saatte katıldın, kaçıncı saatte uyudun, en son hangi DOG anına şahit oldun? Kısa bir not bırak.'),
+      h('ul', { class: 'hm-gb-rules' },
+        h('li', null, icon('check', { size: 16 }), 'DOG serbest, hakaret yasak.'),
+        h('li', null, icon('check', { size: 16 }), 'Spoiler yok, flame yok, “report mid” de yok.'),
+        h('li', null, icon('check', { size: 16 }), 'Takma adını HUD’dan değiştirebilirsin.'),
+      ),
+    ),
+    box,
+  );
+}

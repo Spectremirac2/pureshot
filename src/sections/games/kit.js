@@ -1,0 +1,271 @@
+// Mini oyunlar için ortak iskelet: sayfa düzeni, görünürlüğe duyarlı oyun saati,
+// başlangıç/sonuç kartları, HUD istatistikleri ve jeton renk yardımcıları.
+
+import { h, clear, loop, fmtNum } from '../../core/dom.js';
+import { icon } from '../../core/icons.js';
+import { store } from '../../core/store.js';
+import { sound } from '../../core/sound.js';
+import { fx } from '../../core/fx.js';
+import { mountLeaderboard } from '../../components/leaderboard.js';
+
+// ------------------------------------------------------------------ renkler
+/** Tasarım jetonunun değeri (canvas çizimleri için). */
+export function tok(name, fallback = '#888888') {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** '#rrggbb' → rgba(...) */
+export function hexA(hex, a) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** Kısa sayı: 1.2B gibi (envanter "şarj" yazısı için). */
+export function compact(n) {
+  const v = Math.round(Number(n) || 0);
+  if (Math.abs(v) >= 10000) return (v / 1000).toFixed(0) + 'B';
+  if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1).replace('.', ',') + 'B';
+  return String(v);
+}
+
+// ------------------------------------------------------------------ oyun saati
+/**
+ * Görünürlüğe duyarlı oyun döngüsü. Oyun zamanı yalnızca sekme görünürken ilerler;
+ * `after(sn, fn)` oyun zamanına göre çalışır, böylece sekme gizlenince tüm sayaçlar durur.
+ * onFrame(dt, t) her karede çağrılır (gizliyken çağrılmaz).
+ */
+export function createRunner(onFrame) {
+  let time = 0;
+  let tasks = [];
+  let seq = 0;
+  let hidden = document.hidden;
+  let alive = true;
+  const onVis = () => { hidden = document.hidden; };
+  document.addEventListener('visibilitychange', onVis);
+  const stop = loop((dt) => {
+    if (!alive || hidden) return;
+    time += dt;
+    if (tasks.length) {
+      const due = [];
+      tasks = tasks.filter((t) => (t.at <= time ? (due.push(t), false) : true));
+      for (const t of due) {
+        try { t.fn(); } catch (e) { console.error(e); }
+      }
+    }
+    if (alive && onFrame) onFrame(dt, time);
+  });
+  return {
+    get time() { return time; },
+    get hidden() { return hidden; },
+    after(sec, fn) {
+      const id = ++seq;
+      tasks.push({ id, at: time + sec, fn });
+      return id;
+    },
+    cancel(id) { tasks = tasks.filter((t) => t.id !== id); },
+    clearTasks() { tasks = []; },
+    destroy() {
+      alive = false;
+      stop();
+      tasks = [];
+      document.removeEventListener('visibilitychange', onVis);
+    },
+  };
+}
+
+// ------------------------------------------------------------------ düzen
+/**
+ * Oyun sayfası: başlık, HUD, sahne ve yan sütun (skor tablosu + nasıl oynanır + diğer oyunlar).
+ * nav: { list: [meta], open(id) } — games.js tarafından verilir.
+ */
+export function gameLayout(el, meta, { nav } = {}) {
+  const hud = h('div', { class: 'gm-hud', role: 'group', 'aria-label': 'Oyun durumu' });
+  const stage = h('div', { class: `gm-stage gm-stage-${meta.id}` });
+  const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
+  const lbHost = h('div', { class: 'gm-aside-lb' });
+
+  const keys = (meta.keys || []).length
+    ? h('dl', { class: 'gm-keys' },
+      meta.keys.map(([k, v]) => [
+        h('dt', null, k.split(' ').map((part) => (part === '/' || part === 'veya' ? ` ${part} ` : h('span', { class: 'kbd' }, part)))),
+        h('dd', null, v),
+      ]),
+    )
+    : null;
+
+  const others = nav && nav.list
+    ? h('nav', { class: 'panel tight gm-others', 'aria-label': 'Diğer oyunlar' },
+      h('h3', { class: 'h3 row' }, icon('gamepad', { size: 18 }), 'Diğer oyunlar'),
+      h('ul', { class: 'gm-others-list' },
+        nav.list.filter((g) => g.id !== meta.id).map((g) => {
+          const a = h('a', { class: 'gm-other', href: `#oyunlar--${g.id}`, style: { '--gc': g.color } },
+            h('span', { class: 'gm-other-ico' }, icon(g.icon, { size: 18 })),
+            h('span', { class: 'gm-other-name' }, g.name),
+            h('span', { class: 'gm-other-best num' }, bestText(g)),
+          );
+          a.addEventListener('click', (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+            e.preventDefault();
+            sound.click();
+            nav.open(g.id);
+          });
+          return h('li', null, a);
+        }),
+      ),
+    )
+    : null;
+
+  const aside = h('aside', { class: 'gm-aside' },
+    lbHost,
+    h('section', { class: 'panel tight gm-howto' },
+      h('h3', { class: 'h3 row' }, icon('info', { size: 18 }), 'Nasıl oynanır'),
+      h('ul', { class: 'gm-rules' }, (meta.rules || []).map((r) => h('li', null, r))),
+      keys,
+    ),
+    others,
+  );
+
+  const root = h('div', { class: `gm-play gm-play-${meta.id}`, style: { '--gc': meta.color } },
+    h('div', { class: 'gm-play-main' },
+      h('header', { class: 'gm-play-head' },
+        h('span', { class: 'gm-slot gm-slot-lg', 'aria-hidden': 'true' }, icon(meta.icon, { size: 30 })),
+        h('div', { class: 'gm-play-titles' },
+          h('span', { class: 'eyebrow' }, meta.kind),
+          h('h1', { class: 'h2 gm-play-title' }, meta.name),
+          h('p', { class: 'small muted gm-play-lead' }, meta.blurb),
+        ),
+      ),
+      hud,
+      stage,
+      live,
+    ),
+    aside,
+  );
+  el.appendChild(root);
+  const unLb = mountLeaderboard(lbHost, {
+    gameId: meta.id,
+    title: `${meta.short || meta.name} tablosu`,
+    higherIsBetter: meta.higherIsBetter !== false,
+    format: meta.format,
+  });
+  return {
+    root, hud, stage, live,
+    destroy() { unLb(); root.remove(); },
+  };
+}
+
+export function bestText(meta) {
+  const v = (store.me.get().scores || {})[meta.id];
+  return typeof v === 'number' ? meta.format(v) : '—';
+}
+
+/** HUD'da etiketli sayı kutusu. set(v) ile güncellenir. */
+export function hudStat(label, value = '0', { cls = '', ico } = {}) {
+  const val = h('span', { class: 'gm-stat-val num' }, value);
+  const el = h('div', { class: `gm-stat ${cls}` },
+    h('span', { class: 'gm-stat-label' }, ico ? icon(ico, { size: 14 }) : null, label),
+    val,
+  );
+  let last = value;
+  return {
+    el,
+    set(v) {
+      const s = String(v);
+      if (s !== last) { last = s; val.textContent = s; }
+    },
+    bump() {
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+    },
+  };
+}
+
+// ------------------------------------------------------------------ kaplamalar
+/** Sahnenin üstüne kart kaplaması; kaldırma fonksiyonu döndürür. */
+export function showOverlay(stage, node, { cls = '' } = {}) {
+  const card = h('div', { class: 'gm-overlay-card panel raised frame' }, node);
+  const ov = h('div', { class: `gm-overlay ${cls}` }, card);
+  stage.appendChild(ov);
+  const btn = ov.querySelector('[data-primary]') || ov.querySelector('button');
+  if (btn) {
+    try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
+  }
+  return () => ov.remove();
+}
+
+/** Başlangıç kartı: kurallar + Başla. */
+export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
+  const start = h('button', { class: 'btn primary lg', type: 'button', 'data-primary': '' }, icon('play', { size: 18 }), startLabel);
+  start.addEventListener('click', () => { sound.click(); onStart(); });
+  const best = (store.me.get().scores || {})[meta.id];
+  return h('div', { class: 'gm-intro stack' },
+    h('div', { class: 'row gm-intro-top' },
+      h('span', { class: 'gm-slot', 'aria-hidden': 'true' }, icon(meta.icon, { size: 24 })),
+      h('div', null,
+        h('span', { class: 'eyebrow' }, meta.kind),
+        h('h2', { class: 'h2' }, meta.name),
+      ),
+    ),
+    h('ul', { class: 'gm-rules' }, (meta.rules || []).slice(0, 4).map((r) => h('li', null, r))),
+    note ? h('p', { class: 'xsmall dim' }, note) : null,
+    h('div', { class: 'row gm-intro-foot' },
+      start,
+      h('span', { class: 'small muted' }, 'En iyin: ', h('strong', { class: 'gold num' }, typeof best === 'number' ? meta.format(best) : 'henüz yok')),
+    ),
+  );
+}
+
+/**
+ * Sonuç kartı. Skoru kaydeder (submitScore) ve rekor ise kutlar.
+ * stats: [[etiket, değer]], quip: kısa espri.
+ */
+export function resultCard(meta, { score, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu' }) {
+  const higher = meta.higherIsBetter !== false;
+  const prev = (store.me.get().scores || {})[meta.id];
+  const record = store.me.submitScore(meta.id, score, higher);
+  const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon('refresh', { size: 18 }), 'Tekrar oyna');
+  retry.addEventListener('click', () => { sound.click(); onRetry(); });
+  const back = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 18 }), 'Oyunlar');
+  back.addEventListener('click', () => { sound.click(); onBack(); });
+  const node = h('div', { class: 'gm-result stack' },
+    h('div', { class: 'row gm-result-top' },
+      h('span', { class: 'eyebrow' }, title),
+      record
+        ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), prev == null ? 'İlk skorun' : 'Yeni rekor')
+        : h('span', { class: 'badge' }, 'Rekorun: ', meta.format(prev)),
+    ),
+    h('div', { class: 'gm-result-score' },
+      h('span', { class: 'gm-result-num num' }, meta.scoreText ? meta.scoreText(score) : fmtNum(score)),
+      h('span', { class: 'gm-result-unit' }, meta.unit),
+    ),
+    stats.length ? h('dl', { class: 'gm-result-stats' }, stats.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))) : null,
+    quip ? h('p', { class: 'gm-result-quip' }, quip) : null,
+    h('div', { class: 'row gm-result-actions' }, retry, back),
+  );
+  if (record) {
+    sound.win();
+    requestAnimationFrame(() => {
+      const r = node.getBoundingClientRect();
+      if (r.width) fx.confetti(r.left + r.width / 2, r.top + 40, 70);
+    });
+  } else {
+    sound.good();
+  }
+  return { node, record };
+}
+
+/** Klavye olayı bir yazı alanından mı geliyor? */
+export function isTyping(e) {
+  const t = e.target;
+  return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable));
+}
+
+export { clear };

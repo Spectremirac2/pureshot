@@ -1,0 +1,33 @@
+# DOG DOG DOG Üssü — paylaşılan veri API'si (Cloudflare Worker + D1)
+# Kurulum adımları için ../README.md → "Paylaşılan yorumlar: Cloudflare Worker + D1".
+
+name = "dogdogdog-api"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# CORS: site başka bir alan adındaysa onu yazın (virgülle birden fazla), ör. "https://kullanici.github.io".
+# Site ve API aynı Worker'dan sunuluyorsa (aşağıdaki [assets]) CORS gerekmez; "*" kalabilir.
+ALLOWED_ORIGIN = "*"
+# IP başına dakikadaki yazma sınırları (boş/0 = sınırsız)
+WRITE_LIMIT_PER_MIN = "60"
+POST_LIMIT_PER_MIN = "10"
+
+# Gizli değişkenler (buraya YAZMAYIN):
+#   npx wrangler secret put ADMIN_TOKEN   → yönetici silme/düzenleme (authorization: Bearer <token>)
+#   npx wrangler secret put ID_SALT       → isteğe bağlı; genel kimlik (p_...) HMAC anahtarı
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dogdogdog"
+# `npx wrangler d1 create dogdogdog` çıktısındaki database_id değerini yapıştırın:
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# --- İsteğe bağlı: siteyi de aynı Worker'dan sunun --------------------------------
+# Önce kök klasörde `npm run build` çalıştırın (dist/ oluşur), sonra aşağıdaki satırları açın.
+# /api/* dışındaki tüm istekler dist/ içindeki statik dosyalara düşer; site API'yi
+# aynı kökende (/api/health) kendiliğinden bulur, VITE_API_BASE gerekmez.
+#
+# [assets]
+# directory = "../dist"
+# binding = "ASSETS"
