@@ -1,6 +1,7 @@
 // dist/ içeriğini claude.ai Artifact yayını için dosya eşlemesine çevirir.
 // Kullanım: node scripts/artifact-files.mjs  → JSON: { "assets/app.js": "dist/assets/app.js", ... }
 // .woff yedek fontları atlanır (CSS içinde woff2 gömülü olduğu için tarayıcı onları hiç istemez).
+// .glb dosyaları Artifact'ta sunulmaz; yerlerine .glb.json kopyaları yayınlanır.
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -13,7 +14,7 @@ function walk(dir, rel = '') {
     const st = statSync(abs);
     if (st.isDirectory()) walk(abs, r);
     else {
-      if (name === 'index.html' || name === 'artifact.html' || name.endsWith('.woff')) continue;
+      if (name === 'index.html' || name === 'artifact.html' || name.endsWith('.woff') || name.endsWith('.glb')) continue;
       out[r] = abs;
       total += st.size;
     }

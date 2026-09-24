@@ -186,7 +186,8 @@
 
 /* ---------- Görünüm ---------- */
 .view-loading { display: grid; place-items: center; min-height: 40vh; }
-.section-root { display: block; }
+/* Animasyonlu dönüşümler (damga vuruşu vb.) mobilde sayfa genişliğini büyütmesin; clip kaydırma kabı oluşturmaz, sticky bozulmaz */
+.section-root { display: block; overflow-x: clip; }
 
 .site-footer {
   position: relative;

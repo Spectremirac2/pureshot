@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { modelUrl } from './assets.js';
+import { platform } from './platform.js';
 
 const cache = new Map();
 let loader = null;
@@ -27,9 +28,7 @@ export async function loadModel(key, { height = 1 } = {}) {
   if (!url) return null;
   if (!cache.has(key)) {
     cache.set(key, new Promise((resolve) => {
-      getLoader().load(
-        url,
-        (gltf) => {
+      const onLoad = (gltf) => {
           const root = gltf.scene;
           root.traverse((o) => {
             if (o.isMesh) {
@@ -39,13 +38,25 @@ export async function loadModel(key, { height = 1 } = {}) {
             }
           });
           resolve(root);
-        },
-        undefined,
-        (err) => {
-          console.warn('Model yüklenemedi:', key, err);
-          resolve(null);
-        },
-      );
+      };
+      const onError = (err) => {
+        console.warn('Model yüklenemedi:', key, err);
+        resolve(null);
+      };
+      if (platform.inArtifact) {
+        // claude.ai Artifact .glb sunmaz; yayında her model yanında base64 içeren <ad>.glb.json olarak durur
+        fetch(url + '.json')
+          .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(({ b64 }) => {
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            getLoader().parse(bytes.buffer, '', onLoad, onError);
+          })
+          .catch(onError);
+      } else {
+        getLoader().load(url, onLoad, undefined, onError);
+      }
     }));
   }
   const base = await cache.get(key);
