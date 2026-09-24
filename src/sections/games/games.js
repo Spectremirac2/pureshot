@@ -89,7 +89,7 @@ function createSalon(el, ctx) {
   function refreshBest() {
     const scores = store.me.get().scores || {};
     for (const b of bestEls) {
-      const v = scores[b.meta.id];
+      const v = b.meta ? scores[b.meta.id] : null;
       if (b.kind === 'text') {
         b.el.textContent = typeof v === 'number' ? b.meta.format(v) : 'henüz yok';
         b.el.classList.toggle('dim', typeof v !== 'number');

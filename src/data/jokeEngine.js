@@ -172,7 +172,7 @@ const MATES = [
   'bizim carry', 'bizim mid', 'bizim offlaner', 'pos 4 arkadaşımız', 'pos 5 supportumuz', 'takımın kaptanı',
   'Rapier’li arkadaşımız', '“ben mid” diye bağıran arkadaş', 'kendini smurf ilan eden arkadaş', 'sessiz sedasız jungle’cımız',
   'çantasında hâlâ Tango taşıyan arkadaş', '3. dakikada “gg” yazan arkadaş', 'kilitli Pudge’umuz', '“bi dk” diyen arkadaş',
-  'Immortal olduğunu iddia eden arkadaş', 'kuryeyi sahiplenen arkadaş', 'mini haritayı hiç açmayan arkadaş', 'all chat’in müdavimi arkadaş',
+  'Immortal olduğunu iddia eden arkadaş', 'kuryeyi sahiplenen arkadaş', 'mini haritayı hiç açmayan arkadaş', 'all chat müdavimi arkadaş',
 ];
 /** Rakipler. */
 const FOES = [
