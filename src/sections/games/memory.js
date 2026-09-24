@@ -3,8 +3,7 @@
 import { h, clear, shuffle, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { ARCHETYPES } from '../../data/archetypes.js';
-import { portraitEl } from '../../components/portrait.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard } from './kit.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, faceArt } from './kit.js';
 
 const PAIRS = 8;
 const COLS = 4;
@@ -60,8 +59,7 @@ export function mount(el, ctx, nav) {
     const picks = shuffle(ARCHETYPES).slice(0, PAIRS);
     const deck = shuffle([...picks, ...picks]);
     cards = deck.map((arch, i) => {
-      const img = portraitEl(arch, { cls: 'gm-mm-img', alt: '' });
-      img.loading = 'eager';
+      const img = faceArt(arch, { zoom: 1.3, pzoom: 1, ratio: 4 / 3, cls: 'gm-mm-img' });
       const inner = h('span', { class: 'gm-mm-inner' },
         h('span', { class: 'gm-mm-face gm-mm-back', 'aria-hidden': 'true' },
           h('span', { class: 'gm-mm-crest' }, icon('paw', { size: 26, stroke: 2.2 })),

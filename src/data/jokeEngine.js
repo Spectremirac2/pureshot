@@ -107,7 +107,7 @@ const ITEMS = proper([
   ['Force Staff', 'staf'], ['Glimmer Cape', 'keyp'], ['Eul’s Scepter', 'septır'], ['Refresher Orb', 'orb'], ['Butterfly', 'flay'],
   ['Satanic', 'setenik'], ['Daedalus', 'dedalus'], ['Heart of Tarrasque', 'tarask'], ['Monkey King Bar', 'bar'], ['Linken’s Sphere', 'sfir'],
   ['Aether Lens', 'lens'], ['Magic Wand', 'vand'], ['Phase Boots', 'buts'], ['Power Treads', 'treds'], ['Arcane Boots', 'buts'],
-  ['Mekansm', 'mekanizm'], ['Guardian Greaves', 'griivz'], ['Assault Cuirass', 'kuiras'], ['Desolator', 'deyter'], ['Mjollnir', 'myolnir'],
+  ['Mekansm', 'mekanizm'], ['Guardian Greaves', 'griivz'], ['Assault Cuirass', 'kuiras'], ['Desolator', 'leytır'], ['Mjollnir', 'myolnir'],
   ['Scythe of Vyse', 'vays'], ['Manta Style', 'stayl'], ['Diffusal Blade', 'bleyd'], ['Silver Edge', 'ec'], ['Abyssal Blade', 'bleyd'],
   ['Bloodstone', 'ston'], ['Echo Sabre', 'seybır'], ['Aegis', 'iycis'], ['Gem of True Sight', 'sayt'], ['Tranquil Boots', 'buts'],
 ]);
@@ -221,7 +221,7 @@ const AUTHORITIES = [
 
 const DOG_SCORES = [
   '10 üzerinden 11 DOG', 'üç DOG, bir buçuk pati', 'tam kıvamında DOG DOG DOG', 'cihaz ölçemedi, havlamaya başladı',
-  'DOG DOG DOG (rekor denemesi)', 'Immortal seviyesinde DOG', 'DOG ötesi: DOG DOG DOG DOG', 'altın pati ödülüne aday',
+  'DOG DOG DOG (rekor denemesi)', 'Immortal seviyesinde DOG', 'DOG ötesi (DOG DOG DOG DOG)', 'altın pati ödülüne aday',
 ];
 
 const SNACKS = [
@@ -360,7 +360,7 @@ const TEMPLATES = [
   { id: 'm3', cat: 'maraton', t: 'Yayında {hour}. saat: Chat {bigN} kez “DOG DOG DOG”, {bigN2} kez “1vDOQUZ”, bir kez de “uyku” yazdı. O mesaj hemen silindi.' },
   { id: 'm4', cat: 'maraton', t: 'Maratonun {hour}. saatinde uyku, pub maçındaki {unbought} gibidir: herkes ister, kimse almaz.' },
   { id: 'm5', cat: 'maraton', t: 'Kısa yayın: 24 saat. Orta yayın: {longHours} saat. Uzun yayın: izleyici {lifeEvent}, yayın hâlâ açık.' },
-  { id: 'm6', cat: 'maraton', t: 'İzleyici: “Ben biraz uyuyup geleyim.”\n{sleep} saat sonra\nİzleyici: “Ne kaçırdım?”\nChat: “{^who} {blunder.past}. Başka bir şey olmadı; yayın aynı yayın.”' },
+  { id: 'm6', cat: 'maraton', t: 'İzleyici: “Ben biraz uyuyup geleyim.”\n{sleep} saat sonra\nİzleyici: “Ne kaçırdım?”\nChat: {^who} {blunder.past}. Başka bir şey olmadı; yayın aynı yayın.' },
   { id: 'm7', cat: 'maraton', t: 'Yayının {hour}. saatinde zaman birimi değişir: 1 saat = {gph} maç = {teas} çay = sayısız DOG DOG DOG.' },
   { id: 'm8', cat: 'maraton', t: '24 saatlik yayını “kısa” bulan izleyici, {hour}. saatte: “Daha yeni ısınıyoruz.” Aynı izleyici, {hourLate}. saatte: “Tamam, şimdi ısındık.”' },
 
@@ -375,7 +375,7 @@ const TEMPLATES = [
   { id: 'p8', cat: 'pub', t: '“Geliyorum” yazan {mate}: {min}. dakikada yola çıktı, {minLate}. dakikada vardı. Varır varmaz da {blunder.past}.' },
 
   // Kahraman Özel
-  { id: 'h1', cat: 'hero', t: '{hero} rehberi\nAdım 1: {item.acc} almak.\nAdım 2: {blunder.inf}.\nAdım 3: Chat’teki DOG DOG DOG’ları saymak.' },
+  { id: 'h1', cat: 'hero', t: '{hero} rehberi\nAdım 1: {item.acc} almak.\nAdım 2: {^blunder.inf}.\nAdım 3: Chat’teki DOG DOG DOG’ları saymak.' },
   { id: 'h2', cat: 'hero', t: '{hero} oynayan DOG nasıl anlaşılır? Maçın {minLate}. dakikasında hâlâ {item} yoktur ama bahanesi hazırdır: “{excuse}”' },
   { id: 'h3', cat: 'hero', t: 'Rakip Pudge hook attı, rakip Invoker on büyüyü sıraladı, rakip Techies mayın döşedi. Bizim {hero} ise {blunder.past}.' },
   { id: 'h4', cat: 'hero', t: '{hero} + {item} = ? Teoride {theory}. Pub’da: DOG DOG DOG.' },
@@ -460,6 +460,7 @@ function render(poolName, value, form) {
   const p = POOLS[poolName];
   if (p.range) return p.fmt ? nf.format(value) : String(value);
   if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
   if (form && value[form] != null) return value[form];
   if (value.n != null) return value.n;
   if (value.past != null) return value.past;
@@ -492,6 +493,7 @@ function normSeed(seed) {
 /**
  * Tek espri üret. seed verilirse aynı seed (+ aynı kategori) hep aynı espriyi verir.
  * generate() · generate(42) · generate(42, { cat: 'dog' }) · generate({ cat: 'mmr' })
+ * opts.avoid: bu şablon kimliği art arda gelmesin (ör. bir önceki üretimin tpl'i).
  */
 export function generate(seed, opts = {}) {
   if (seed && typeof seed === 'object') { opts = seed; seed = opts.seed; }
@@ -499,7 +501,10 @@ export function generate(seed, opts = {}) {
   const rnd = seeded(s);
   const list = opts.cat ? parsed.filter((t) => t.cat === opts.cat) : parsed;
   const pool = list.length ? list : parsed;
-  const tpl = pool[Math.floor(rnd() * pool.length)];
+  let ti = Math.floor(rnd() * pool.length);
+  // Aynı şablonun art arda gelmesini önle (deterministik kalır)
+  if (opts.avoid && pool.length > 1 && pool[ti].id === opts.avoid) ti = (ti + 1 + Math.floor(rnd() * (pool.length - 1))) % pool.length;
+  const tpl = pool[ti];
   return { id: 'gen-' + s.toString(36), cat: tpl.cat, text: fill(tpl, rnd), seed: s, tpl: tpl.id };
 }
 

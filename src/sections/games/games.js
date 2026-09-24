@@ -130,7 +130,7 @@ function createSalon(el, ctx) {
   function featureCard() {
     const art = artUrl('poster-1vdoquz');
     const scene = art
-      ? h('div', { class: 'gm-feature-art', style: { backgroundImage: `url("${art}")` }, 'aria-hidden': 'true' })
+      ? h('div', { class: 'gm-feature-poster', style: { backgroundImage: `url("${art}")` }, role: 'img', 'aria-label': '1vDOQUZ posteri: okçu kahraman, etrafında dokuz DOG' })
       : h('div', { class: 'gm-feature-art gm-arena-scene', 'aria-hidden': 'true' },
         h('span', { class: 'gm-arena-floor' }),
         h('span', { class: 'gm-arena-ring r1' }),
@@ -141,7 +141,7 @@ function createSalon(el, ctx) {
         h('span', { class: 'gm-arena-hero' }, icon('bow', { size: 44, stroke: 2 })),
         h('span', { class: 'gm-arena-vs' }, '1 vs 9'),
       );
-    const a = h('a', { class: 'gm-card gm-feature', href: '#oyunlar--arena', style: { '--gc': ARENA.color } },
+    const a = h('a', { class: `gm-card gm-feature${art ? ' has-poster' : ''}`, href: '#oyunlar--arena', style: { '--gc': ARENA.color } },
       scene,
       h('div', { class: 'gm-feature-body' },
         h('div', { class: 'row gm-feature-tags' },

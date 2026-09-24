@@ -61,7 +61,7 @@ export const TOPICS = [
 
   // ------------------------------------------------------------------ kahramanlar
   {
-    id: 'pudge', label: 'Pudge',
+    id: 'pudge', hero: true, label: 'Pudge',
     keys: ['pudge*', 'hook*', 'kanca*', 'meat hook', 'dismember', 'rot'],
     answers: [
       ['D', 'Kadim ağaçlar fısıldıyor: kanca üç creep’e, bir ağaca ve bir kuryeye takılacak. Hedefe asla.'],
@@ -73,7 +73,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'techies', label: 'Techies',
+    id: 'techies', hero: true, label: 'Techies',
     keys: ['techies*', 'teciz*', 'tekiz*', 'mayin*', 'mine*'],
     answers: [
       ['D', 'Mayınlar ormanın her köşesinde, düşman hiçbir yerde. Toprak bile sıkıldı.'],
@@ -84,7 +84,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'invoker', label: 'Invoker',
+    id: 'invoker', hero: true, label: 'Invoker',
     keys: ['invoker*', 'invo', 'quas', 'wex', 'exort', 'sun strike*', 'sunstrike*', 'cold snap', 'tornado'],
     answers: [
       ['N', 'Quas, Wex, Exort… Küreler hizalandı. On büyünün onu da yerini buldu. DOG değil, büyücü.'],
@@ -95,7 +95,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'meepo', label: 'Meepo',
+    id: 'meepo', hero: true, label: 'Meepo',
     keys: ['meepo*', 'klon*'],
     answers: [
       ['U', 'Dört Meepo görüyorum; dördü dört ayrı yöne koşuyor, biri çoktan düştü… ve hepsi gitti. DOG DOG DOG.'],
@@ -106,7 +106,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'antimage', label: 'Anti-Mage',
+    id: 'antimage', hero: true, label: 'Anti-Mage',
     keys: ['anti mage', 'antimage*', 'antimaj*', 'battle fury', 'bfury*', 'mana void', 'mana break'],
     answers: [
       ['D', 'Battle Fury erkenden çantada, ilk savaş ise 40. dakikada. Arada? Sadece orman ve sessizlik.'],
@@ -117,7 +117,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'io', label: 'Io',
+    id: 'io', hero: true, label: 'Io',
     keys: ['io', 'wisp*', 'tether*', 'relocate*'],
     answers: [
       ['D', 'Tether kopuyor, Relocate yanlış anda basılıyor. Küçük ışık karanlıkta kayboldu.'],
@@ -128,7 +128,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'rubick', label: 'Rubick',
+    id: 'rubick', hero: true, label: 'Rubick',
     keys: ['rubick*', 'rubik*', 'spell steal', 'telekinesis'],
     answers: [
       ['N', 'Rakibin en güçlü büyüsünü çaldın ve ona geri gönderdin. Orman buna sanat der.'],
@@ -139,7 +139,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'sniper', label: 'Sniper',
+    id: 'sniper', hero: true, label: 'Sniper',
     keys: ['sniper*', 'snayper*', 'assassinate', 'shrapnel', 'headshot'],
     answers: [
       ['D', 'En uzaktan vuruyorsun ama yine de ilk ölen sensin. Menzilin ne işe yaradı, kâhin bile çözemedi.'],
@@ -150,7 +150,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'riki', label: 'Riki',
+    id: 'riki', hero: true, label: 'Riki',
     keys: ['riki*', 'gorunmez*', 'invis*'],
     answers: [
       ['D', 'Görünmez olman görünmez kalacağın anlamına gelmez; bir Sentry her şeyi anlatır.'],
@@ -449,6 +449,17 @@ export const TOPICS = [
       ['Y', 'Yirmi dördüncü saatte hâlâ izliyorsun ama sohbette uyuyakaldın. Yarı DOG, tam hayran.'],
       ['S', 'Yayının ne zaman biteceğini soruyorsun. Güneş doğar, güneş batar… yayın devam eder.'],
       ['N', 'Uykusuz izlemek bir erdemse, su içmek de öyledir. Kâhin’in reçetesi: bir bardak su ve bir Tango.'],
+    ],
+  },
+  {
+    id: 'kahraman', hero: true, label: 'Kahraman seçimi',
+    keys: ['kahraman*', 'hero*', 'pick*', 'draft*', 'secim*', 'hangi kahraman*', 'ne secsem', 'ne alsam'],
+    answers: [
+      ['S', 'Hangi kahraman mı? Kahraman DOG Endeksi’ne bak; topluluk her birini tarttı. Ben yalnızca şunu söylerim: DOG olan kahraman değil, oyuncudur.'],
+      ['N', 'Takımın neyi eksikse onu seç. Kökler dengeli bir draft’ı sever.'],
+      ['D', 'Beşinci carry’yi seçmek üzeresin. Kâhin elini tutuyor: dur.'],
+      ['Y', 'Rahat oynadığın kahramanı seç; meta ikinci planda. Yarı DOG, tam huzur.'],
+      ['U', 'Kimse support seçmedi, sen de seçmiyorsun. DOG DOG DOG.'],
     ],
   },
   {

@@ -3,9 +3,8 @@
 
 import { h, clear, pick, rand, clamp, lerp, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
-import { ARCHETYPES } from '../../data/archetypes.js';
-import { portraitEl } from '../../components/portrait.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok } from './kit.js';
+import { ARCHETYPES, LEGEND } from '../../data/archetypes.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok, faceArt, hasRealPortrait } from './kit.js';
 
 const DURATION = 45;
 const STREAK = 5;
@@ -126,11 +125,9 @@ export function mount(el, ctx, nav) {
     clear(hole.mole);
     hole.mole.className = 'gm-wh-mole';
     if (kind === 'dog') {
-      const img = portraitEl(arch, { cls: 'gm-wh-face', alt: '' });
-      img.loading = 'eager';
       hole.mole.style.setProperty('--mc', arch.color);
       hole.mole.append(
-        img,
+        faceArt(arch, { zoom: 1.9, pzoom: 1.3, cls: 'gm-wh-face' }),
         h('span', { class: 'gm-wh-tag' }, arch.name.replace(' Köpeği', '')),
         h('span', { class: 'gm-wh-report' }, 'REPORT!'),
       );
@@ -140,7 +137,10 @@ export function mount(el, ctx, nav) {
       hole.mole.classList.add('ally');
       hole.mole.append(
         h('span', { class: 'gm-wh-ally' },
-          h('span', { class: 'gm-wh-ally-crest' }, icon('bow', { size: 34, stroke: 2 })),
+          hasRealPortrait(LEGEND)
+            ? faceArt(LEGEND, { zoom: 2.1, cls: 'gm-wh-ally-face' })
+            : h('span', { class: 'gm-wh-ally-crest' }, icon('bow', { size: 34, stroke: 2 })),
+          h('span', { class: 'gm-wh-ally-badge' }, icon('crown', { size: 14, stroke: 2.2 })),
         ),
         h('span', { class: 'gm-wh-tag gold' }, '1vDOQUZ'),
         h('span', { class: 'gm-wh-report' }, 'CARRY!'),

@@ -1,12 +1,49 @@
 // Mini oyunlar için ortak iskelet: sayfa düzeni, görünürlüğe duyarlı oyun saati,
 // başlangıç/sonuç kartları, HUD istatistikleri ve jeton renk yardımcıları.
 
-import { h, clear, loop, fmtNum } from '../../core/dom.js';
+import { h, clear, loop, fmtNum, clamp } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
 import { sound } from '../../core/sound.js';
 import { fx } from '../../core/fx.js';
+import { portraitUrl } from '../../core/assets.js';
 import { mountLeaderboard } from '../../components/leaderboard.js';
+import { proceduralPortrait } from '../../components/portrait.js';
+
+// ------------------------------------------------------------------ portre kırpma
+// fal.ai portreleri tam sahneler; küçük kutularda yüzün okunması için odak noktaları (x, y oranı).
+const FOCAL = {
+  farm: [0.57, 0.25], feed: [0.66, 0.38], pause: [0.54, 0.44], afk: [0.38, 0.46],
+  kurye: [0.54, 0.18], rapier: [0.53, 0.5], mid: [0.51, 0.23], ward: [0.61, 0.2],
+  smurf: [0.52, 0.27], chat: [0.51, 0.45], legend: [0.5, 0.2],
+};
+
+export const hasRealPortrait = (arch) => !!portraitUrl(arch.id);
+
+/**
+ * Yüze odaklı portre kutusu (arka plan görseli). ratio = yükseklik / genişlik.
+ * zoom: fal görseli için yakınlaştırma; pzoom: prosedürel arma için.
+ */
+export function faceArt(arch, { zoom = 2, pzoom = 1.2, ratio = 1, cls = '' } = {}) {
+  const real = portraitUrl(arch.id);
+  const url = real || proceduralPortrait(arch, 512);
+  const [fx0, fy0] = real ? (FOCAL[arch.id] || [0.5, 0.4]) : [0.5, 0.47];
+  const S = (real ? zoom : pzoom) * Math.max(1, ratio); // görsel genişliği / kutu genişliği
+  const zx = S;
+  const zy = S / ratio;
+  const px = zx > 1.001 ? clamp((fx0 * zx - 0.5) / (zx - 1), 0, 1) : 0.5;
+  const py = zy > 1.001 ? clamp((fy0 * zy - 0.5) / (zy - 1), 0, 1) : 0.5;
+  return h('span', {
+    class: `gm-face ${cls}`,
+    'aria-hidden': 'true',
+    dataset: { generated: real ? 'fal' : 'procedural' },
+    style: {
+      backgroundImage: `url("${url}")`,
+      backgroundSize: `${(S * 100).toFixed(1)}% auto`,
+      backgroundPosition: `${(px * 100).toFixed(1)}% ${(py * 100).toFixed(1)}%`,
+    },
+  });
+}
 
 // ------------------------------------------------------------------ renkler
 /** Tasarım jetonunun değeri (canvas çizimleri için). */

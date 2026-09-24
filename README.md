@@ -373,7 +373,7 @@ Bu ortamda:
 
 ## fal.ai varlık hattı
 
-Görseller ve 3D modeller [fal.ai](https://fal.ai) üzerinde üretilir. Hat dört adımdan oluşur:
+Görseller ve 3D modeller [fal.ai](https://fal.ai) üzerinde üretilir; hat şöyle işler:
 
 ```
 fal.ai üretimi ──► assets-src/fal-jobs.json ──► npm run fetch:fal ──► assets-src/raw/ ──► optimize ──► src/assets/fal/
