@@ -136,11 +136,11 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 .gm-card-best strong { color: var(--aegis); font-size: var(--fs-md); }
 .gm-card-best strong.dim { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600; }
 .gm-card-lore {
-  font-family: var(--font-lore);
-  font-weight: 700;
-  font-size: var(--fs-xs);
-  letter-spacing: 0.04em;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
   color: color-mix(in srgb, var(--gc) 55%, var(--text-3));
   padding-left: 10px;
   border-left: 1px solid color-mix(in srgb, var(--gc) 40%, transparent);
@@ -529,7 +529,7 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: min(68%, 118px);
+  width: min(76%, 120px);
   transform: translate(-50%, 110%);
   transition: transform 0.12s ease-in;
   display: flex;
@@ -568,7 +568,7 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--mc, var(--ember)) 60%, transparent);
 }
-.gm-wh-tag.gold { color: var(--on-aegis); background: var(--grad-aegis); border-color: var(--aegis-2); }
+.gm-wh-tag.gold { color: var(--on-aegis); background: var(--grad-aegis); border-color: var(--aegis-2); text-transform: none; }
 .gm-wh-report {
   display: none;
   position: absolute;
@@ -613,9 +613,8 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 .gm-wh-ally-face { width: 84%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg); }
 .gm-wh-ally-badge {
   position: absolute;
-  top: -6%;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 8%;
+  right: -4%;
   display: grid;
   place-items: center;
   width: 30%;

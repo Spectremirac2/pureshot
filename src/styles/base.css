@@ -119,6 +119,9 @@ p { margin: 0; }
 .prose { max-width: var(--maxw-text); display: flex; flex-direction: column; gap: var(--sp-3); color: var(--text-2); }
 .prose strong { color: var(--text); }
 
+/* "1vDOQUZ" gibi özel yazımlar büyük harf dönüşümünden korunur */
+.meme { text-transform: none; letter-spacing: 0.01em; }
+
 /* Meme damgası: DOG DOG DOG / 1vDOQUZ */
 .stamp {
   display: inline-block;
@@ -133,6 +136,8 @@ p { margin: 0; }
   color: transparent;
   filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 22px rgba(255, 106, 43, 0.35));
   transform: rotate(-4deg);
+  /* background-clip:text Türkçe şapka/nokta işaretlerini (Ğ İ Ö Ü) kırpmasın */
+  padding: 0.16em 0.1em 0.08em;
 }
 .stamp.gold { background: var(--grad-aegis); -webkit-background-clip: text; background-clip: text; }
 .stamp.jade { background: var(--grad-radiant); -webkit-background-clip: text; background-clip: text; }

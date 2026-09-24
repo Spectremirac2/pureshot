@@ -202,6 +202,7 @@
   border: 0; background: transparent; color: var(--text-3); cursor: pointer;
 }
 .jk-search-clear:hover { color: var(--text); }
+.jk-search-clear[hidden] { display: none; }
 .jk-sortwrap { flex: 0 0 auto; }
 .jk-sort { width: auto; min-width: 190px; }
 .jk-result { font-size: var(--fs-sm); color: var(--text-3); margin-left: auto; }
@@ -250,6 +251,15 @@
     conic-gradient(from -22.5deg, var(--cat) 0 45deg, var(--line-2) 45deg 360deg);
 }
 .jk-cat { font-family: var(--font-lore); font-weight: 700; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cat); white-space: nowrap; }
+/* "1vDOQUZ" küçük v ile yazılır: büyük harf dönüşümü ve Cinzel'in küçük-büyük harfleri kapatılır */
+[data-jkcat='1v9'] .jk-cat, .jk-wedge[data-jkcat='1v9'] .jk-wedge-lbl, .jk-mach-cat[data-jkcat='1v9'], .jk-feature-cat[data-jkcat='1v9'] {
+  font-family: var(--font-body);
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+.jk-feature-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.jk-feature-cat { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cat); padding: 2px 8px; border: 1px solid color-mix(in srgb, var(--cat) 45%, transparent); border-radius: 2px; }
 .jk-tag { font-size: 11px; color: var(--text-3); white-space: nowrap; }
 .jk-byline { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; font-size: var(--fs-xs); }
 .jk-nick { font-weight: 700; color: var(--aegis-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
@@ -439,6 +449,7 @@
 /* ---------------------------------------------------------------- makine */
 .jk-machine { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); gap: var(--sp-5); align-items: start; }
 .jk-mach-out { display: flex; flex-direction: column; gap: var(--sp-4); }
+.jk-machine > *, .jk-mach-side > * { min-width: 0; }
 .jk-mach-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .jk-led { width: 10px; height: 10px; border-radius: 50%; background: var(--kick); box-shadow: 0 0 10px var(--kick); }
 .jk-serial { font-size: 12px; color: var(--text-3); }
@@ -570,6 +581,12 @@
   .jk-wheel { width: min(100%, 380px); }
   .jk-machine, .jk-add { grid-template-columns: 1fr; }
   .jk-preview-wrap { position: static; }
+  .jk-card--preview { transform: none; }
+  .jk-mach-side { display: contents; }
+  .jk-mach-out { order: 1; }
+  .jk-mach-ctrl { order: 2; }
+  .jk-mach-count { order: 3; }
+  .jk-mach-hist { order: 4; }
   .jk-feature { grid-template-columns: 1fr; }
   .jk-feature-media { min-height: 0; aspect-ratio: 16 / 7; }
   .jk-feature-img { object-position: 50% 50%; }

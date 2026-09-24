@@ -345,7 +345,7 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
     const t = Math.tan((FOV * Math.PI) / 360);
     const portrait = W / H < 0.9;
     const halfW = portrait ? 6.2 : 9;
-    const halfH = portrait ? 11 : 6.6;
+    const halfH = portrait ? 11 : 6.2;
     cam.dist = Math.max(halfH / t, halfW / (t * camera.aspect));
     camera.far = cam.dist + 90;
     camera.updateProjectionMatrix();
@@ -611,12 +611,14 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
       if (p.rapier > 0 && Math.random() < 0.3) parts.spawn({ x: p.x + (Math.random() - 0.5) * 0.6, z: p.z + (Math.random() - 0.5) * 0.6, y: 0.5 + Math.random(), vx: 0, vz: 0, vy: 0.8, life: 0.6, size: 0.14, size1: 0.02, color: col.gold, floor: false });
     }
 
-    // köpekler
+    // köpekler (etiketler ekranda sabit piksel boyutunda kalsın)
+    const pxPerUnit = H / (2 * Math.tan((FOV * Math.PI) / 360) * D);
+    const labelScale = Math.max(0.9, Math.min(5, (W < 560 ? 104 : 124) / pxPerUnit));
     seen.clear();
     for (const d of g.dogs) {
       seen.add(d.id);
       const rig = rigById.get(d.id) || acquireRig(d);
-      rig.update(d, time, dt, reduced);
+      rig.update(d, time, dt, reduced, labelScale);
     }
     for (const id of [...rigById.keys()]) if (!seen.has(id)) releaseRig(id);
 

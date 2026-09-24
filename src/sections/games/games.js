@@ -361,7 +361,8 @@ function createSalon(el, ctx) {
   }
 
   function scrollToY(y) {
-    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    // İçerik değişirken yumuşak kaydırma (html{scroll-behavior:smooth}) yerine anında atla
+    try { window.scrollTo({ top: Math.max(0, y), behavior: 'instant' }); } catch { window.scrollTo(0, Math.max(0, y)); }
   }
 
   function show(sub) {

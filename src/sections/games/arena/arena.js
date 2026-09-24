@@ -105,7 +105,7 @@ export function mountArena(el, ctx = {}) {
   const headBest = h('strong', { class: 'num' }, '—');
   const head = h('div', { class: 'ar-head' },
     h('div', { class: 'ar-head-text' },
-      h('span', { class: 'eyebrow' }, 'Sitenin imza oyunu · 3D · hayran yapımı'),
+      h('span', { class: 'eyebrow' }, 'İmza oyun · 3D · hayran yapımı'),
       h('h1', { class: 'h1 ar-title' }, '1vDO', h('em', null, 'Q'), 'UZ Arena'),
       h('p', { class: 'ar-lead muted' }, 'Tek okçu, dokuz DOG. Dalga dalga gelen sürüyü CureShot ile del, dokuzunu da indir.'),
     ),
@@ -140,10 +140,10 @@ export function mountArena(el, ctx = {}) {
   const stampHost = h('div', { class: 'ar-stamphost', 'aria-hidden': 'true' });
 
   // yetenek slotları
-  function makeSlot(key, cls) {
+  function makeSlot(key, cls, fixedCap = false) {
     const cd = h('span', { class: 'ar-slot-cd' });
     const cdText = h('span', { class: 'ar-slot-cdt num' });
-    const cap = h('span', { class: 'ar-slot-key' }, SCHEMES[scheme].caps[key]);
+    const cap = h('span', { class: 'ar-slot-key' }, fixedCap ? key.toUpperCase() : SCHEMES[scheme].caps[key]);
     const extra = h('span', { class: 'ar-slot-extra num' });
     const charge = h('span', { class: 'ar-slot-charge' });
     const btn = h('button', {
@@ -158,7 +158,7 @@ export function mountArena(el, ctx = {}) {
     return { key, btn, cd, cdText, cap, extra, charge, last: {} };
   }
   const slots = { q: makeSlot('q', ''), w: makeSlot('w', ''), e: makeSlot('e', ''), r: makeSlot('r', 'ult') };
-  const tslots = { q: makeSlot('q', 'ar-tbtn'), w: makeSlot('w', 'ar-tbtn'), e: makeSlot('e', 'ar-tbtn'), r: makeSlot('r', 'ar-tbtn ult') };
+  const tslots = { q: makeSlot('q', 'ar-tbtn', true), w: makeSlot('w', 'ar-tbtn', true), e: makeSlot('e', 'ar-tbtn', true), r: makeSlot('r', 'ar-tbtn ult', true) };
 
   const hpFill = h('span', { class: 'ar-bar-fill' });
   const hpText = h('span', { class: 'ar-bar-text num' });

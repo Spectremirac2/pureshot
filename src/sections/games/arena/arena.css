@@ -101,7 +101,7 @@
 .ar-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
 .ar-tool {
   display: grid; place-items: center;
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   padding: 0;
   border: 1px solid var(--line-2);
   background: color-mix(in srgb, var(--bg-3) 88%, transparent);
@@ -423,15 +423,20 @@
 .ar-stage.is-touch .ar-scorebox-s { display: none; }
 .ar-stage.is-touch .ar-top { top: 8px; }
 
+/* Dar sahne: iki satırlı üst HUD (sol: sayaçlar + çubuklar, sağ: araçlar + skor) */
 .ar-stage.is-narrow .ar-top-cell { min-width: 52px; padding: 2px 8px 3px; }
 .ar-stage.is-narrow .ar-top-cell b { font-size: 17px; }
 .ar-stage.is-narrow .ar-top-cell span { font-size: 9px; letter-spacing: 0.12em; }
-.ar-stage.is-narrow .ar-top { left: 50%; top: 8px; }
-.ar-stage.is-narrow.is-touch .ar-panel { top: 104px; width: min(56%, 220px); }
-.ar-stage.is-narrow .ar-banner { top: 27%; }
+.ar-stage.is-narrow .ar-top { left: 8px; top: 8px; transform: none; }
 .ar-stage.is-narrow .ar-tools { gap: 4px; right: 8px; top: 8px; }
-.ar-stage.is-narrow .ar-scorebox { top: 58px; }
-.ar-stage.is-narrow.is-touch .ar-scorebox { top: 58px; }
+.ar-stage.is-narrow .ar-scorebox,
+.ar-stage.is-narrow.is-touch .ar-scorebox {
+  top: 60px; left: auto; right: 8px;
+  align-items: flex-end;
+  border-left: 0; border-right: 2px solid var(--aegis);
+}
+.ar-stage.is-narrow.is-touch .ar-panel { top: 60px; width: min(54%, 220px); }
+.ar-stage.is-narrow .ar-banner { top: 26%; }
 
 /* ---------- Ekranlar ---------- */
 .ar-screens { position: absolute; inset: 0; z-index: 5; pointer-events: none; }

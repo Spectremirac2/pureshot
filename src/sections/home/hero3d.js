@@ -340,17 +340,20 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
   heroShadow.position.y = 0.006;
   heroRoot.add(heroShadow);
 
-  let heroModel = null;
+  // Önce prosedürel okçu; GLB gelince "doğma" animasyonuyla yerini alır.
+  const heroSkin = new THREE.Group();
+  heroSpin.add(heroSkin);
+  let heroPop = 1;
+  const procHero = buildArcher(keep, hex);
+  heroSkin.add(procHero);
   if (hasModel('model-archer')) {
     loadModel('model-archer', { height: 1.8 }).then((m) => {
-      if (disposed) return;
-      heroModel = m || buildArcher(keep, hex);
-      heroSpin.add(heroModel);
+      if (disposed || !m) return;
+      heroSkin.remove(procHero);
+      heroSkin.add(m);
+      heroPop = reduced ? 1 : 0;
       if (!running) renderOnce();
     });
-  } else {
-    heroModel = buildArcher(keep, hex);
-    heroSpin.add(heroModel);
   }
 
   // ------------------------------------------------------------ 9 DOG
@@ -383,29 +386,30 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
       phase: rnd() * TAU, speed: 3 + rnd() * 1.2, scale: 0.9 + rnd() * 0.2,
       jumpY: 0, vy: 0, spin: 0, spinning: false, delay: -1, wobble: rnd() * TAU,
     };
-    if (!useDogModel) {
-      const body = buildProceduralDog(kit, i, eyeMat);
-      rig.add(body.group);
-      d.tail = body.tail;
-      body.eyes.forEach((p) => {
-        const g = glowSprite(base.clone(), 0.2, 0.9);
-        g.position.copy(p);
-        rig.add(g);
-        eyeGlows.push(g);
-      });
-    } else {
-      const g = glowSprite(base.clone(), 0.5, 0.85);
-      g.position.set(0, 0.95, 0);
-      rig.add(g);
+    const skin = new THREE.Group();
+    rig.add(skin);
+    d.skin = skin;
+    d.pop = 1;
+    const proc = buildProceduralDog(kit, i, eyeMat);
+    skin.add(proc.group);
+    d.tail = proc.tail;
+    proc.eyes.forEach((p) => {
+      const g = glowSprite(base.clone(), 0.2, 0.9);
+      g.position.copy(p);
+      proc.group.add(g);
       eyeGlows.push(g);
+    });
+    if (useDogModel) {
       loadModel('model-dog', { height: 0.8 }).then((m) => {
-        if (disposed) return;
-        if (m) rig.add(m);
-        else {
-          const body = buildProceduralDog(kit, i, eyeMat);
-          rig.add(body.group);
-          d.tail = body.tail;
-        }
+        if (disposed || !m) return;
+        skin.remove(proc.group);
+        d.tail = null;
+        eyeGlows.length = 0;
+        const g = glowSprite(base.clone(), 0.5, 0.85);
+        g.position.set(0, 0.95, 0);
+        skin.add(m, g);
+        eyeGlows.push(g);
+        d.pop = reduced ? 1 : -i * 0.08;
         if (!running) renderOnce();
       });
     }
@@ -558,6 +562,10 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     heroYaw += diff * Math.min(1, dt * 3.5);
     heroSpin.rotation.y = heroYaw;
+    if (heroPop < 1) {
+      heroPop = Math.min(1, heroPop + dt * 2);
+      heroSkin.scale.setScalar(easeOutBack(heroPop));
+    }
     heroSpin.position.y = Math.sin(t * 1.6) * 0.03;
     aura.rotation.z += dt * 0.35;
     auraMat.opacity = 0.45 + Math.sin(t * 2.2) * 0.12 + boost * 0.4;
@@ -584,6 +592,10 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
       if (d.spinning) {
         d.spin = Math.min(1, d.spin + dt * 1.6);
         if (d.spin >= 1) { d.spinning = false; d.spin = 0; }
+      }
+      if (d.pop < 1) {
+        d.pop = Math.min(1, d.pop + dt * 2.4);
+        d.skin.scale.setScalar(easeOutBack(Math.max(0, d.pop)));
       }
       const hop = Math.abs(Math.sin(t * d.speed + d.phase)) * 0.16;
       d.rig.position.y = hop + d.jumpY;
@@ -768,6 +780,12 @@ export function createHero3D(host, { getFocus, reduced = false, pointerEl = host
 }
 
 // ====================================================================== yardımcılar
+
+function easeOutBack(x) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+}
 
 function easeInOut(x) {
   return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;

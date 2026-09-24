@@ -230,7 +230,7 @@ export function mount(el, ctx, nav) {
         ? 'Sağlam refleks. 2 dakikada bir rune kontrolü sende.'
         : avg < 400
           ? 'Ortalama pub refleksi. Rune’u bazen sen, bazen Mid Köpeği alır.'
-          : 'DOG DOG DOG. Rune çoktan kurye tarafından yenildi.';
+          : 'DOG DOG DOG. Rune’u rakip mid çoktan bottle’a doldurdu.';
     runner.after(0.6, () => {
       const { node } = resultCard(meta, {
         score: avg,

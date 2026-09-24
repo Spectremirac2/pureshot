@@ -62,6 +62,7 @@ export default {
     const timers = new Set();
     const modals = new Set();
     const jokeOf = new WeakMap();
+    let alive = true;
     const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
 
     const state = {
@@ -181,7 +182,7 @@ export default {
 
     function toastWithLink(msg, linkLabel, fn) {
       const link = h('button', { class: 'jk-toast-link', type: 'button' }, linkLabel);
-      link.addEventListener('click', fn);
+      link.addEventListener('click', () => { if (alive) fn(); });
       fx.toast(h('span', null, msg, ' ', link), 'jade', 4200);
     }
 
@@ -393,6 +394,7 @@ export default {
     }
 
     function selectTab(id, fromUser) {
+      if (!alive) return;
       if (!TAB_IDS.includes(id)) id = 'efsaneler';
       const changed = state.tab !== id;
       state.tab = id;
@@ -438,7 +440,11 @@ export default {
           h('span', { class: 'jk-seal', 'aria-hidden': 'true' }, h('small', null, 'Günün'), 'Damgası'),
         ),
         h('div', { class: 'jk-feature-body' },
-          h('span', { class: 'eyebrow' }, 'Günün damgası · ', catLabel(j.cat)),
+          h('div', { class: 'jk-feature-top' },
+            h('span', { class: 'eyebrow' }, 'Günün damgası'),
+            h('span', { class: 'jk-feature-cat', dataset: { jkcat: j.cat } }, catLabel(j.cat)),
+            h('span', { class: 'jk-tag mono' }, '#' + j.id),
+          ),
           legendCard(j, { size: 'xl', extraClass: 'jk-card--feature' }),
         ),
       );
@@ -456,6 +462,7 @@ export default {
       input.addEventListener('input', () => {
         clearBtn.hidden = !input.value;
         clearTimeout(st);
+        timers.delete(st);
         st = later(() => { state.q = fold(input.value.trim()); state.limit = 24; renderLegends(); }, 120);
       });
       clearBtn.addEventListener('click', () => { input.value = ''; clearBtn.hidden = true; state.q = ''; state.limit = 24; renderLegends(); input.focus(); });
@@ -643,8 +650,7 @@ export default {
       );
       panel.append(h('div', { class: 'jk-machine' }, out, side));
       paintComboSub();
-      const first = genJoke(state.machCat);
-      showGen(first, false);
+      showGen(genJoke(state.machCat), true);
     }
 
     function paintComboSub() {
@@ -867,6 +873,7 @@ export default {
         counter.classList.toggle('over', n > MAX);
         paintPreview();
         clearTimeout(draftT);
+        timers.delete(draftT);
         draftT = later(() => ls.set('jk:draft', { text: ta.value, cat: sel.value }), 400);
       }
       paintPreview = () => {
@@ -960,6 +967,10 @@ export default {
     root.addEventListener('click', onAction);
     el.appendChild(root);
     selectTab(TAB_IDS.includes(ctx.sub) ? ctx.sub : 'efsaneler', false);
+    // Derin bağlantı (#espriler--duvar vb.): kabuk sayfayı başa kaydırdıktan sonra sekmelere in
+    if (TAB_IDS.includes(ctx.sub) && ctx.sub !== 'efsaneler') {
+      later(() => window.scrollTo({ top: tablist.getBoundingClientRect().top + window.scrollY - 80, behavior: 'auto' }), 60);
+    }
     const mySelect = (sub) => selectTab(TAB_IDS.includes(sub) ? sub : 'efsaneler', false);
     activeSelect = mySelect;
 
@@ -993,6 +1004,7 @@ export default {
     store.ready.then(() => { paintAddNote(); paintWallNote(); });
 
     return () => {
+      alive = false;
       root.removeEventListener('click', onAction);
       for (const fn of cleanups) { try { fn(); } catch { /* yok say */ } }
       for (const t of timers) clearTimeout(t);

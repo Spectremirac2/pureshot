@@ -11,7 +11,7 @@ import { QUIZZES } from '../../data/quizzes.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { portraitUrl } from '../../core/assets.js';
 import { attachTilt } from '../../components/tilt.js';
-import { makeScope, getLast } from './ui.js';
+import { makeScope, getLast, keyOk } from './ui.js';
 import { mountHangiDog } from './hangidog.js';
 import { mountBilgi } from './bilgi.js';
 import { mountDogMu } from './dogmu.js';
@@ -165,12 +165,22 @@ function renderHub(root, open) {
 
   const grid = h('div', { class: 'qz-grid' }, cards);
   const tip = h('p', { class: 'qz-hub-tip xsmall dim' },
-    'İpucu: soruları ', h('span', { class: 'kbd' }, '1'), '–', h('span', { class: 'kbd' }, '4'),
-    ' tuşlarıyla cevapla, ', h('span', { class: 'kbd' }, 'Enter'), ' ile ilerle. DOG kartlarında ',
+    'İpucu: ', h('span', { class: 'kbd' }, '1'), '–', h('span', { class: 'kbd' }, '4'),
+    ' ile quizi aç, sorularda aynı tuşlarla cevapla, ', h('span', { class: 'kbd' }, 'Enter'), ' ile ilerle. DOG kartlarında ',
     h('span', { class: 'kbd' }, '←'), ' ', h('span', { class: 'kbd' }, '→'), ' ya da kaydır.');
 
   const view = h('div', { class: 'qz-hub' }, head, grid, tip);
   root.appendChild(view);
+
+  // 1–4: kartlardaki yuva numarasıyla quizi aç
+  scope.on(window, 'keydown', (e) => {
+    if (!keyOk(e) || !/^[1-4]$/.test(e.key)) return;
+    const q = QUIZZES[Number(e.key) - 1];
+    if (!q) return;
+    e.preventDefault();
+    sound.click();
+    open(q.id);
+  });
 
   return () => { scope.dispose(); view.remove(); };
 }

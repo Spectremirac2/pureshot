@@ -130,8 +130,12 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
     const m = key.startsWith('model-') ? null : metaFor(key);
     const ex = EXHIBITS.find((e) => e.key === key);
     return h('tr', null,
-      h('td', null, h('span', { class: 'mono xsmall' }, key), h('span', { class: 'gl-inv-title xsmall dim' }, m ? m.title : ex ? ex.name : '')),
-      h('td', { class: 'mono xsmall' }, endpointFor(key)),
+      h('td', null,
+        h('span', { class: 'mono xsmall' }, key),
+        h('span', { class: 'gl-inv-title xsmall dim' }, m ? m.title : ex ? ex.name : ''),
+        h('span', { class: 'gl-inv-ep mono xsmall' }, endpointFor(key)),
+      ),
+      h('td', { class: 'mono xsmall gl-inv-epcol' }, endpointFor(key)),
       h('td', { class: 'xsmall' }, outputFor(key)),
       h('td', null, h('span', { class: `badge ${ready ? 'jade' : ''}` }, ready ? 'hazır' : 'bekleniyor')),
     );
@@ -168,7 +172,7 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
       ),
       h('div', { class: 'table-wrap' },
         h('table', { class: 'table gl-inv-table' },
-          h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Anahtar'), h('th', { scope: 'col' }, 'fal.ai uç noktası'), h('th', { scope: 'col' }, 'Çıktı'), h('th', { scope: 'col' }, 'Durum'))),
+          h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Anahtar'), h('th', { scope: 'col', class: 'gl-inv-epcol' }, 'fal.ai uç noktası'), h('th', { scope: 'col' }, 'Çıktı'), h('th', { scope: 'col' }, 'Durum'))),
           h('tbody', null, inventory),
         ),
       ),

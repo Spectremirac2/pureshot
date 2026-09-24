@@ -15,7 +15,7 @@ const SECONDS = 20;
 const BASE = 100;
 const BONUS = 100;
 
-export function mountBilgi(root, { quiz, back }) {
+export function mountBilgi(root, { ctx, quiz, back }) {
   const scope = makeScope();
   let sub = null;
   const view = h('div', { class: 'qz-stage' });
@@ -41,7 +41,7 @@ export function mountBilgi(root, { quiz, back }) {
       h('div', { class: 'qz-brief' },
         h('section', { class: 'panel raised frame qz-brief-main stack' },
           h('span', { class: 'eyebrow' }, 'Brifing'),
-          h('h2', { class: 'qz-brief-title' }, '20 saniye. 4 seçenek. ', h('em', null, 'Tango yok.')),
+          h('h2', { class: 'qz-brief-title' }, '20 saniye. 4\u00a0seçenek. ', h('em', null, 'Tango yok.')),
           h('p', { class: 'muted' }, `${BILGI_BANK.length} soruluk bankadan her turda rastgele ${ROUND} soru. Yalnızca yamayla değişmeyen, kalıcı Dota 2 bilgileri: fiyat ya da bekleme süresi ezberi yok.`),
           h('ul', { class: 'qz-rules' },
             h('li', null, icon('quiz', { size: 18 }), h('span', null, h('b', null, `${ROUND} soru`), ', her birinde 4 seçenek')),
@@ -113,7 +113,12 @@ export function mountBilgi(root, { quiz, back }) {
         h('span', null, h('small', null, 'Ort. cevap'), h('b', { class: 'num' }, correct ? `${avg.toFixed(1).replace('.', ',')} sn` : '—')),
       ),
       record && prevBest != null ? h('span', { class: `badge ${toneClass('gold')} qz-record` }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
-      h('div', { class: 'row' }, again, h('button', { class: 'btn ghost', type: 'button', onclick: back }, icon('arrowLeft', { size: 18 }), 'Tüm quizler')),
+      h('div', { class: 'row' },
+        again,
+        h('button', { class: 'btn ghost', type: 'button', onclick: back }, icon('arrowLeft', { size: 18 }), 'Tüm quizler'),
+      ),
+      h('p', { class: 'xsmall dim qz-more' }, 'Soruların kahramanlarını daha yakından tanı; hangisi en çok DOG? ',
+        h('button', { class: 'qz-link', type: 'button', onclick: () => ctx.go('kahramanlar') }, 'Kahraman DOG Endeksi', icon('arrowRight', { size: 14 }))),
     );
 
     view.append(

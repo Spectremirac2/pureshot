@@ -372,7 +372,7 @@ const TEMPLATES = [
   { id: 'p5', cat: 'pub', t: 'Maç sonu raporu — {hero}\nLast hit: {lh}\nWard: 0\nÖlüm: {deaths}\nEn büyük katkı: {contrib}\nNot: DOG DOG DOG' },
   { id: 'p6', cat: 'pub', t: 'SON DAKİKA: {hero} oynayan bir oyuncu {min}. dakikada {item} aldı ve hemen ardından {blunder.past}. Uzmanlar: “1vDOQUZ’un tam tersi.”' },
   { id: 'p7', cat: 'pub', t: 'Bir gün bir {role} {item} almış. Herkes şaşırmış, rakipler bile pause atıp tebrik etmiş. Sonra {blunder.mis} ve dünya yeniden dengesini bulmuş.' },
-  { id: 'p8', cat: 'pub', t: '“Geliyorum” yazan {mate}: {min}. dakikada yola çıktı, {minLate}. dakikada vardı. Varır varmaz da {blunder.past}.' },
+  { id: 'p8', cat: 'pub', t: '{mate} chat’e “geliyorum” yazdı. {min}. dakikada yola çıktı, {minLate}. dakikada vardı. Varır varmaz da {blunder.past}.' },
 
   // Kahraman Özel
   { id: 'h1', cat: 'hero', t: '{hero} rehberi\nAdım 1: {item.acc} almak.\nAdım 2: {^blunder.inf}.\nAdım 3: Chat’teki DOG DOG DOG’ları saymak.' },
@@ -392,7 +392,7 @@ const TEMPLATES = [
   { id: 'c6', cat: 'chat', t: 'Pause diplomasisi: {mate} pause attı ve “{chat}” yazdı. Rakip unpause’a bastı ve “DOG DOG DOG” yazdı. Barış görüşmeleri sürüyor.' },
 
   // MMR ve Rütbe
-  { id: 'r1', cat: 'mmr', t: '{rank.loc} {blunder.inf} “hata” sayılır. {rank2.loc} “bait”. Pub’da ise düpedüz DOG DOG DOG.' },
+  { id: 'r1', cat: 'mmr', t: '{rankLow.loc} {blunder.inf} “hata” sayılır. {rankHigh.loc} “bait”. Pub’da ise düpedüz DOG DOG DOG.' },
   { id: 'r2', cat: 'mmr', t: 'MMR grafiğim bu hafta −{mmrLoss} yaptı. Ne mi oldu? {^mate} {blunder.past}. Sonra bir daha. Sonra bir daha.' },
   { id: 'r3', cat: 'mmr', t: 'Rütbe madalyası: {rankLow}. Chat’teki özgüven: Immortal. Gerçek unvan: {dogRank}.' },
   { id: 'r4', cat: 'mmr', t: 'Smurf mu, DOG mu? Test: {min}. dakikada {item} bitirdiyse smurf. {min}. dakikada {blunder.past} ise DOG. İkisini birden yaptıysa: ters yönden 1vDOQUZ.' },

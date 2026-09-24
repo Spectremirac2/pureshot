@@ -904,8 +904,6 @@ export function mount(el, ctx, nav) {
 
   startDemo();
   resize(true);
-  // TMP-TEST-HOOK
-  window.__gmLH = () => ({ st, Lw, H, rect: canvas.getBoundingClientRect() });
   closeOverlay = showOverlay(L.stage, introCard(meta, { onStart: start, note: 'Arkada creep’ler çoktan dövüşüyor. Isın.' }));
 
   return () => {

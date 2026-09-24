@@ -70,8 +70,11 @@ export function mountDogMu(root, { quiz, back }) {
       xp.el,
       h('div', { class: 'qz-dm' }, deckEl, actions),
       h('p', { class: 'qz-hint xsmall dim qz-dm-hint' },
-        h('span', { class: 'kbd' }, '←'), ' DOG · DOG DEĞİL ', h('span', { class: 'kbd' }, '→'),
-        ' · mobilde kartı sola ya da sağa kaydır · ', h('span', { class: 'kbd' }, 'Enter'), ' sonraki kart'),
+        h('span', { class: 'qz-hint-keys' },
+          h('span', { class: 'kbd' }, '←'), ' DOG · DOG DEĞİL ', h('span', { class: 'kbd' }, '→'),
+          ' · kartı fareyle sürükleyebilirsin · ', h('span', { class: 'kbd' }, 'Enter'), ' sonraki kart'),
+        h('span', { class: 'qz-hint-touch' }, 'Kartı sola kaydır: DOG · sağa kaydır: DOG DEĞİL'),
+      ),
       live,
     );
 

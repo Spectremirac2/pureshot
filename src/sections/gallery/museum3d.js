@@ -181,7 +181,6 @@ export function mountMuseum(el, ctx) {
   let current = 0;
   let destroyed = false;
   let mode = 'init'; // '3d' | '2d'
-  let lastState = null;
 
   // ---------------------------------------------------------------- DOM
   const canvas = h('canvas', { class: 'gl-canvas', tabindex: '0', role: 'img', 'aria-label': '3D müze sahnesi' });
@@ -242,7 +241,6 @@ export function mountMuseum(el, ctx) {
 
   // ---------------------------------------------------------------- plaket
   function renderPlaque(ex, state, stats) {
-    lastState = state;
     clear(plaque);
     const badge = state === 'fal'
       ? h('span', { class: 'badge jade' }, 'fal modeli')
@@ -627,7 +625,6 @@ export function mountMuseum(el, ctx) {
     controls.update();
 
     applyTheme(true);
-    if (import.meta.env && import.meta.env.DEV) window.__glDebug = { renderer, scene, spot, get reflector() { return reflector; }, THREE };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('keydown', onCanvasKey);
     return true;
@@ -763,9 +760,9 @@ export function mountMuseum(el, ctx) {
       renderPlaque(ex, 'loading');
       try { obj = await fetchModel(ex.key, { height: ex.height }); } catch { obj = null; }
       if (destroyed || token !== selToken || mode !== '3d') return;
-      loadingEl.hidden = true;
       if (obj) obj.userData.shared = true;
     }
+    loadingEl.hidden = true;
     const state = obj ? 'fal' : 'procedural';
     if (!obj) obj = buildExhibit(ex.id, palFor(), stoneTex);
     tintThemed(obj, themeColor());

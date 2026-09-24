@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { DOG_TYPES } from './dogs.js';
-import { makeCanvas, toTexture, hexA, tok } from './textures.js';
+import { makeCanvas, toTexture, tok } from './textures.js';
 
 // GLB modellerinin "ileri" yönü bilinmiyor; gerekirse buradan düzeltilir.
 export const DOG_MODEL_YAW = 0;
@@ -219,11 +219,11 @@ export class Label {
     if (status) drawGlyph(g, status, color, 128, GLYPH_H / 2 + 2);
     // isim plakası
     const label = tag ? `${name} · ${tag}` : name;
-    g.font = '800 22px Unbounded, "Arial Black", sans-serif';
-    const tw = Math.min(236, g.measureText(label).width + 30);
+    g.font = '800 25px Unbounded, "Arial Black", sans-serif';
+    const tw = Math.min(250, g.measureText(label).width + 30);
     const x0 = 128 - tw / 2;
-    g.fillStyle = 'rgba(10,8,16,0.78)';
-    roundRect(g, x0, 50, tw, 32, 6);
+    g.fillStyle = 'rgba(10,8,16,0.8)';
+    roundRect(g, x0, 48, tw, 36, 6);
     g.fill();
     if (elite) {
       g.strokeStyle = '#e9b949';
@@ -231,14 +231,14 @@ export class Label {
       g.stroke();
     }
     g.fillStyle = color;
-    g.fillRect(x0 + 5, 56, 5, 20);
+    g.fillRect(x0 + 5, 55, 5, 22);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = '#fff4e6';
-    g.fillText(label, 128 + 4, 67, 222);
+    g.fillText(label, 128 + 4, 67, 236);
     // can çubuğu
-    const bx = 28;
-    const bw = 200;
+    const bx = 38;
+    const bw = 180;
     g.fillStyle = 'rgba(8,6,12,0.9)';
     g.fillRect(bx - 3, 90, bw + 6, 18);
     const fill = g.createLinearGradient(0, 92, 0, 106);
@@ -283,7 +283,7 @@ export class DogRig {
       bone: own(new THREE.MeshStandardMaterial({ color: '#efe3c8', roughness: 0.6 })),
       accent: own(new THREE.MeshStandardMaterial({ color: '#e0354b', roughness: 0.7 })),
       bag: own(new THREE.MeshStandardMaterial({ color: '#6b4426', roughness: 0.9 })),
-      eye: own(new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ff6a2b', emissiveIntensity: 2.2, roughness: 0.3 })),
+      eye: own(new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ff6a2b', emissiveIntensity: 1.4, roughness: 0.3 })),
     };
     this.legs = [];
     this.flashables = [this.m.fur, this.m.fur2];
@@ -433,6 +433,7 @@ export class DogRig {
     this.m.fur2.color.copy(lighten(T.fur, 0.55));
     this.m.accent.color.copy(col);
     this.m.eye.emissive.copy(col);
+    this.m.eye.color.copy(col);
     this.haloMat.color.copy(col);
     this.eliteRing.visible = !!elite;
     this.label.key = '';
@@ -448,7 +449,7 @@ export class DogRig {
     for (const m of this.mats) m.opacity = a;
   }
 
-  update(d, t, dt, reduced) {
+  update(d, t, dt, reduced, labelScale = 1.5) {
     const r = this.root;
     r.position.set(d.x, 0, d.z);
     r.rotation.y = d.face;
@@ -521,24 +522,22 @@ export class DogRig {
     // etiket
     const lg = this.labelGroup;
     lg.position.set(d.x, 1.02 * s + by, d.z);
+    this.label.sprite.scale.set(labelScale, labelScale * 0.5, 1);
     let lop = 1;
     if (d.dead) lop = Math.max(0, 1 - d.deathT * 3);
     else if (d.type === 'ward') lop = d.vis < 0.45 ? 0.15 : d.vis;
     if (d.spawnT > 0) lop = 1 - d.spawnT / 0.55;
     this.label.mat.opacity = lop;
     lg.visible = lop > 0.02;
-    if (!d.demo || true) {
-      const T = DOG_TYPES[d.type];
-      this.label.draw({
-        name: T.short,
-        color: this.color,
-        hp: d.hp,
-        maxHp: d.maxHp,
-        status: d.dead ? null : d.status,
-        elite: d.elite,
-        tag: d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.elite ? 'ELİT' : '',
-      });
-    }
+    this.label.draw({
+      name: DOG_TYPES[d.type].short,
+      color: this.color,
+      hp: d.hp,
+      maxHp: d.maxHp,
+      status: d.dead ? null : d.status,
+      elite: d.elite,
+      tag: d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.elite ? 'ELİT' : '',
+    });
   }
 }
 
@@ -710,7 +709,6 @@ export class ArcherRig {
       const pull = p.charging ? 0.08 + p.charge * 0.3 : 0;
       this.stringPos[3] = this.tip.x - pull;
       this.string.geometry.attributes.position.needsUpdate = true;
-      this.nock.visible = p.charging || p.recoil > 0.6;
       this.nock.position.x = this.tip.x - pull - 0.02;
       this.nock.visible = p.charging;
       this.armR.position.z = 0.08 - pull * 0.6;
@@ -837,4 +835,3 @@ export function buildArrow(kit) {
   return { root, glow, glowMat, trail, trailMat };
 }
 
-export function labelColor(hex) { return hexA(hex, 1); }

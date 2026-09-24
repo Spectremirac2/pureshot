@@ -219,6 +219,7 @@
 .qz-bar-title { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .qz-bar-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.05rem, 0.9rem + 0.9vw, 1.5rem); line-height: 1.1; }
 .qz-back { flex: none; }
+.qz-bar .btn.sm, .qz-nav .btn.sm { min-height: 44px; }
 .qz-prev-result { text-transform: none; letter-spacing: 0.02em; }
 
 .qz-chip {
@@ -437,7 +438,9 @@
 .tone-ember .qz-big, .tone-blood .qz-big { background: var(--grad-ember); -webkit-background-clip: text; background-clip: text; }
 .tone-jade .qz-big { background: var(--grad-radiant); -webkit-background-clip: text; background-clip: text; }
 .qz-big-unit { font-family: var(--font-lore); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-2); font-size: var(--fs-sm); }
-.qz-tier { font-size: clamp(1.5rem, 1rem + 2.2vw, 2.4rem); line-height: 1.08; margin: 6px 0 12px; padding: 0 4px; }
+.qz-tier { font-size: clamp(1.5rem, 1rem + 2.2vw, 2.4rem); line-height: 1.08; margin: 6px 0 12px; }
+/* .stamp metni background-clip ile boyanır; Ğ/İ/Ö/Ü üst işaretleri kutu dışında kalıp kesilmesin */
+.qz-tier, .qz-dm-vstamp { padding: 0.16em 0.1em 0.08em; }
 .qz-kv { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .qz-kv > span {
   display: flex; flex-direction: column;
@@ -449,6 +452,16 @@
 .qz-kv small { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
 .qz-kv b { font-size: var(--fs-lg); color: var(--text); }
 .qz-record { padding: 4px 10px; align-self: flex-start; }
+.qz-more { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.qz-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 32px; padding: 4px 2px;
+  border: 0; background: none;
+  color: var(--aegis); font-weight: 700; font-size: var(--fs-sm);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+.qz-link:hover { color: var(--aegis-2); }
 
 .qz-res-panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .qz-panel-title { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-lg); }
@@ -710,7 +723,7 @@
 .qz-dm-verdict.agree { box-shadow: inset 0 3px 0 var(--radiant); }
 .qz-dm-verdict.disagree { box-shadow: inset 0 3px 0 var(--dire); }
 .qz-dm-vhead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
-.qz-dm-vstamp { font-size: clamp(2.2rem, 1.4rem + 3.6vw, 3.8rem); align-self: flex-start; margin: 4px 0; }
+.qz-dm-vstamp { font-size: clamp(2.2rem, 1.4rem + 3.6vw, 3.8rem); line-height: 1.02; align-self: flex-start; margin: 0; }
 .qz-dm-why { font-size: var(--fs-lg); font-weight: 600; color: var(--text); }
 .qz-dm-recap { margin: 0; }
 .qz-dm-comm { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: var(--sp-3); border-top: 1px solid var(--line); }
@@ -855,13 +868,17 @@
   .qz-dm-btn { min-height: 64px; }
   .qz-dist-row { grid-template-columns: minmax(0, 1fr) 5.5rem; row-gap: 4px; }
   .qz-dist-track { grid-column: 1 / -1; grid-row: 2; }
-  .qz-kv > span { min-width: 0; flex: 1 1 80px; }
+  .qz-kv > span { min-width: 0; flex: 1 1 80px; padding: 8px 10px; }
+  .qz-kv b { font-size: var(--fs-md); white-space: nowrap; }
+  .qz-kv small { letter-spacing: 0.08em; }
   .qz-nav .qz-hint { display: none; }
   .qz-dm-hint { font-size: 11px; }
   .qz-reveal-foot .btn { width: 100%; }
 }
+.qz-hint-touch { display: none; }
 @media (hover: none) {
-  .qz-nav .qz-hint, .qz-hub-tip { display: none; }
+  .qz-nav .qz-hint, .qz-hub-tip, .qz-hint-keys, .qz-dm-btn .kbd { display: none; }
+  .qz-hint-touch { display: inline; }
 }
 
 @media (prefers-reduced-motion: reduce) {

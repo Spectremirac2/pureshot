@@ -785,7 +785,7 @@ export function createGame(emit) {
         continue;
       }
       if (p.dead || g.state === 'idle' || g.state === 'over') continue;
-      if ((k.x - p.x) ** 2 + (k.z - p.z) ** 2 < (k.kind === 'aegis' ? 1.1 : 0.9) ** 2 && k.t > 0.6) {
+      if ((k.x - p.x) ** 2 + (k.z - p.z) ** 2 < (k.kind === 'aegis' ? 1.1 : 0.9) ** 2 && k.t > (k.kind === 'aegis' ? 1.4 : 0.6)) {
         g.pickups.splice(i, 1);
         if (k.kind === 'rapier') p.rapier = 8;
         if (k.kind === 'aegis') {

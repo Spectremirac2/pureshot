@@ -24,10 +24,13 @@ function makeCtx(section, sub) {
     /** Başka bölüme / alt sayfaya git. */
     go(sec, s) { location.hash = hashFor(sec, s); },
     /** Aynı bölümde alt sayfayı değiştir (yeniden bağlamadan hash'i günceller). */
-    setSub(s) {
+    setSub(s, { push = false } = {}) {
       current.sub = s || null;
       const target = hashFor(section, s);
-      if (location.hash !== target) history.replaceState(null, '', target);
+      if (location.hash !== target) {
+        if (push) history.pushState(null, '', target);
+        else history.replaceState(null, '', target);
+      }
       highlight();
     },
     /** Oyunlar Q/W/E/R tuşlarını kullanırken gezinme kısayollarını kapatır. */

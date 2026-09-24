@@ -91,7 +91,7 @@ function buildHero(ctx, cleanups, reduced) {
     }
   });
   const arenaBtn = h('button', { class: 'btn ghost lg hm-arenabtn', type: 'button' },
-    icon('bow', { size: 20 }), '1vDOQUZ Arenasına Gir', h('span', { class: 'kbd', 'aria-hidden': 'true' }, 'R'));
+    icon('bow', { size: 20 }), h('span', null, h('span', { class: 'meme' }, '1vDOQUZ'), ' Arenasına Gir'), h('span', { class: 'kbd', 'aria-hidden': 'true' }, 'R'));
   arenaBtn.addEventListener('click', () => { ctx.sound.click(); ctx.go('oyunlar', 'arena'); });
 
   const copy = h('div', { class: 'hm-copy' },

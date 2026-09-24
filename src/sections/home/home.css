@@ -839,7 +839,7 @@
 }
 .hm-slot--item .hm-slot-kbd { margin-left: 0; order: -1; }
 .hm-slot--item .hm-slot-text { margin-top: 0; flex: 1; gap: 2px; }
-.hm-slot--item .hm-slot-go { flex: none; }
+.hm-slot--item .hm-slot-go { flex: none; margin-top: 0; padding-top: 0; }
 @media (max-width: 700px) {
   .hm-slot--item { flex-wrap: wrap; gap: var(--sp-3); }
   .hm-slot--item .hm-slot-text { flex-basis: 100%; }

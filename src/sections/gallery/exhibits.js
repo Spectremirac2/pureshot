@@ -321,8 +321,9 @@ function buildArcher(pal) {
   head.position.set(0, 1.0, 0.02);
   root.add(head);
   add(head, sphere, skin, [0, 0, 0], null, [0.3, 0.285, 0.285]);
-  for (const [x, y, z] of [[-0.13, 0.15, 0.2], [0, 0.19, 0.22], [0.13, 0.15, 0.2], [-0.2, 0.06, 0.17], [0.2, 0.06, 0.17]]) {
-    add(head, sphere, hair, [x, y, z], null, [0.1, 0.08, 0.08]);
+  // alın perçemi: kapüşonun altından taşan üç yassı tutam
+  for (const [x, y, z, r] of [[-0.11, 0.17, 0.2, 0.35], [0.02, 0.2, 0.21, -0.1], [0.13, 0.16, 0.19, -0.4]]) {
+    add(head, sphere, hair, [x, y, z], [0.5, 0, r], [0.11, 0.05, 0.06]);
   }
   for (const s of [-1, 1]) {
     add(head, sphere, dark, [s * 0.1, -0.01, 0.262], null, [0.046, 0.062, 0.03]);

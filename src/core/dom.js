@@ -195,6 +195,18 @@ export function cleanText(s, max = 280) {
   return String(s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+/** Çok satırlı metin temizleme: satır sonlarını korur, satır içi boşlukları sadeleştirir, en fazla 2 boş satır. */
+export function cleanMultiline(s, max = 600) {
+  return String(s || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t\f\v]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, max);
+}
+
 /** Çok hafif küfür/nefret filtresi: yalnızca ağır hakaretleri yıldızlar. */
 const BLOCK = ['orospu', 'piç', 'sikerim', 'siktir', 'amına', 'amk', 'yarrak', 'göt veren', 'ibne', 'pezevenk', 'kahpe', 'şerefsiz'];
 export function softFilter(s) {

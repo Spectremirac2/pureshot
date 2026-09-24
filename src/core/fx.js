@@ -75,6 +75,8 @@ function runParticles() {
   raf = requestAnimationFrame(step);
 }
 
+const modalStack = [];
+
 const COLORS = ['#ff6a2b', '#ff9a3d', '#e9b949', '#f6d98a', '#43d6a0', '#f3eadb', '#e0354b'];
 
 export const fx = {
@@ -151,15 +153,25 @@ export const fx = {
     const prev = document.activeElement;
     const box = h('div', { class: 'modal panel raised frame', role: 'dialog', 'aria-modal': 'true', 'aria-label': label }, content);
     const back = h('div', { class: 'modal-backdrop' }, box);
+    let closed = false;
     const close = () => {
+      if (closed) return;
+      closed = true;
       back.remove();
       document.removeEventListener('keydown', onKey, true);
+      const i = modalStack.indexOf(close);
+      if (i >= 0) modalStack.splice(i, 1);
       if (prev && prev.focus) prev.focus();
       if (onClose) onClose();
     };
+    // Üst üste açık pencerelerde Esc yalnızca en üsttekini kapatır
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      if (e.key !== 'Escape' || modalStack[modalStack.length - 1] !== close) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      close();
     };
+    modalStack.push(close);
     back.addEventListener('pointerdown', (e) => { if (e.target === back) close(); });
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(back);

@@ -145,6 +145,7 @@ export function gameLayout(el, meta, { nav } = {}) {
   const stageFrame = h('div', { class: 'gm-stage' }, stage);
   const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
   const lbHost = h('div', { class: 'gm-aside-lb' });
+  const otherBest = [];
 
   const keys = (meta.keys || []).length
     ? h('dl', { class: 'gm-keys' },
@@ -160,10 +161,12 @@ export function gameLayout(el, meta, { nav } = {}) {
       h('h3', { class: 'h3 row' }, icon('gamepad', { size: 18 }), 'Diğer oyunlar'),
       h('ul', { class: 'gm-others-list' },
         nav.list.filter((g) => g.id !== meta.id).map((g) => {
+          const best = h('span', { class: 'gm-other-best num' }, bestText(g));
+          otherBest.push([g, best]);
           const a = h('a', { class: 'gm-other', href: `#oyunlar--${g.id}`, style: { '--gc': g.color } },
             h('span', { class: 'gm-other-ico' }, icon(g.icon, { size: 18 })),
             h('span', { class: 'gm-other-name' }, g.name),
-            h('span', { class: 'gm-other-best num' }, bestText(g)),
+            best,
           );
           a.addEventListener('click', (e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
@@ -212,9 +215,12 @@ export function gameLayout(el, meta, { nav } = {}) {
     higherIsBetter: meta.higherIsBetter !== false,
     format: meta.format,
   });
+  const unMe = store.me.subscribe(() => {
+    for (const [g, el] of otherBest) el.textContent = bestText(g);
+  });
   return {
     root, hud, stage, live,
-    destroy() { unLb(); root.remove(); },
+    destroy() { unLb(); unMe(); root.remove(); },
   };
 }
 
