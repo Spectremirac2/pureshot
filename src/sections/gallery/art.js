@@ -4,7 +4,7 @@
 import { h, clear, fmtNum } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { mountComments } from '../../components/comments.js';
-import { GROUPS, IMAGE_KEYS, MODEL_KEYS, galleryItems, fontsReady, metaFor } from './catalog.js';
+import { GROUPS, IMAGE_KEYS, MODEL_KEYS, galleryItems, fontsReady } from './catalog.js';
 import { EXHIBITS } from './exhibits.js';
 import { likeTracker } from './likes.js';
 
@@ -301,4 +301,3 @@ export function mountArt(el, ctx, { onHow } = {}) {
   };
 }
 
-export { metaFor };

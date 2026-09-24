@@ -17,6 +17,8 @@ import { openNickEditor } from '../../core/shell.js';
 import { ROUTES } from '../../core/routes.js';
 import { FAQ } from '../../data/faq.js';
 import { createOracle, ORACLE_EXAMPLES, normalizeTr } from '../../data/oracle.js';
+import * as heroData from '../../data/heroes.js';
+import { artUrl } from '../../core/assets.js';
 
 const TITLE_MAX = 120;
 const BODY_MAX = 600;
@@ -818,9 +820,14 @@ function createQA(el, ctx) {
   // -------------------------------------------------------------- KÂHİN
   function buildKahin() {
     const panel = panels.get('kahin');
-    if (!oracleSession.oracle) oracleSession.oracle = createOracle();
+    if (!oracleSession.oracle) {
+      // Kahraman DOG Endeksi verisi varsa kâhin kahraman adlarını da tanır
+      const heroes = Array.isArray(heroData.HEROES) ? heroData.HEROES : null;
+      oracleSession.oracle = createOracle({ heroes });
+    }
 
     const face = h('span', { class: 'qa-orb-face', 'aria-hidden': 'true' }, '?');
+    const stoneUrl = artUrl('texture-arena'); // fal.ai taş dokusu (yoksa CSS degradesi)
     const motes = Array.from({ length: 7 }, (_, i) => h('span', { class: 'qa-mote', style: { '--i': String(i) } }));
     const rig = h('div', { class: 'qa-orb-rig' },
       h('div', {
@@ -841,7 +848,7 @@ function createQA(el, ctx) {
     );
     const stage = h('div', { class: `qa-orb-stage${reduced ? ' is-still' : ''}`, dataset: { state: 'idle' } },
       rig,
-      h('div', { class: 'qa-orb-base', 'aria-hidden': 'true' }),
+      h('div', { class: 'qa-orb-base', 'aria-hidden': 'true', style: stoneUrl ? { '--qa-stone': `url("${stoneUrl}")` } : null }),
     );
     const scene = h('section', { class: 'panel qa-scene', 'aria-label': 'Kâhin küresi' },
       stage,
@@ -909,7 +916,12 @@ function createQA(el, ctx) {
         h('div', { class: 'qa-bubble' },
           m.verdictLabel ? h('span', { class: 'qa-verdict' }, 'Hüküm: ', h('strong', null, m.verdictLabel)) : h('span', { class: 'sr-only' }, 'Kâhin: '),
           h('p', null, m.text),
-          m.topicLabel ? h('span', { class: 'qa-topic' }, icon('target', { size: 12 }), m.topicLabel) : null,
+          m.topicLabel || m.hero
+            ? h('div', { class: 'qa-msg-foot' },
+              m.topicLabel ? h('span', { class: 'qa-topic' }, icon('target', { size: 12 }), m.topicLabel) : null,
+              m.hero ? h('a', { class: 'qa-hero-link', href: '#kahramanlar' }, icon('swords', { size: 13 }), 'Kahraman DOG Endeksi’ne bak') : null,
+            )
+            : null,
         ),
       );
     }
@@ -940,7 +952,7 @@ function createQA(el, ctx) {
     }
 
     function finish(r) {
-      oracleSession.history.push({ who: 'oracle', text: r.text, verdictLabel: r.verdictLabel, tone: r.tone, topicLabel: r.topicLabel });
+      oracleSession.history.push({ who: 'oracle', text: r.text, verdictLabel: r.verdictLabel, tone: r.tone, topicLabel: r.topicLabel, hero: !!r.hero });
       if (oracleSession.history.length > 80) oracleSession.history.splice(0, oracleSession.history.length - 80);
     }
 
@@ -1027,7 +1039,7 @@ function createQA(el, ctx) {
         ROUTES.map((r) => h('li', { class: `qa-key${r.ultimate ? ' is-ult' : ''}` },
           h('span', { class: 'kbd' }, r.key),
           h('span', null, r.label),
-          r.ultimate ? h('span', { class: 'badge gold' }, 'ulti') : null,
+          r.ultimate ? h('span', { class: 'badge gold' }, 'ulti') : r.item ? h('span', { class: 'badge jade' }, 'eşya') : null,
         )),
       );
     }

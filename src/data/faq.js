@@ -121,7 +121,7 @@ export const FAQ = [
     tone: 'arcane',
     q: 'Kısayol tuşları neler?',
     a: [
-      'Alt çubuk bir Dota yetenek çubuğu gibi çalışır; her bölümün bir tuşu var:',
+      'Alt çubuk bir Dota yetenek ve eşya çubuğu gibi çalışır; her bölümün bir tuşu var:',
       { shortcuts: true },
       'Bir metin kutusuna yazarken kısayollar devre dışıdır; tuşları kullanan oyunlar da oynarken kısayolları kapatır.',
     ],
@@ -168,7 +168,7 @@ export const FAQ = [
     q: 'DOG Kâhini gerçekten yapay zekâ mı?',
     a: [
       ['Hayır. Kâhin tamamen tarayıcında çalışan bir ', { b: '“sihirli küre”' }, ': sorudaki anahtar kelimelere (kahraman adları, ward, Roshan, buyback…) bakıp hazır bir cevap havuzundan seçer.'],
-      'Aynı soruyu tekrar sorarsan farklı bir kehanet alabilirsin; “Sabit kader” açıkken aynı soru hep aynı cevabı alır. Ciddiye alma, ward al.',
+      ['Bir kahramanın adını anarsan seni ', { a: '#kahramanlar', t: 'Kahraman DOG Endeksi' }, '’ne (', { k: 'Z' }, ') yönlendirir. Aynı soruyu tekrar sorarsan farklı bir kehanet alabilirsin; “Sabit kader” açıkken aynı soru hep aynı cevabı alır. Ciddiye alma, ward al.'],
     ],
     lore: 'Kehanetin bedeli yok; ward koymamanın bedeli ağır.',
   },
