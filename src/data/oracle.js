@@ -117,7 +117,7 @@ export const TOPICS = [
     ],
   },
   {
-    id: 'io', hero: true, label: 'Io',
+    id: 'io', hero: true, heroKey: 'wisp', label: 'Io',
     keys: ['io', 'wisp*', 'tether*', 'relocate*'],
     answers: [
       ['D', 'Tether kopuyor, Relocate yanlış anda basılıyor. Küçük ışık karanlıkta kayboldu.'],
@@ -569,26 +569,29 @@ export const HERO_POOL = {
   high: [
     ['U', 'Rüzgâr {name} adını duyunca üç kez havladı. Kahraman DOG Endeksi’nde DOG potansiyeli %{p}. Seçmeden önce iki kez düşün.'],
     ['D', '{name}… Kökler bu ismi iyi tanır. Endekste %{p} DOG potansiyeli; ward’ını al, dua et.'],
-    ['D', '{name} mi? Kahraman DOG Endeksi %{p} diyor. Kahraman masum; ama seçen eller genelde değil.'],
+    ['D', '{name} demek… Kahraman DOG Endeksi %{p} diyor. Kahraman masum; ama seçen eller genelde değil.'],
   ],
   mid: [
     ['Y', '{name} ne tam DOG ne tam kahraman. Endeks %{p} diyor; gerisi senin ellerinde.'],
     ['Y', 'Kökler {name} için ikiye bölündü: Kahraman DOG Endeksi’nde %{p}. İyi oynarsan efsane, kötü oynarsan meme.'],
-    ['S', '{name} mi? Endeksteki %{p} bir uyarı değil, bir davettir. Kaderi sen yazarsın.'],
+    ['S', '{name} diyorsun. Endeksteki %{p} bir uyarı değil, bir davettir. Kaderi sen yazarsın.'],
   ],
   low: [
-    ['N', '{name} mi? Endekste yalnızca %{p} DOG potansiyeli. Kökler onaylıyor: sağlam seçim.'],
+    ['N', '{name}: endekste yalnızca %{p} DOG potansiyeli. Kökler onaylıyor: sağlam seçim.'],
     ['N', '{name} sağlam bir ruh. Kahraman DOG Endeksi’ne göre %{p}; DOG’luk ancak oyuncudan gelir.'],
     ['Y', '{name} düşük DOG potansiyelli (%{p}) ama unutma: en güvenli kahraman bile ward’sız ormanda DOG olur.'],
   ],
   unknown: [
-    ['S', '{name} mi? Kahraman DOG Endeksi’ne bak; topluluk her kahramanı tek tek tarttı.'],
+    ['S', '{name} hakkında hükmü topluluk verdi: Kahraman DOG Endeksi’ne bak; her kahraman tek tek tartıldı.'],
     ['Y', '{name} hakkında kökler bir şey fısıldıyor ama anlaşılmıyor. Kahraman DOG Endeksi’nde topluluğun hükmü yazılı.'],
   ],
 };
 
-// Türkçe sözcüklerle çakışan kısa kahraman adları (yalnızca eşleştirmede atlanır)
-const HERO_STOP = new Set(['kez', 'mars', 'io']);
+// Türkçe sözcüklerle çakışan kısa kahraman adları: "io" konu havuzuyla eşleşir; "kez" (bu kez) ve
+// "mars" (Mart ayı / gezegen) yalnızca soruda kahraman bağlamı varsa (oyna-, seç-, pick…) kahraman sayılır.
+const HERO_STOP = new Set(['io']);
+const HERO_WEAK = new Set(['kez', 'mars']);
+const HERO_CONTEXT = /^(oyna|sec|pick|kahraman|hero|draft|build|counter|alay|alsa|alsam|alir|alin)/;
 
 // ------------------------------------------------------------------ eşleştirme
 function compileKey(raw) {
@@ -640,7 +643,9 @@ function compileHeroes(heroes) {
     for (const v of variants) {
       if (!v || HERO_STOP.has(v)) continue;
       // Kısa adlar tam kelime, uzun adlar son kelimede önek (Axe → yalnızca "axe"; Invoker → "invokerla")
-      keys.push(compileKey(v.replace(/\s+/g, ' ') + (v.length > 4 ? '*' : '')));
+      const key = compileKey(v.replace(/\s+/g, ' ') + (v.length > 4 ? '*' : ''));
+      if (HERO_WEAK.has(v)) key.weak = true;
+      keys.push(key);
     }
     if (keys.length) out.push({ hero, keys });
   }
@@ -651,9 +656,10 @@ function compileHeroes(heroes) {
 function bestHero(tokens, heroes) {
   let best = null;
   let bestScore = 0;
+  const context = tokens.some((t) => HERO_CONTEXT.test(t));
   for (const { hero, keys } of compileHeroes(heroes)) {
     let score = 0;
-    for (const k of keys) if (keyMatches(tokens, k)) score = Math.max(score, k.weight);
+    for (const k of keys) if ((!k.weak || context) && keyMatches(tokens, k)) score = Math.max(score, k.weight);
     if (score > bestScore) { best = hero; bestScore = score; }
   }
   return { hero: best, score: bestScore };
@@ -726,7 +732,8 @@ export function consult(question, { seed = 0, nth = 0, avoid = null, heroes = nu
     topic: heroHit ? 'kahraman-endeksi' : topic ? topic.id : null,
     topicLabel: heroHit ? heroHit.name : topic ? topic.label : null,
     hero: !!heroHit || !!(topic && topic.hero),
-    heroId: heroHit ? heroHit.id || null : topic && topic.hero && topic.id !== 'kahraman' ? topic.id : null,
+    // Dota iç adı (data/heroes.js id'si; ör. Io → wisp). Genel "kahraman seçimi" konusu belirli bir kahraman değildir.
+    heroId: heroHit ? heroHit.id || null : topic && topic.hero && topic.id !== 'kahraman' ? topic.heroKey || topic.id : null,
     index,
   };
 }

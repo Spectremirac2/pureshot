@@ -2,9 +2,11 @@
 
 import { h, pick, rand, fmtNum } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok } from './kit.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, onOtherControl, tok } from './kit.js';
 
 const ROUNDS = 5;
+// Bundan hızlı tepki insan refleksi değil tahmindir (atletizmdeki hatalı çıkış eşiği gibi): erken sayılır.
+const MIN_MS = 100;
 
 // Kalıcı güç rune'ları ve oyundaki renk tonları (jetonlarla)
 const RUNES = [
@@ -32,12 +34,12 @@ export const meta = {
   format: (n) => `${fmtNum(n)} ms`,
   scoreText: (n) => fmtNum(n),
   rules: [
-    '“Hazır”a bas, nehri izle. 1,5–5 saniye içinde bir rune belirir.',
+    'Nehre dokun ya da boşluğa bas, sonra izle: 1,5–5 saniye içinde bir rune belirir.',
     'Belirdiği an dokun ya da boşluğa bas. Tepki süren milisaniyeyle ölçülür.',
-    'Rune’dan önce dokunursan: “Erken tıkladın, DOG!” ve tur yeniden başlar.',
+    `Rune’dan önce dokunursan (ya da ${MIN_MS} ms’den hızlıysan, o tahmindir): “Erken tıkladın, DOG!” ve tur yeniden başlar.`,
     '5 geçerli turun ortalaması skorundur. Düşük olan kazanır.',
   ],
-  keys: [['Boşluk', 'Hazır / rune’u al'], ['Tık / dokun', 'Aynı işi yapar']],
+  keys: [['Boşluk veya Enter', 'Hazır / rune’u al'], ['Tık / dokun', 'Aynı işi yapar']],
 };
 
 function rate(ms) {
@@ -132,22 +134,32 @@ export function mount(el, ctx, nav) {
     });
   }
 
+  function early(sub) {
+    g.early++;
+    sEarly.set(g.early);
+    sEarly.bump();
+    ctx.sound.bad();
+    ctx.fx.shake(field);
+    runeEl.classList.remove('on');
+    toReady();
+    setMsg('Erken tıkladın, DOG!', sub, 'early');
+    say('Erken tıkladın. Tur yeniden.');
+  }
+
   function press(ts) {
     if (state === 'ready') { toWait(); ctx.sound.click(); return; }
     if (state === 'wait') {
       runner.cancel(waitTask);
-      g.early++;
-      sEarly.set(g.early);
-      sEarly.bump();
-      ctx.sound.bad();
-      ctx.fx.shake(field);
-      toReady();
-      setMsg('Erken tıkladın, DOG!', 'Tur sayılmadı. Hazır olunca tekrar dokun.', 'early');
-      say('Erken tıkladın. Tur yeniden.');
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      early('Tur sayılmadı. Hazır olunca tekrar dokun.');
       return;
     }
     if (state === 'show') {
       const ms = Math.max(1, Math.round(ts - t0));
+      if (ms < MIN_MS) {
+        early(`${ms} ms insan refleksi değil, tahmin. Tur sayılmadı; hazır olunca tekrar dokun.`);
+        return;
+      }
       g.times.push(ms);
       const n = g.times.length;
       const avg = Math.round(g.times.reduce((a, b) => a + b, 0) / n);
@@ -181,11 +193,11 @@ export function mount(el, ctx, nav) {
   field.addEventListener('pointerdown', onPointer);
 
   function onKey(e) {
-    if (state === 'intro' || state === 'end') return;
-    if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e)) return;
+    if (state === 'intro' || state === 'end' || state === 'dead') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key !== ' ' && e.key !== 'Enter') return;
-    // Kaplama düğmeleri odaktaysa onlara karışma
-    if (e.target && e.target.closest && e.target.closest('.gm-overlay')) return;
+    // Odak başka bir düğme/bağlantıdaysa (geri, diğer oyunlar, kaplama düğmeleri) tuş ona aittir
+    if (onOtherControl(e, field)) return;
     e.preventDefault();
     if (e.repeat) return;
     press(e.timeStamp || performance.now());
@@ -224,6 +236,7 @@ export function mount(el, ctx, nav) {
     const best = Math.min(...g.times);
     const worst = Math.max(...g.times);
     setMsg(`${avg} ms`, 'Ortalama tepki süren', rate(avg).cls);
+    const saved = submitResult(meta, avg);
     const quip = avg < 220
       ? 'Bottle dolu, rune cepte. Rakip mid hâlâ nehre yürüyor.'
       : avg < 300
@@ -234,6 +247,7 @@ export function mount(el, ctx, nav) {
     runner.after(0.6, () => {
       const { node } = resultCard(meta, {
         score: avg,
+        saved,
         stats: [
           ['En hızlı', `${best} ms`],
           ['En yavaş', `${worst} ms`],
@@ -243,7 +257,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
-      closeOverlay = showOverlay(L.stage, node);
+      closeOverlay = showOverlay(L.stage, node, { reveal: true });
       runner.destroy();
       runner = null;
     });

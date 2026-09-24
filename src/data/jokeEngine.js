@@ -112,6 +112,12 @@ const ITEMS = proper([
   ['Bloodstone', 'ston'], ['Echo Sabre', 'seybır'], ['Aegis', 'iycis'], ['Gem of True Sight', 'sayt'], ['Tranquil Boots', 'buts'],
 ]);
 
+/** Pahalı, "erken bitirilirse övünülecek" eşyalar (1vDOQUZ / smurf şablonları için). */
+const BIG_ITEM_NAMES = new Set(['Divine Rapier', 'Aghanim’s Scepter', 'Battle Fury', 'Radiance', 'Butterfly', 'Satanic', 'Daedalus',
+  'Heart of Tarrasque', 'Monkey King Bar', 'Refresher Orb', 'Assault Cuirass', 'Scythe of Vyse', 'Manta Style', 'Abyssal Blade',
+  'Mjollnir', 'Desolator', 'Silver Edge', 'BKB', 'Linken’s Sphere', 'Blink Dagger']);
+const BIG_ITEMS = ITEMS.filter((it) => BIG_ITEM_NAMES.has(it.n));
+
 const RANKS_ALL = proper([
   ['Herald', 'herıld'], ['Guardian', 'gardiyın'], ['Crusader', 'kruseydır'], ['Archon', 'arkon'],
   ['Legend', 'lecınd'], ['Ancient', 'eynşınt'], ['Divine', 'divayn'], ['Immortal', 'imortıl'],
@@ -183,12 +189,10 @@ const WHO = [...MATES, ...FOES];
 
 const ROLES = ['support', 'carry', 'offlaner', 'midci', 'pos 5', 'pos 4', 'hard support', 'jungle’cı'];
 
-const PLACES = [
-  { n: 'Roshan pit', dat: 'Roshan pitine' }, { n: 'düşman ormanı', dat: 'düşman ormanına' }, { n: 'nehir', dat: 'nehre' },
-  { n: 'Dire üssü', dat: 'Dire üssüne' }, { n: 'Radiant üssü', dat: 'Radiant üssüne' }, { n: 'düşman çeşmesi', dat: 'düşman çeşmesine' },
-  { n: 'üçlü kamp', dat: 'üçlü kampa' }, { n: 'secret shop', dat: 'secret shop’a' }, { n: 'high ground', dat: 'high ground’a' },
-  { n: 'mid lane', dat: 'mid lane’e' }, { n: 'bot lane', dat: 'bot lane’e' }, { n: 'top lane', dat: 'top lane’e' },
-  { n: 'ancient kampı', dat: 'ancient kampına' }, { n: 'rune noktası', dat: 'rune noktasına' }, { n: 'kule dibi', dat: 'kule dibine' },
+/** Rakibin tek başına dalabileceği (bizim taraftaki) yerler, yönelme hâlinde. */
+const OUR_PLACES = [
+  'bizim ormana', 'bizim üsse', 'bizim çeşmeye', 'bizim high ground’a', 'bizim üçlü kampa', 'Roshan pitine',
+  'bizim ancient kampına', 'bizim secret shop’a', 'bizim kulenin dibine',
 ];
 
 const CHAT = [
@@ -287,6 +291,7 @@ const range = (a, b, step = 1, fmt = false) => ({ range: true, a, b, step, fmt, 
 const POOLS = {
   hero: HEROES,
   item: ITEMS,
+  bigItem: BIG_ITEMS,
   rank: RANKS_ALL,
   rankLow: RANKS_ALL.slice(0, 4),
   rankHigh: RANKS_ALL.slice(4),
@@ -295,7 +300,7 @@ const POOLS = {
   foe: FOES,
   who: WHO,
   role: ROLES,
-  place: PLACES,
+  ourPlace: OUR_PLACES,
   chat: CHAT,
   excuse: EXCUSES,
   pickReason: PICK_REASONS,
@@ -312,6 +317,7 @@ const POOLS = {
   gph: GAMES_PER_HOUR,
   teas: TEAS,
   min: range(3, 25),
+  minEarly: range(8, 16),
   minLate: range(31, 74),
   sec: range(2, 30),
   hour: range(12, 29),
@@ -341,17 +347,17 @@ const TEMPLATES = [
   { id: 'd4', cat: 'dog', t: 'Bir DOG, iki DOG, üç DOG: {who} {blunder.past}. Dördüncü DOG için {sec} saniye bekleyin; sırada {who2} var.' },
   { id: 'd5', cat: 'dog', t: 'SON DAKİKA: {authority} açıkladı: {who} yine {blunder.past}. Açıklamanın tamamı: “DOG DOG DOG.”' },
   { id: 'd6', cat: 'dog', t: 'Takım arkadaşı: “{excuse}”\nReplay: {^blunder.past}.\nChat: DOG DOG DOG.' },
-  { id: 'd7', cat: 'dog', t: 'Rakip {hero} tek başına {place.dat} daldı, beş kişiyi gördü, yine de geri dönmedi. Bizim chat: “DOG DOG DOG ama saygı duyuyoruz.”' },
+  { id: 'd7', cat: 'dog', t: 'Rakip {hero} tek başına {ourPlace} daldı, beş kişiyi gördü, yine de geri dönmedi. Bizim chat: “DOG DOG DOG ama saygı duyuyoruz.”' },
   { id: 'd8', cat: 'dog', t: 'Bilim insanları uyardı: {blunder.inf} bulaşıcı değil. Ama aynı takıma düşerseniz DOG DOG DOG kaçınılmaz.' },
 
   // 1vDOQUZ
   { id: 'v1', cat: '1v9', t: '1vDOQUZ matematiği: 4 takım arkadaşı + 5 rakip = 9. Sonra {mate} {blunder.past} ve sayı 1vON oldu.' },
-  { id: 'v2', cat: '1v9', t: '1vDOQUZ nedir? {min}. dakikada {item} bitirmiş bir {hero}, arkasında {blunder.part} dört takım arkadaşı, karşısında beş rakip. Kısaca: bir kişi, dokuz dert.' },
-  { id: 'v3', cat: '1v9', t: '1vDOQUZ günlüğü, {minLate}. dakika: {item} tamam. Takım durumu: biri {blunder.past}, biri all chat’e “{chat}” yazıyor, ikisi haritada yok. Gerisi bende.' },
+  { id: 'v2', cat: '1v9', t: '1vDOQUZ nedir? {min}. dakikada {bigItem} bitirmiş bir {hero}, arkasında {blunder.part} dört takım arkadaşı, karşısında beş rakip. Kısaca: bir kişi, dokuz dert.' },
+  { id: 'v3', cat: '1v9', t: '1vDOQUZ günlüğü, {minLate}. dakika: {bigItem} tamam. Takım durumu: biri {blunder.past}, biri all chat’e “{chat}” yazıyor, ikisi haritada yok. Gerisi bende.' },
   { id: 'v4', cat: '1v9', t: '1vDOQUZ skor tablosu\nSen: {k}-{d}-{a}\nTakımın geri kalanı: {tk}-{td}-{ta}\nRakip chat: “{chat}”\nSonuç: bir kişi, dokuz dert, bir zafer.' },
-  { id: 'v5', cat: '1v9', t: 'Bir gün bir {role} 1vDOQUZ atmaya karar vermiş. {min}. dakikada {item} almış, dönüp bakmış: takım {blunder.mis}. O maça bugün hâlâ 1vON denir.' },
-  { id: 'v6', cat: '1v9', t: '{hero} ile 1vDOQUZ atmanın üç şartı: {item}, bol sabır ve {mate} ile aynı lane’e düşmemek.' },
-  { id: 'v7', cat: '1v9', t: '1vDOQUZ’un evreleri: {min}. dakika “kazanırız”. {minLate}. dakika “neden gelmediniz”. Maç sonu: elde {item}, tek başına high ground. Takımın katkısı: “{chat}”.' },
+  { id: 'v5', cat: '1v9', t: 'Bir gün bir {role} 1vDOQUZ atmaya karar vermiş. {min}. dakikada {bigItem} almış, dönüp bakmış: takım {blunder.mis}. O maça bugün hâlâ 1vON denir.' },
+  { id: 'v6', cat: '1v9', t: '{hero} ile 1vDOQUZ atmanın üç şartı: {bigItem}, bol sabır ve {mate} ile aynı lane’e düşmemek.' },
+  { id: 'v7', cat: '1v9', t: '1vDOQUZ’un evreleri: {min}. dakika “kazanırız”. {minLate}. dakika “neden gelmediniz”. Maç sonu: elde {bigItem}, tek başına high ground. Takımın katkısı: “{chat}”.' },
   { id: 'v8', cat: '1v9', t: '{mate}: “{excuse}”\n1vDOQUZ atan carry: “Sorun değil.”\n(İçinden: DOG DOG DOG.)' },
 
   // 24 Saat Maraton
@@ -395,7 +401,7 @@ const TEMPLATES = [
   { id: 'r1', cat: 'mmr', t: '{rankLow.loc} {blunder.inf} “hata” sayılır. {rankHigh.loc} “bait”. Pub’da ise düpedüz DOG DOG DOG.' },
   { id: 'r2', cat: 'mmr', t: 'MMR grafiğim bu hafta −{mmrLoss} yaptı. Ne mi oldu? {^mate} {blunder.past}. Sonra bir daha. Sonra bir daha.' },
   { id: 'r3', cat: 'mmr', t: 'Rütbe madalyası: {rankLow}. Chat’teki özgüven: Immortal. Gerçek unvan: {dogRank}.' },
-  { id: 'r4', cat: 'mmr', t: 'Smurf mu, DOG mu? Test: {min}. dakikada {item} bitirdiyse smurf. {min}. dakikada {blunder.past} ise DOG. İkisini birden yaptıysa: ters yönden 1vDOQUZ.' },
+  { id: 'r4', cat: 'mmr', t: 'Smurf mu, DOG mu? Test: {minEarly}. dakikada {bigItem} bitiren smurftur. {minEarly}. dakikada {blunder.part} ise DOG. İkisini birden yapan: ters yönden 1vDOQUZ.' },
   { id: 'r5', cat: 'mmr', t: 'Maç kaybedildi (−{mmrGame} MMR). Suçlu arama komitesi toplandı. Karar: {mate}. Gerekçe: {^blunder.past}. Oylama: DOG DOG DOG (oy birliği).' },
   { id: 'r6', cat: 'mmr', t: '{rankLow} oyuncusu: “Ben aslında {rankHigh} seviyesindeyim.” Aynı oyuncu, {min}. dakikada: {^blunder.past}. Madalya haklıydı.' },
 ];

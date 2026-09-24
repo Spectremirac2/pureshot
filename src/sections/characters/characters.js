@@ -204,7 +204,12 @@ function createInstance(el, ctx) {
     else if (r.view === 'profil') c = renderProfile(page, env);
     else if (r.view === 'analiz') c = renderAnalysis(page, env);
     viewCleanup = typeof c === 'function' ? c : null;
-    if (!initial) scrollToTabs();
+    if (!initial) {
+      scrollToTabs();
+      // Tıklanan bağlantı DOM'dan kalktıysa klavye odağı kaybolmasın: yeni görünüme taşı
+      const ae = document.activeElement;
+      if (!ae || ae === document.body || !document.contains(ae)) view.focus({ preventScroll: true });
+    }
   }
 
   return {

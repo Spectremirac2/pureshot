@@ -196,7 +196,8 @@ export function mountCark(host, env) {
         h('button', { class: 'btn gold sm', type: 'button', onclick: () => env.openHero(hero.id) }, icon('eye', { size: 16 }), 'Dosyasını aç'),
       ),
     );
-    ctx.fx.stamp(v.stamp, { variant: v.variant });
+    // .stamp büyük harfe çevirir; özel yazım (1vDOQUZ) .meme ile korunur
+    ctx.fx.stamp(v.stamp === '1vDOQUZ' ? h('span', { class: 'meme' }, v.stamp) : v.stamp, { variant: v.variant });
     if (t.id === 'S' || t.id === 'A') ctx.sound.dogdogdog();
     else if (t.id === 'D') ctx.sound.win();
     else ctx.sound.good();

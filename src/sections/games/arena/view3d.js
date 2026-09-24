@@ -13,10 +13,20 @@ import { Bin, makeGeoms, DogRig, ArcherRig, buildAegis, buildRapier, buildArrow 
 const PITCH = (57 * Math.PI) / 180;
 const FOV = 40;
 
-export async function createView3D({ mobile = false, reduced = false } = {}) {
+export async function createView3D(opts = {}) {
   // WebGL oluşturma başarısızsa hata fırlatır; çağıran 2D yedeğe geçer.
-  const renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance', alpha: false });
-  if (!renderer.getContext()) throw new Error('WebGL yok');
+  const renderer = new THREE.WebGLRenderer({ antialias: !opts.mobile, powerPreference: 'high-performance', alpha: false });
+  try {
+    if (!renderer.getContext()) throw new Error('WebGL yok');
+    return await buildView(renderer, opts);
+  } catch (err) {
+    // Kurulum yarıda kaldıysa WebGL bağlamını sızdırma (2D yedek yeni bağlam açmaz ama sekme sınırı dolmasın)
+    try { renderer.dispose(); renderer.forceContextLoss(); } catch { /* yok say */ }
+    throw err;
+  }
+}
+
+async function buildView(renderer, { mobile = false, reduced = false } = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -64,7 +74,12 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
   };
 
   // ---------------------------------------------------------------- modeller (varsa)
-  const safe = (p) => Promise.resolve(p).catch(() => null);
+  // Model yüklemesi takılırsa (yavaş ağ, büyük base64 JSON) arena "Yükleniyor…"da kalmasın:
+  // 12 sn sonra prosedürel modellerle devam et.
+  const safe = (p) => Promise.race([
+    Promise.resolve(p).catch(() => null),
+    new Promise((res) => setTimeout(() => res(null), 12000)),
+  ]);
   const [dogModel, archerModel, aegisModel] = await Promise.all([
     safe(loadModel('model-dog', { height: 0.9 })),
     safe(loadModel('model-archer', { height: 1.6 })),
@@ -130,6 +145,15 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
   const flashPos = new THREE.Vector3();
 
   // ---------------------------------------------------------------- arena
+  // Zemin mührü ve etiketler canvas'a Unbounded ile yazılır: font hazır değilse kısa süre bekle
+  try {
+    if (document.fonts && document.fonts.load) {
+      await Promise.race([
+        Promise.all([document.fonts.load('800 24px Unbounded'), document.fonts.load('900 24px Unbounded')]),
+        new Promise((res) => setTimeout(res, 1500)),
+      ]);
+    }
+  } catch { /* yok say */ }
   const floorTexKey = artUrl('texture-arena');
   const fc = TX.floorCanvases(mobile ? 1024 : 2048, { withStones: !floorTexKey });
   const floorMap = bin.add(TX.toTexture(fc.map));
@@ -783,12 +807,19 @@ export async function createView3D({ mobile = false, reduced = false } = {}) {
   let dprLevel = 0;
   function lowerQuality() {
     const steps = [baseDpr, Math.min(baseDpr, 1.25), 1];
-    if (dprLevel >= steps.length - 1) return false;
-    dprLevel += 1;
-    if (steps[dprLevel] >= renderer.getPixelRatio()) return lowerQuality();
-    renderer.setPixelRatio(steps[dprLevel]);
-    resize(W, H);
-    return true;
+    if (dprLevel < steps.length - 1) {
+      dprLevel += 1;
+      if (steps[dprLevel] >= renderer.getPixelRatio()) return lowerQuality();
+      renderer.setPixelRatio(steps[dprLevel]);
+      resize(W, H);
+      return true;
+    }
+    // Son kademe: ay ışığının gölgesini kapat (three.js programları ışık durumu değişince kendisi yeniler)
+    if (moon.castShadow) {
+      moon.castShadow = false;
+      return true;
+    }
+    return false;
   }
 
   return { kind: '3d', canvas, resize, render, project, groundAt, event, shake, dispose, lowerQuality, modelInfo: { dog: !!dogModel, archer: !!archerModel, aegis: !!aegisModel } };

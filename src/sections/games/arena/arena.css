@@ -30,8 +30,9 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: min(72vh, 720px, calc(100vh - var(--hud-h) - var(--bar-h) - 24px));
-  min-height: 360px;
+  /* --ar-avail: JS'in ölçtüğü üst HUD ile alt çubuk arası gerçek yükseklik */
+  max-height: min(72vh, 720px, var(--ar-avail, calc(100vh - var(--hud-h) - var(--bar-h) - 24px)));
+  min-height: min(360px, var(--ar-avail, 360px));
   overflow: hidden;
   background: var(--bg);
   border: 1px solid var(--line-2);
@@ -42,12 +43,12 @@
   isolation: isolate;
 }
 @supports (height: 100svh) {
-  .ar-stage { max-height: min(72svh, 720px, calc(100svh - var(--hud-h) - var(--bar-h) - 24px)); }
+  .ar-stage { max-height: min(72svh, 720px, var(--ar-avail, calc(100svh - var(--hud-h) - var(--bar-h) - 24px))); }
 }
 .ar-stage:focus { outline: none; }
 .ar-stage.is-playing { touch-action: none; cursor: crosshair; }
 .ar-stage.is-fs, .ar-stage:fullscreen {
-  width: 100vw; height: 100vh; max-height: none; aspect-ratio: auto; border: 0;
+  width: 100vw; height: 100vh; max-height: none; min-height: 0; aspect-ratio: auto; border: 0;
 }
 .ar-canvas, .ar-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ar-canvas { z-index: 0; touch-action: none; }
@@ -55,7 +56,8 @@
 /* ---------- HUD ---------- */
 .ar-hud { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .ar-hud button { pointer-events: auto; }
-.ar-stage.has-screen .ar-hud > :not(.ar-floats):not(.ar-vignette) { opacity: 0; transition: opacity 0.2s; }
+/* Ekran (başlangıç/duraklat/rapor) açıkken HUD gizlenir; visibility ile görünmez butonlar sekme sırasından da çıkar */
+.ar-stage.has-screen .ar-hud > :not(.ar-floats):not(.ar-vignette) { opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
 .ar-stage.has-screen .ar-touch { display: none; }
 
 .ar-top {
@@ -110,6 +112,8 @@
   clip-path: var(--clip-sm);
 }
 .ar-tool:hover { color: var(--text); border-color: var(--aegis); }
+/* clip-path dış odak halkasını keser: halkayı içeri al ki klavye odağı görünsün */
+.ar .btn:focus-visible, .ar-tool:focus-visible, .ar-tbtn:focus-visible { outline-offset: -5px; }
 .ar-tool span, .ar-tool svg { width: 18px; height: 18px; display: block; }
 
 /* duyuru şeridi */
@@ -417,6 +421,20 @@
 .ar-stage.is-touch .ar-scorebox-s { display: none; }
 .ar-stage.is-touch .ar-top { top: 8px; }
 
+/* Alçak sahne (yatay telefon): yetenek butonları sağ altta tek sıra, joystick daha aşağıda */
+.ar-stage.is-short .ar-tbtns {
+  width: auto; height: auto;
+  display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 8px;
+  right: 10px; bottom: 10px;
+}
+.ar-stage.is-short .ar-tbtn { position: relative; right: auto; bottom: auto; width: 54px; height: 54px; }
+.ar-stage.is-short .ar-tbtn.ar-slot-q { width: 72px; height: 72px; }
+.ar-stage.is-short .ar-tbtn.ar-slot-q .ar-slot-icon { width: 34px; height: 34px; }
+.ar-stage.is-short .ar-joyzone { top: 60px; }
+.ar-stage.is-short .ar-joy-base { left: 70px; top: calc(100% - 56px); width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+.ar-stage.is-short.is-touch .ar-panel { width: min(34%, 220px); }
+.ar-stage.is-short .ar-banner { top: 24%; }
+
 /* Dar sahne: iki satırlı üst HUD (sol: sayaçlar + çubuklar, sağ: araçlar + skor) */
 .ar-stage.is-narrow .ar-top-cell { min-width: 52px; padding: 2px 8px 3px; }
 .ar-stage.is-narrow .ar-top-cell b { font-size: 17px; }
@@ -498,8 +516,8 @@
 .ar-opts { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); }
 .ar-opt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ar-chips { gap: 6px; }
-.ar-chips .chip { min-height: 36px; text-transform: none; letter-spacing: 0.02em; }
-.ar-opt-check { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); min-height: 36px; }
+.ar-chips .chip { min-height: 44px; text-transform: none; letter-spacing: 0.02em; }
+.ar-opt-check { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); min-height: 44px; }
 .ar-check { width: 20px; height: 20px; accent-color: var(--ember); margin: 0; }
 
 /* duraklatma */
@@ -577,13 +595,13 @@
   .ar-frame.frame::before, .ar-frame.frame::after { display: none; }
   .ar-stage {
     aspect-ratio: auto;
-    height: calc(100vh - var(--hud-h) - var(--bar-h) - 16px);
+    height: var(--ar-avail, calc(100vh - var(--hud-h) - var(--bar-h) - 16px));
     max-height: none;
-    min-height: 460px;
+    min-height: min(460px, var(--ar-avail, 460px));
     border-inline: 0;
   }
   @supports (height: 100svh) {
-    .ar-stage { height: calc(100svh - var(--hud-h) - var(--bar-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px); }
+    .ar-stage { height: var(--ar-avail, calc(100svh - var(--hud-h) - var(--bar-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)); }
   }
   .ar-head-best { padding: 6px 10px; }
   .ar-lead { display: none; }

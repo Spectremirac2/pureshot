@@ -12,7 +12,7 @@ import { mountComments } from '../../components/comments.js';
 import { attachTilt } from '../../components/tilt.js';
 import {
   makeScope, keyOk, quizBar, xpBar, optionBtn, pawMeter,
-  centerOf, scrollToTop, saveLast, getLast, withMe,
+  centerOf, scrollToTop, saveLast, getLast, withMe, readOnlyNote,
 } from './ui.js';
 
 const N = QS.length;
@@ -31,7 +31,8 @@ export function scoreAnswers(answers) {
     }
   });
   const order = ALL_TYPES.map((t, i) => ({ id: t.id, v: totals[t.id], r: recency[t.id], i }))
-    .sort((a, b) => b.v - a.v || b.r - a.r || a.i - b.i);
+    // Eşitlikte efsane kaybeder: 1vDOQUZ Efsanesi yalnızca açıkça en iyi oynayanlara çıkar.
+    .sort((a, b) => b.v - a.v || (a.id === 'legend') - (b.id === 'legend') || b.r - a.r || a.i - b.i);
   const sum = order.reduce((s, x) => s + x.v, 0) || 1;
   return order.map((x) => ({ id: x.id, v: x.v, pct: Math.round((x.v / sum) * 100) }));
 }
@@ -194,6 +195,7 @@ export function mountHangiDog(root, { ctx, quiz, back }) {
         h('p', { class: 'qz-res-line' }, icon('sparkle', { size: 18 }), HANGIDOG_LINES[arch.id] || ''),
         h('div', { class: 'row' }, copyBtn, againBtn, archiveBtn),
         shareBox,
+        readOnlyNote(),
       ),
     );
 

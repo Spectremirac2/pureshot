@@ -95,7 +95,7 @@ function buildHero(ctx, cleanups, reduced) {
   arenaBtn.addEventListener('click', () => { ctx.sound.click(); ctx.go('oyunlar', 'arena'); });
 
   const copy = h('div', { class: 'hm-copy' },
-    h('p', { class: 'eyebrow hm-eyebrow' }, h('span', { class: 'hm-eyebrow-dot', 'aria-hidden': 'true' }), 'CureShotKick hayran üssü · Dota 2'),
+    h('p', { class: 'eyebrow hm-eyebrow' }, h('span', { class: 'hm-eyebrow-dot', 'aria-hidden': 'true' }), h('span', null, h('span', { lang: 'en' }, 'CureShotKick'), ' hayran üssü · Dota 2')),
     title,
     h('p', { class: 'lead hm-lead' },
       'En kısa yayını ', h('strong', null, '24 saat'), ' süren adamın hayran üssü. Takım feed’liyorsa, rakip trollüyorsa, kurye kaybolduysa: tek kelime yeter.'),
@@ -146,6 +146,7 @@ function buildHero(ctx, cleanups, reduced) {
     stage.appendChild(fallbackDiorama());
     getFocus(stage.clientWidth || 1, stage.clientHeight || 1);
     capSub.textContent = '1 kahraman · 9 DOG';
+    el.classList.remove('hm-hero--3d');
     el.classList.add('hm-hero--flat');
   }
 
@@ -284,17 +285,17 @@ function buildLive(cleanups, reduced) {
     const myId = store.uid() || 'me';
     others = agg.totalDog(all.filter((f) => f.id !== myId));
     renderDog();
-    fans.c.set(all.length);
+    fans.c.set(all.length, all.length >= 1000 ? '+' : '');
     fans.sub.textContent = all.length > 1 ? 'sen dahil' : 'şimdilik sadece sen';
     modeNote.textContent = store.shared ? 'tüm hayranlar · canlı' : 'önizleme · bu cihaz';
   }));
   cleanups.push(store.me.subscribe(renderDog));
   cleanups.push(store.subscribe('jokes', { limit: 1000 }, (docs) => {
-    jokes.c.set(docs.length);
+    jokes.c.set(docs.length, docs.length >= 1000 ? '+' : '');
     jokes.sub.textContent = archiveCount ? `+ ${fmtNum(archiveCount)} arşiv esprisi` : 'duvara ilk sen yaz';
   }));
   cleanups.push(store.subscribe('comments', { where: ['thread', 'guestbook'], orderBy: 'createdAt', dir: 'desc', limit: 100 }, (docs) => {
-    notes.c.set(docs.length);
+    notes.c.set(docs.length, docs.length >= 100 ? '+' : '');
     notes.sub.textContent = docs.length >= 100 ? 'son 100 imza' : 'aşağıda imzala';
   }));
 
@@ -392,7 +393,7 @@ function buildDictionary() {
       <circle class="hm-clock-fill" cx="60" cy="60" r="53" pathLength="100"/>
       <g class="hm-clock-ticks">${ticks}</g>
     </svg>
-    <span class="hm-clock-read"><b>24</b><span>saat · min.</span></span>` });
+    <span class="hm-clock-read"><b>24</b><span>saat · en az</span></span>` });
   const cardDay = h('article', { class: 'hm-dict hm-dict--day' },
     h('div', { class: 'hm-dict-body hm-day' },
       clock,
@@ -431,19 +432,20 @@ function buildPortals(ctx, cleanups) {
       class: `hm-slot${kind}`,
       href: '#' + r.id,
       'aria-label': `${r.label} (kısayol ${r.key})`,
+      'aria-describedby': `hm-slot-desc-${r.id}`,
     },
       h('span', { class: 'hm-slot-top' },
         h('span', { class: 'hm-slot-icon', 'aria-hidden': 'true' },
           icon(r.icon, { size: ult ? 48 : 28, stroke: ult ? 1.6 : 1.8 }),
         ),
-        ult ? h('span', { class: 'badge gold hm-ult-badge' }, icon('sparkle', { size: 12 }), 'Ultimate · hazır') : null,
+        ult ? h('span', { class: 'badge gold hm-ult-badge' }, icon('sparkle', { size: 12 }), h('span', null, h('span', { lang: 'en' }, 'Ultimate'), ' · hazır')) : null,
         item ? h('span', { class: 'badge gold hm-item-badge' }, 'Eşya slotu') : null,
         h('span', { class: 'kbd hm-slot-kbd', 'aria-hidden': 'true' }, r.key),
       ),
       ult ? h('span', { class: 'hm-ult-nine', 'aria-hidden': 'true' }, Array.from({ length: 9 }, (_, i) => h('span', { class: i < 4 ? 'j' : 'b' }, icon('paw', { size: 16, stroke: 2 })))) : null,
       h('span', { class: 'hm-slot-text' },
         h('span', { class: 'hm-slot-title' }, r.label),
-        h('span', { class: 'hm-slot-desc' }, PORTAL_TEXT[r.id] || ''),
+        h('span', { class: 'hm-slot-desc', id: `hm-slot-desc-${r.id}` }, PORTAL_TEXT[r.id] || ''),
       ),
       h('span', { class: 'hm-slot-go', 'aria-hidden': 'true' }, ult ? 'Ultiyi bas' : item ? 'Eşyayı kullan' : 'Işınlan', icon('arrowRight', { size: 14 })),
     );
@@ -467,12 +469,18 @@ function catLabel(cat) {
   return cat || 'Hayran esprisi';
 }
 
-function buildJoke(ctx) {
-  const archive = Array.isArray(jokeData.JOKES) ? jokeData.JOKES.filter((j) => j && j.text) : [];
+/** "1vDOQUZ" yazımını büyük harf dönüşümünden korur (rozet/düğme gibi uppercase bağlamlar için). */
+function memeText(s) {
+  return String(s || '').split(/(1vDOQUZ)/).filter(Boolean).map((p) => (p === '1vDOQUZ' ? h('span', { class: 'meme' }, p) : p));
+}
+
+function buildJoke(ctx, cleanups) {
+  const archive = Array.isArray(jokeData.JOKES) ? jokeData.JOKES.filter((j) => j && j.id && j.text) : [];
   const list = archive.length ? archive : FALLBACK_JOKES;
   const now = new Date();
   const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-  let idx = hashStr('gunun-esprisi:' + dayKey) % list.length;
+  // Espri Duvarı'ndaki "Günün damgası" ile aynı tohum: iki sayfa aynı günün esprisini gösterir
+  let idx = hashStr((archive.length ? 'jk-gunun-' : 'gunun-esprisi:') + dayKey) % list.length;
   const todayIdx = idx;
 
   const textEl = h('p', { class: 'hm-joke-text' });
@@ -481,12 +489,46 @@ function buildJoke(ctx) {
   const kindEl = h('span', { class: 'hm-joke-kind' });
   const quote = h('blockquote', { class: 'hm-joke-quote', 'aria-live': 'polite' }, textEl);
 
+  // Beğeni ve yorum anahtarları Espri Duvarı ile aynı: 'jk:' + id ve 'joke:' + id
+  const likeN = h('span', { class: 'hm-joke-n num' });
+  const likeBtn = h('button', { class: 'btn ghost hm-joke-like', type: 'button', 'aria-pressed': 'false', title: 'DOG’la (beğen)' },
+    icon('paw', { size: 18, stroke: 2 }), h('span', null, 'DOG’la'), likeN);
+  const cmtN = h('span', { class: 'hm-joke-n num' });
+  const cmtBtn = h('button', { class: 'btn ghost hm-joke-cmt', type: 'button', 'aria-haspopup': 'dialog' },
+    icon('chat', { size: 18 }), h('span', null, 'Yorumlar'), cmtN);
+
+  let fansDocs = [];
+  const paintLike = () => {
+    const key = 'jk:' + list[idx].id;
+    const myId = store.uid() || 'me';
+    const mine = !!(store.me.get().likes || {})[key];
+    const others = fansDocs.reduce((s, f) => s + (f.id !== myId && f.id !== 'me' && f.likes && f.likes[key] ? 1 : 0), 0);
+    const n = others + (mine ? 1 : 0);
+    likeBtn.setAttribute('aria-pressed', String(mine));
+    likeBtn.classList.toggle('on', mine);
+    likeN.textContent = n ? fmtNum(n) : '';
+  };
+  cleanups.push(store.fans((all) => { fansDocs = all; paintLike(); }));
+
+  let unsubCmt = null;
+  const watchComments = () => {
+    if (unsubCmt) unsubCmt();
+    cmtN.textContent = '';
+    // mountComments ile aynı sorgu: store tek aboneliği paylaşır
+    unsubCmt = store.subscribe('comments', { where: ['thread', 'joke:' + list[idx].id], orderBy: 'createdAt', dir: 'desc', limit: 100 }, (docs) => {
+      cmtN.textContent = docs.length ? (docs.length >= 100 ? '99+' : fmtNum(docs.length)) : '';
+    });
+  };
+  cleanups.push(() => { if (unsubCmt) unsubCmt(); unsubCmt = null; });
+
   const render = (animate) => {
     const j = list[idx];
     textEl.textContent = j.text;
-    catEl.textContent = catLabel(j.cat);
+    clear(catEl).appendChild(h('span', null, memeText(catLabel(j.cat))));
     noEl.textContent = `No. ${String(idx + 1).padStart(3, '0')} / ${String(list.length).padStart(3, '0')}`;
     kindEl.textContent = idx === todayIdx ? 'Günün esprisi' : 'Bonus espri';
+    paintLike();
+    watchComments();
     if (animate) {
       quote.classList.remove('pop-in');
       void quote.offsetWidth;
@@ -494,6 +536,38 @@ function buildJoke(ctx) {
     }
   };
   render(false);
+
+  likeBtn.addEventListener('click', () => {
+    const on = store.me.toggleLike('jk:' + list[idx].id);
+    if (on) {
+      ctx.sound.bark(1.15);
+      const r = likeBtn.getBoundingClientRect();
+      ctx.fx.floatText('DOG!', r.left + r.width / 2, r.top, { size: 18 });
+    } else ctx.sound.click();
+    paintLike();
+  });
+
+  let closeModal = null;
+  cmtBtn.addEventListener('click', () => {
+    ctx.sound.click();
+    const j = list[idx];
+    const host = h('div');
+    let destroy = null;
+    const box = h('div', { class: 'hm-cmodal' },
+      h('div', { class: 'hm-cmodal-head' },
+        h('span', { class: 'eyebrow' }, 'Espri yorumları'),
+        h('button', { class: 'btn ghost icon', type: 'button', 'aria-label': 'Kapat', onclick: () => closeModal && closeModal() }, icon('close', { size: 18 })),
+      ),
+      h('blockquote', { class: 'hm-cmodal-quote' }, j.text),
+      host,
+    );
+    closeModal = ctx.fx.modal(box, {
+      label: 'Espri yorumları',
+      onClose: () => { if (destroy) destroy(); destroy = null; closeModal = null; },
+    });
+    destroy = mountComments(host, { threadId: 'joke:' + j.id, title: 'Yorumlar', compact: true, placeholder: 'Yorumun… (DOG DOG DOG serbest)' });
+  });
+  cleanups.push(() => { if (closeModal) closeModal(); });
 
   const again = h('button', { class: 'btn ghost', type: 'button' }, icon('refresh', { size: 18 }), 'Başka bir tane');
   again.addEventListener('click', () => {
@@ -518,7 +592,10 @@ function buildJoke(ctx) {
     h('div', { class: 'hm-joke-main' },
       h('div', { class: 'hm-joke-meta' }, h('span', { class: 'hm-joke-chan' }, '[Tümü]'), catEl, noEl),
       quote,
-      h('div', { class: 'hm-joke-actions' }, again, toWall),
+      h('div', { class: 'hm-joke-actions' },
+        h('div', { class: 'hm-joke-react' }, likeBtn, cmtBtn),
+        h('div', { class: 'hm-joke-nav' }, again, toWall),
+      ),
       h('p', { class: 'xsmall dim' }, archive.length ? 'Hayran yapımı espri arşivinden; her gün başka bir tane.' : 'Hayran yapımı espriler; her gün başka bir tane.'),
     ),
   );
@@ -586,7 +663,7 @@ function buildGuestbook(cleanups) {
       h('ul', { class: 'hm-gb-rules' },
         h('li', null, icon('check', { size: 16 }), 'DOG serbest, hakaret yasak.'),
         h('li', null, icon('check', { size: 16 }), 'Spoiler yok, flame yok, “report mid” de yok.'),
-        h('li', null, icon('check', { size: 16 }), 'Takma adını HUD’dan değiştirebilirsin.'),
+        h('li', null, icon('check', { size: 16 }), 'Takma adını yorum kutusunun altındaki ad düğmesinden değiştirebilirsin.'),
       ),
     ),
     box,

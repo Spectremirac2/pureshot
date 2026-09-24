@@ -182,16 +182,30 @@ export function floorCanvases(S = 1024, { withStones = true } = {}) {
   const drawRingText = (ctx, color, blur) => {
     ctx.save();
     ctx.translate(C, C);
-    ctx.font = `700 ${fs}px Cinzel, Georgia, serif`;
+    // Cinzel küçük harfleri büyük harf gibi çizer ("1vDOQUZ" → "IVDOQUZ"); özel yazım için Unbounded
+    ctx.font = `800 ${fs}px Unbounded, "Arial Black", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
     if (blur) { ctx.shadowColor = color; ctx.shadowBlur = blur; }
+    // Harfleri gerçek genişliklerine göre yay boyunca diz (eşit açı geniş harfleri üst üste bindiriyordu)
     const chars = [...ringText];
-    const step = (Math.PI * 2) / chars.length;
+    const circ = Math.PI * 2 * tr;
+    let widths = chars.map((ch) => ctx.measureText(ch).width);
+    let total = widths.reduce((a, b) => a + b, 0);
+    if (total > circ * 0.9) {
+      const k = (circ * 0.9) / total;
+      ctx.font = ctx.font.replace(/(\d+(?:\.\d+)?)px/, (m, n) => `${Math.floor(Number(n) * k)}px`);
+      widths = chars.map((ch) => ctx.measureText(ch).width);
+      total = widths.reduce((a, b) => a + b, 0);
+    }
+    const gap = (circ - total) / chars.length;
+    let acc = 0;
     chars.forEach((ch, i) => {
+      const center = acc + widths[i] / 2;
+      acc += widths[i] + gap;
       ctx.save();
-      ctx.rotate(i * step - Math.PI / 2);
+      ctx.rotate(center / tr - Math.PI / 2);
       ctx.translate(0, -tr);
       ctx.fillText(ch, 0, 0);
       ctx.restore();

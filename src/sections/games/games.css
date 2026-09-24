@@ -308,6 +308,8 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 /* ---------- Oyun sayfası ---------- */
 .gm-page { display: flex; flex-direction: column; gap: var(--sp-4); }
 .gm-topbar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.gm-topbar .gm-back { min-height: 44px; }
+.gm-crumbs a { display: inline-flex; align-items: center; min-height: 44px; }
 .gm-crumbs {
   display: flex; align-items: center; gap: 8px; min-width: 0;
   font-family: var(--font-lore); font-weight: 700; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -418,6 +420,7 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 .gm-result-stats dd { margin: 0; font-weight: 700; font-size: var(--fs-md); }
 .gm-result-quip { color: var(--text-2); font-style: italic; border-left: 2px solid var(--ember); padding-left: 10px; }
 .gm-result-actions { gap: var(--sp-2); }
+.gm-result-note { border-left: 2px solid var(--line-2); padding-left: 10px; }
 
 /* Yan sütun */
 .gm-aside { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
@@ -996,7 +999,8 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   .gm-rn-spot { width: 120px; height: 52px; }
   .gm-rn-rune { width: 96px; height: 96px; }
   .gm-lh-feed-item { font-size: 11px; }
-  .gm-boards-tabs .tab { padding: 10px 9px; font-size: var(--fs-xs); }
+  /* Beş sekme dar ekranda yatay kaydırmaya (gizli "Rune" sekmesi) düşmeden sığsın */
+  .gm-boards-tabs .tab { flex: 1 1 auto; padding: 10px 4px; font-size: var(--fs-xs); letter-spacing: 0.02em; }
 }
 @media (max-width: 400px) {
   .gm-inv-charge { font-size: 9px; }

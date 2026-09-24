@@ -174,8 +174,15 @@
 .jk-score-sub { font-size: var(--fs-xs); color: var(--text-3); }
 
 /* ---------------------------------------------------------------- sekmeler */
-.jk-tabs { position: sticky; top: var(--hud-h); z-index: 5; background: linear-gradient(180deg, var(--bg) 70%, color-mix(in srgb, var(--bg) 85%, transparent)); margin-bottom: calc(var(--sp-3) * -1); }
+.jk-tabs { scroll-behavior: smooth; position: sticky; top: var(--hud-h); z-index: 5; background: linear-gradient(180deg, var(--bg) 70%, color-mix(in srgb, var(--bg) 85%, transparent)); margin-bottom: calc(var(--sp-3) * -1); }
 .jk-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; }
+/* Sekme şeridi yatay kaydığı için dış odak halkası kırpılır: halkayı içeri al */
+.jk-tab:focus-visible { outline-offset: -3px; }
+/* .btn'in clip-path'i dış odak halkasını keser: dolgulu düğmelerde halkayı içeriden çiz */
+.jk .btn:not(.ghost):focus-visible, .jk-cmodal .btn:not(.ghost):focus-visible, .jk-roll .btn:not(.ghost):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--aegis-2), inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent);
+}
 .jk-tab svg { color: var(--text-3); }
 .jk-tab[aria-selected='true'] svg { color: var(--ember); }
 .jk-tab-n { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg-4); color: var(--text-2); letter-spacing: 0; }
@@ -268,8 +275,11 @@
 
 .jk-body { color: var(--text); overflow-wrap: anywhere; min-width: 0; }
 .jk-body p { margin: 0; }
-.jk-meme { color: var(--ember-2); font-weight: 800; white-space: nowrap; }
+/* Meme kalıpları büyük harf bağlamlarında da (başlık, etiket) özgün yazımını korur: 1vDOQUZ küçük v ile */
+.jk-meme { color: var(--ember-2); font-weight: 800; white-space: nowrap; text-transform: none; }
 .jk-meme.gold { color: var(--aegis); }
+/* Cinzel küçük harfleri büyük gösterir: lore başlıklarında memeyi gövde fontuyla yaz (1vDOQUZ'daki küçük v görünsün) */
+.jk-log-title .jk-meme.gold, .jk-dict-label .jk-meme.gold, .jk-dict-head .jk-meme.gold { font-family: var(--font-body); letter-spacing: 0.02em; }
 .jk-mark { background: color-mix(in srgb, var(--aegis) 30%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
 
 /* düz metin */
@@ -497,7 +507,7 @@
   display: flex;
   gap: 8px;
   align-items: baseline;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 10px;
   border: 0;
   border-left: 2px solid var(--cat, var(--line-2));
@@ -616,6 +626,14 @@
   .jk-tab { padding-inline: 12px; }
 }
 
+/* Dokunmatik ve dar ekranlarda dokunma hedefleri en az 44 px */
+@media (pointer: coarse), (max-width: 600px) {
+  .jk-chip { min-height: 44px; padding-inline: 14px; }
+  .jk .btn.sm, .jk-cmodal-head .btn, .jk-roll .jk-cmodal-head .btn { min-height: 44px; }
+  .jk-cmodal-head .btn.icon { min-width: 44px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .jk-tabs { scroll-behavior: auto; }
   .jk-bigstamp.slam, .jk-slam, .jk-screen.landed .jk-screen-body, .jk-card.jk-new, .jk-headline-dot { animation: none; }
 }

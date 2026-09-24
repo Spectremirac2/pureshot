@@ -455,7 +455,7 @@
 .qz-more { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .qz-link {
   display: inline-flex; align-items: center; gap: 4px;
-  min-height: 32px; padding: 4px 2px;
+  min-height: 44px; padding: 4px 2px;
   border: 0; background: none;
   color: var(--aegis); font-weight: 700; font-size: var(--fs-sm);
   text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
@@ -463,6 +463,9 @@
 }
 .qz-link:hover { color: var(--aegis-2); }
 
+.qz-ro-note { margin: 0; display: flex; align-items: flex-start; gap: 6px; }
+.qz-ro-note svg { flex: none; margin-top: 2px; }
+.qz-ro-note[hidden] { display: none; }
 .qz-res-panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .qz-panel-title { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-lg); }
 .qz-panel-title svg { color: var(--aegis); }

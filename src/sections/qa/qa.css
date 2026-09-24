@@ -1033,3 +1033,18 @@
 .qa-key .kbd { min-width: 28px; height: 28px; font-size: 13px; color: var(--aegis); margin: 0; }
 .qa-key .badge { margin-left: auto; }
 .qa-key.is-ult { border-color: color-mix(in srgb, var(--aegis) 50%, var(--line)); }
+
+/* Dokunmatik ve dar ekranlarda dokunma hedefleri en az 44 px */
+@media (pointer: coarse), (max-width: 600px) {
+  .qa-root .btn.sm { min-height: 44px; }
+  .qa-root .btn.sm.icon { width: 44px; }
+  .qa-nick-chip { min-height: 44px; }
+  .qa-seg { min-height: 44px; }
+  .qa-oracle-chips .chip { min-height: 44px; }
+}
+
+/* .btn'in clip-path'i dış odak halkasını keser: dolgulu düğmelerde halkayı içeriden çiz */
+.qa-root .btn:not(.ghost):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--aegis-2), inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent);
+}

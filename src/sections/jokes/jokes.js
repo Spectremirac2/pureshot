@@ -375,9 +375,10 @@ export default {
     });
     const tablist = h('div', { class: 'tabs jk-tabs', role: 'tablist', 'aria-label': 'Espri Duvarı bölümleri' }, tabBtns);
     tablist.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
       const i = TAB_IDS.indexOf(state.tab);
-      const n = (i + (e.key === 'ArrowRight' ? 1 : -1) + TAB_IDS.length) % TAB_IDS.length;
+      const n = e.key === 'Home' ? 0 : e.key === 'End' ? TAB_IDS.length - 1
+        : (i + (e.key === 'ArrowRight' ? 1 : -1) + TAB_IDS.length) % TAB_IDS.length;
       selectTab(TAB_IDS[n], true);
       tabBtns[n].focus();
       e.preventDefault();
@@ -386,6 +387,13 @@ export default {
     const built = {};
     for (const t of TABS) {
       panels[t.id] = h('section', { class: 'jk-panel', role: 'tabpanel', id: 'jk-panel-' + t.id, 'aria-labelledby': 'jk-tab-' + t.id, hidden: true });
+    }
+
+    /** Dar ekranda yatay kayan sekme şeridinde seçili sekmeyi görünür alana getirir. */
+    function revealTab(btn, smooth) {
+      if (!btn || tablist.scrollWidth <= tablist.clientWidth + 1) return;
+      const left = btn.offsetLeft - (tablist.clientWidth - btn.offsetWidth) / 2;
+      tablist.scrollTo({ left: Math.max(0, left), behavior: smooth && !reduced ? 'smooth' : 'auto' });
     }
 
     function scrollToTabs() {
@@ -403,6 +411,8 @@ export default {
         b.setAttribute('aria-selected', String(on));
         b.tabIndex = on ? 0 : -1;
       });
+      revealTab(tabBtns[TAB_IDS.indexOf(id)], changed && state.tabShown);
+      state.tabShown = true;
       for (const t of TAB_IDS) panels[t].hidden = t !== id;
       if (!built[id]) { built[id] = true; BUILDERS[id](panels[id]); }
       if (id === 'duvar') renderWall();
@@ -475,7 +485,7 @@ export default {
       sortSel.value = state.sort;
       sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.limit = 24; renderLegends(); });
 
-      resultCount = h('span', { class: 'jk-result num' }, '');
+      resultCount = h('span', { class: 'jk-result num', role: 'status', 'aria-live': 'polite' }, '');
       legendInfo = h('div', { class: 'jk-legend-info' });
       legendGrid = h('div', { class: 'jk-grid' });
       moreBtn = h('button', { class: 'btn ghost lg jk-more', type: 'button', hidden: true }, icon('paw', { size: 18 }), h('span', null, 'Daha fazla DOG'));
@@ -629,7 +639,7 @@ export default {
           serialEl,
         ),
         h('div', { class: 'jk-screen', 'aria-live': 'polite', 'aria-atomic': 'true' }, screenEl),
-        h('div', { class: 'row jk-mach-actions' }, postBtn, copyBtn, h('span', { class: 'spacer' }), h('span', { class: 'xsmall dim' }, 'Aynı seri numarası aynı espriyi verir.')),
+        h('div', { class: 'row jk-mach-actions' }, postBtn, copyBtn, h('span', { class: 'spacer' }), h('span', { class: 'xsmall dim' }, 'Her espri kendi seri numarasıyla üretilir.')),
       );
       const side = h('div', { class: 'jk-mach-side' },
         h('div', { class: 'jk-mach-count panel' },
@@ -692,6 +702,7 @@ export default {
       const box = screenEl.parentElement;
       if (reduced) { showGen(j); sound.bark(1.05); return; }
       rolling = true;
+      box.setAttribute('aria-busy', 'true');
       box.classList.remove('landed');
       box.classList.add('rolling');
       let n = 0;
@@ -707,6 +718,7 @@ export default {
         void box.offsetWidth;
         box.classList.add('landed');
         showGen(j);
+        box.setAttribute('aria-busy', 'false');
         sound.bark(1.05);
         rolling = false;
       };
@@ -736,7 +748,7 @@ export default {
     let wallCount = null;
 
     function buildWall(panel) {
-      wallGrid = h('div', { class: 'jk-grid', 'aria-live': 'polite' });
+      wallGrid = h('div', { class: 'jk-grid' });
       wallNote = h('p', { class: 'hint jk-wall-note', hidden: true });
       wallCount = h('span', { class: 'badge' }, '0');
       wallSortBtns = [['yeni', 'Yeni', 'clock'], ['top', 'En çok DOG’lanan', 'paw']].map(([id, label, ic]) => {
@@ -808,6 +820,10 @@ export default {
       const me = store.uid();
       const mod = store.isModerator();
       let target = null;
+      // Canlı güncellemede (başkası espri asınca) klavye odağı kaybolmasın
+      const act = document.activeElement;
+      const actCard = act && wallGrid.contains(act) ? act.closest('.jk-card') : null;
+      const refocus = actCard && actCard.dataset.doc ? { doc: actCard.dataset.doc, act: act.dataset.act || null } : null;
       const frag = document.createDocumentFragment();
       for (const d of docs) {
         const card = jokeCard(d, {
@@ -820,6 +836,11 @@ export default {
         frag.appendChild(card);
       }
       wallGrid.appendChild(frag);
+      if (refocus) {
+        const c = [...wallGrid.querySelectorAll('.jk-card[data-doc]')].find((x) => x.dataset.doc === refocus.doc);
+        const t = c && (refocus.act ? c.querySelector(`[data-act="${refocus.act}"]`) : null);
+        if (t) t.focus({ preventScroll: true });
+      }
       refreshCounts();
       if (target) {
         state.highlightId = null;
@@ -874,7 +895,10 @@ export default {
         paintPreview();
         clearTimeout(draftT);
         timers.delete(draftT);
-        draftT = later(() => ls.set('jk:draft', { text: ta.value, cat: sel.value }), 400);
+        draftT = later(() => {
+          if (ta.value.trim()) ls.set('jk:draft', { text: ta.value, cat: sel.value });
+          else ls.remove('jk:draft');
+        }, 400);
       }
       paintPreview = () => {
         const text = normalizeText(ta.value) || 'Esprin burada, duvardaki hâliyle görünecek. DOG DOG DOG.';

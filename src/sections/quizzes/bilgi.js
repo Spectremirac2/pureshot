@@ -7,7 +7,7 @@ import { sound } from '../../core/sound.js';
 import { fx } from '../../core/fx.js';
 import { mountLeaderboard } from '../../components/leaderboard.js';
 import { BILGI_BANK, BILGI_TITLES, tierFor } from '../../data/quizzes.js';
-import { makeScope, quizBar, centerOf, scrollToTop, saveLast, getLast, toneClass } from './ui.js';
+import { makeScope, quizBar, centerOf, scrollToTop, saveLast, getLast, toneClass, memeText, readOnlyNote } from './ui.js';
 import { runMC, prepQuestion, answerKey } from './mc.js';
 
 const ROUND = 10;
@@ -105,8 +105,9 @@ export function mountBilgi(root, { ctx, quiz, back }) {
     const scoreCard = h('section', { class: `panel raised frame qz-scorecard tone-${tier.tone}` },
       h('span', { class: 'eyebrow' }, 'Bilgi yarışması sonucu'),
       h('div', { class: 'qz-big-wrap' }, scoreEl, h('span', { class: 'qz-big-unit' }, 'puan')),
-      h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, tier.title),
+      h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, memeText(tier.title)),
       h('p', { class: 'muted' }, tier.note),
+      readOnlyNote('Skorun'),
       h('div', { class: 'qz-kv' },
         h('span', null, h('small', null, 'Doğru'), h('b', { class: 'num' }, `${correct}/${results.length}`)),
         h('span', null, h('small', null, 'Hız bonusu'), h('b', { class: 'num' }, `+${fmtNum(bonus)}`)),

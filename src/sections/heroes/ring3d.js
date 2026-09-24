@@ -46,9 +46,13 @@ export function mountRing(host, { heroes, getValue, onPick }) {
   // ---------------------------------------------------------------- WebGL
   let renderer;
   try {
+    // Yoklama bağlamı hemen bırakılır; yoksa her bölüm ziyaretinde canlı bir WebGL bağlamı sızar
+    // (tarayıcılar ~16 bağlamda en eskisini zorla kapatır).
     const test = document.createElement('canvas');
-    const ok = !!(test.getContext('webgl2') || test.getContext('webgl'));
-    if (!ok) throw new Error('webgl yok');
+    const gl = test.getContext('webgl2') || test.getContext('webgl');
+    if (!gl) throw new Error('webgl yok');
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   } catch {
     return fallback();
@@ -398,20 +402,24 @@ export function mountRing(host, { heroes, getValue, onPick }) {
 
   // ---------------------------------------------------------------- 2D yedek
   function fallback() {
+    // WebGL yok: en DOG 9 kahraman, üst üste binmeyen 3×3 sikke ızgarası (her sikke kendi düğmesi).
     const top = sorted.slice(0, 9);
-    const fan = h('div', { class: 'hr-ring-fallback' },
+    const fan = h('div', { class: 'hr-ring-fallback', role: 'group', 'aria-label': 'En yüksek DOG’luklu 9 kahraman' },
       top.map((hero, i) => h('button', {
         type: 'button',
         class: 'hr-ring-fb-coin',
-        style: { '--i': String(i - 4) },
+        style: { '--i': String(i) },
         title: `${hero.name} · %${hero.dogRate}`,
-        'aria-label': `${hero.name} dosyasını aç`,
+        'aria-label': `${hero.name} dosyasını aç (%${hero.dogRate})`,
         onclick: () => onPick && onPick(hero),
       }, crestSvg(hero))),
     );
     host.classList.add('is-fallback');
+    host.removeAttribute('role');
+    host.removeAttribute('aria-label');
     host.appendChild(fan);
     return {
+      fallback: true,
       destroy() { fan.remove(); tip.remove(); host.classList.remove('is-fallback'); },
       wake() {},
     };

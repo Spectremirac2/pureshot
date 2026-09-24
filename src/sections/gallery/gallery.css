@@ -682,3 +682,8 @@
   .gl-inv-ep { display: block; margin-top: 2px; overflow-wrap: anywhere; }
   .gl-inv-table th, .gl-inv-table td { padding-inline: 6px; }
 }
+
+/* Dokunmatikte küçük düğmeler de ≥ 44 px dokunma hedefi olsun (Beğen, Müzede incele, Analizlere git…) */
+@media (pointer: coarse) {
+  .gl .btn.sm { min-height: 44px; }
+}

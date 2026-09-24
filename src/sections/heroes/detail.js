@@ -90,8 +90,9 @@ export function mountDetail(host, env, hero) {
   const nav = h('nav', { class: 'hr-dnav', 'aria-label': 'Kahraman gezinmesi' },
     h('a', { class: 'btn ghost sm', href: '#kahramanlar' }, icon('arrowLeft', { size: 16 }), 'Duvar'),
     h('span', { class: 'spacer' }),
-    h('a', { class: 'btn ghost sm hr-dnav-pn', href: `#kahramanlar--${prev.id}`, title: 'Önceki kahraman (←)' }, icon('arrowLeft', { size: 16 }), h('span', null, prev.name)),
-    h('a', { class: 'btn ghost sm hr-dnav-pn', href: `#kahramanlar--${next.id}`, title: 'Sonraki kahraman (→)' }, h('span', null, next.name), icon('arrowRight', { size: 16 })),
+    // Dar ekranda ad gizlenir (yalnızca ok kalır); erişilebilir ad aria-label'dan gelir
+    h('a', { class: 'btn ghost sm hr-dnav-pn', href: `#kahramanlar--${prev.id}`, title: 'Önceki kahraman (←)', 'aria-label': `Önceki kahraman: ${prev.name}` }, icon('arrowLeft', { size: 16 }), h('span', { 'aria-hidden': 'true' }, prev.name)),
+    h('a', { class: 'btn ghost sm hr-dnav-pn', href: `#kahramanlar--${next.id}`, title: 'Sonraki kahraman (→)', 'aria-label': `Sonraki kahraman: ${next.name}` }, h('span', { 'aria-hidden': 'true' }, next.name), icon('arrowRight', { size: 16 })),
   );
 
   // ---------------------------------------------------------------- kahraman bandı
@@ -102,7 +103,7 @@ export function mountDetail(host, env, hero) {
     crestWrap,
     h('div', { class: 'hr-d-id' },
       h('span', { class: 'eyebrow' }, `DOG dosyası · ön yargı sırası ${RANK.get(hero.id)}/${HEROES.length}`),
-      h('h1', { class: 'display hr-d-name' }, hero.name),
+      h('h1', { class: 'display hr-d-name', lang: 'en' }, hero.name),
       h('div', { class: 'row hr-d-meta' },
         h('span', { class: `hr-attr-badge hr-a-${hero.attr}` }, h('span', { class: 'hr-dot' }), attr.label),
         h('span', { class: 'badge' }, ATTACKS[hero.attack]),
@@ -140,7 +141,7 @@ export function mountDetail(host, env, hero) {
       ctx.fx.floatText('masum', r.left + r.width / 2, r.top, { color: '#43d6a0' });
     } else {
       ctx.sound.click();
-      ctx.fx.toast('Oyun geri alındı.');
+      ctx.fx.toast('Oy geri alındı.');
     }
   };
   dogBtn.addEventListener('click', () => castVote('dog', dogBtn));
@@ -174,8 +175,8 @@ export function mountDetail(host, env, hero) {
     tierStamp.textContent = `${t.id} · ${t.label}`;
     dogBtn.setAttribute('aria-pressed', String(s.myVote === 'dog'));
     notBtn.setAttribute('aria-pressed', String(s.myVote === 'not'));
-    dogBtn.title = s.myVote === 'dog' ? 'Oyunu geri almak için tekrar bas' : 'Bu kahramanı seçen DOG';
-    notBtn.title = s.myVote === 'not' ? 'Oyunu geri almak için tekrar bas' : 'Bu kahramanı seçen masum';
+    dogBtn.title = s.myVote === 'dog' ? 'Oyu geri almak için tekrar bas' : 'Bu kahramanı seçen DOG';
+    notBtn.title = s.myVote === 'not' ? 'Oyu geri almak için tekrar bas' : 'Bu kahramanı seçen masum';
     const dogPct = s.total ? (s.dog / s.total) * 100 : 50;
     split.firstChild.style.width = `${dogPct}%`;
     split.lastChild.style.width = `${100 - dogPct}%`;
@@ -184,7 +185,7 @@ export function mountDetail(host, env, hero) {
       ? `${fmtNum(s.dog)} DOG · ${fmtNum(s.not)} DOG değil · toplam ${fmtNum(s.total)} oy`
       : 'Henüz oy yok. İlk hükmü sen ver.';
     biasLine.textContent = `Ön yargı tabanı %${s.bias} (${s.biasTier.label}) · endeks = (taban×${K} + DOG oyu×100) ÷ (${K} + toplam oy)`;
-    voteNote.textContent = s.myVote ? 'Oyun kaydedildi. Değiştirmek için diğerine, geri almak için aynısına bas.' : '';
+    voteNote.textContent = s.myVote ? 'Oy kaydedildi. Değiştirmek için diğer düğmeye, geri almak için aynısına bas.' : '';
   }
   cleanups.push(comm.subscribe(renderLive));
   renderLive();

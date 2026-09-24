@@ -91,3 +91,24 @@ export function contrastColor(a, b) {
 
 /** Türün sıra numarası "01".."11". */
 export const idx2 = (i) => String(i + 1).padStart(2, '0');
+
+/**
+ * "1vDOQUZ" özel yazımını büyük harf dönüşümünden korur (.stamp, .btn gibi uppercase bağlamlar):
+ * meme kelimesini <span class="meme"> ile sarar.
+ */
+export function memeText(str) {
+  const parts = String(str).split(/(1vDOQUZ)/);
+  if (parts.length === 1) return str;
+  // Tek sarmalayıcı: flex kapsayıcılarda (.btn) parçalar arasına boşluk (gap) girmesin
+  return h('span', null, parts.filter(Boolean).map((p) => (p === '1vDOQUZ' ? h('span', { class: 'meme' }, p) : p)));
+}
+
+/** Salt okunur paylaşımlı görünümde seçimin yalnızca bu cihazda kaldığını açıklar (yoksa null). */
+export function readOnlyNote(store, what) {
+  const el = h('p', { class: 'xsmall dim ch-ro-note', hidden: true }, icon('info', { size: 14 }),
+    h('span', null, `Salt okunur görüntülüyorsun: ${what} bu cihazda saklanır, topluluk sayılarına yazılmayabilir.`));
+  const check = () => { el.hidden = !(store.shared && !store.canWrite()); };
+  check();
+  Promise.resolve(store.ready).then(check, () => {});
+  return el;
+}

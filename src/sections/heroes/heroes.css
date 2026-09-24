@@ -100,14 +100,21 @@
   pointer-events: none;
 }
 .hr-ring-hint { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.hr-ring.is-fallback { display: grid; place-items: center; -webkit-mask-image: none; mask-image: none; }
-.hr-ring-fallback { position: relative; width: 100%; height: 100%; }
-.hr-ring-fb-coin {
-  position: absolute; left: 50%; top: 50%;
-  width: 92px; height: 92px; padding: 0;
-  border: 0; background: none; cursor: pointer;
-  transform: translate(-50%, -50%) rotate(calc(var(--i) * 16deg)) translateY(-120px) rotate(calc(var(--i) * -16deg));
+.hr-ring.is-fallback { display: grid; place-items: center; height: auto; min-height: 260px; padding: var(--sp-3) 0; -webkit-mask-image: none; mask-image: none; }
+/* WebGL yedeği: üst üste binmeyen 3×3 sikke ızgarası; her sikke ayrı, ≥ 64 px dokunma hedefi */
+.hr-ring-fallback {
+  display: grid; grid-template-columns: repeat(3, auto); justify-content: center; align-content: center;
+  gap: clamp(8px, 2.4vw, 18px);
 }
+.hr-ring-fb-coin {
+  width: clamp(72px, 21vw, 104px); aspect-ratio: 1; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.18s var(--ease-out);
+}
+.hr-ring-fb-coin svg { width: 100%; height: 100%; display: block; }
+.hr-ring-fb-coin:hover, .hr-ring-fb-coin:focus-visible { transform: translateY(-4px) scale(1.06); }
+.hr-ring-fb-coin:nth-child(3n + 2) { margin-top: 14px; }
 
 /* ---------- Sekmeler ---------- */
 .hr-tabs { position: relative; }
@@ -604,9 +611,15 @@
 }
 @media (max-width: 420px) {
   .hr-dnav-pn span { display: none; }
+  .hr-dnav-pn { min-width: 48px; justify-content: center; padding-inline: 12px; }
   .hr-tab { padding: 12px 9px; gap: 0; }
   .hr-tab svg { display: none; }
 }
+/* Dokunmatikte küçük düğmeler de ≥ 44 px dokunma hedefi olsun (Dosya, Dosyasını aç, yorum gönder…) */
+@media (pointer: coarse) {
+  .hr-root .btn.sm { min-height: 44px; }
+}
 @media (prefers-reduced-motion: reduce) {
+  .hr-ring-fb-coin { transition: none; }
   .is-picking .hr-tier-head, .hr-pool.is-picking .hr-pool-head { animation: none; }
 }

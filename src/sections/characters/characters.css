@@ -73,7 +73,7 @@
 .ch-tab-short { display: none; }
 .ch-tabbar-link {
   display: inline-flex; align-items: center; gap: 6px;
-  min-height: 40px; margin-bottom: 6px; padding: 6px 14px;
+  min-height: 44px; margin-bottom: 6px; padding: 6px 14px;
   border: 1px solid color-mix(in srgb, var(--aegis) 45%, transparent);
   background: color-mix(in srgb, var(--aegis) 8%, transparent);
   color: var(--aegis-2);
@@ -86,6 +86,9 @@
 .ch-tabbar-link .ch-tab-short { display: none; }
 
 .ch-view { outline: none; }
+.ch-ro-note { margin: 0; display: flex; align-items: flex-start; gap: 6px; }
+.ch-ro-note svg { flex: none; margin-top: 2px; }
+.ch-ro-note[hidden] { display: none; }
 .ch-page { display: flex; flex-direction: column; gap: var(--sp-5); animation: ch-enter 0.4s var(--ease-out) both; }
 @keyframes ch-enter { from { opacity: 0; transform: translateY(10px); } }
 
@@ -94,7 +97,7 @@
 .ch-arc-intro { gap: var(--sp-2); max-width: 62ch; }
 .ch-arc-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ch-arc-sort { gap: var(--sp-2); }
-.ch-arc-sort .chip { min-height: 36px; }
+.ch-arc-sort .chip { min-height: 44px; }
 
 .ch-grid {
   display: grid;
@@ -325,7 +328,7 @@
 .ch-spot li { display: flex; gap: 10px; align-items: flex-start; color: var(--text-2); }
 .ch-spot svg { flex: none; margin-top: 3px; color: var(--ch-c); }
 .ch-hero-chips { gap: var(--sp-2); }
-.ch-hero-chip { min-height: 38px; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0.02em; }
+.ch-hero-chip { min-height: 44px; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0.02em; }
 .ch-hero-chip svg { opacity: 0.55; }
 .ch-hero-chip:hover { border-color: var(--ch-c); }
 
@@ -772,6 +775,17 @@
   .ch-radar-label { font-size: 16.5px; }
   .ch-radar-val { font-size: 15px; }
   .ch-radar-scale { font-size: 12px; }
+}
+
+/* Dokunmatik: küçük butonlar da en az 44 px hedef */
+@media (pointer: coarse) {
+  .ch .btn.sm { min-height: 44px; }
+}
+/* Dar ekran: tür gezinmesi (Arşiv · önceki · 03/11 · sonraki) tek satıra sığsın */
+@media (max-width: 420px) {
+  .ch-det-nav { gap: 6px; }
+  .ch-pn { gap: 4px; padding: 4px 6px; }
+  .ch-det-count { padding: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

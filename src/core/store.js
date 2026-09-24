@@ -280,6 +280,8 @@ function emitMe() {
 async function flushMe() {
   meState.timer = 0;
   if (!meState.dirty || !backend || !meState.id) return;
+  // Salt okunur ziyaretçi: profil yalnızca bu cihazda (localStorage) kalır, sunucuya yazma denenmez
+  if (backend.shared && platform.canWrite === false) { meState.dirty = false; return; }
   if (meState.writing) {
     meState.timer = setTimeout(flushMe, 600);
     return;

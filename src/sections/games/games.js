@@ -10,7 +10,7 @@ import { artUrl } from '../../core/assets.js';
 import { mountLeaderboard } from '../../components/leaderboard.js';
 import { mountComments } from '../../components/comments.js';
 import { attachTilt } from '../../components/tilt.js';
-import { bestText, compact, isTyping } from './kit.js';
+import { bestText, compact, isTyping, memeText } from './kit.js';
 import * as whack from './whack.js';
 import * as lasthit from './lasthit.js';
 import * as memory from './memory.js';
@@ -328,7 +328,7 @@ function createSalon(el, ctx) {
       h('nav', { class: 'gm-crumbs', 'aria-label': 'Konum' },
         crumbHub,
         h('span', { 'aria-hidden': 'true' }, '/'),
-        h('span', { 'aria-current': 'page' }, meta.name),
+        h('span', { 'aria-current': 'page' }, memeText(meta.name)),
       ),
     );
     const body = h('div', { class: `gm-page-body gm-page-${meta.id}` });

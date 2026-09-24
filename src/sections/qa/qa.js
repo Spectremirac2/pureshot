@@ -435,7 +435,7 @@ function createQA(el, ctx) {
     return h('li', { class: `qa-row${solved ? ' is-solved' : ''}${n ? '' : ' is-open'}${fresh('q:' + q.id) ? ' is-new' : ''}` },
       voteBtn('q:' + q.id, { label: 'Soruya oy ver' }),
       h('div', { class: 'qa-row-main' },
-        h('a', { class: 'qa-row-title', href },
+        h('a', { class: 'qa-row-title', href, dataset: { focusKey: 'qt:' + q.id } },
           q.title || 'Başlıksız soru',
           h('span', { class: 'sr-only' }, `, ${n} cevap${solved ? ', çözüldü' : ''}`),
         ),
@@ -752,7 +752,7 @@ function createQA(el, ctx) {
       if (delBtn) delBtn.addEventListener('click', () => deleteQuestion(q));
       const writeBtn = h('button', { class: 'btn ghost sm', type: 'button', dataset: { focusKey: 'write' } }, icon('chat', { size: 15 }), 'Cevap yaz');
       writeBtn.addEventListener('click', () => { scrollToEl(form); d.ta.focus({ preventScroll: true }); });
-      const title = h('h2', { class: 'qa-q-title', tabindex: '-1', id: 'qa-q-title' }, q.title || 'Başlıksız soru');
+      const title = h('h2', { class: 'qa-q-title', tabindex: '-1', id: 'qa-q-title', dataset: { focusKey: 'qtitle' } }, q.title || 'Başlıksız soru');
       clear(qBox).appendChild(
         h('article', { class: `panel raised qa-q${solved ? ' is-solved' : ''}${fresh('card:' + q.id) ? ' is-new' : ''}`, 'aria-labelledby': 'qa-q-title' },
           voteBtn('q:' + q.id, { label: 'Soruya oy ver', lg: true }),
@@ -793,7 +793,7 @@ function createQA(el, ctx) {
     });
 
     // Yan panel
-    clear(sideBox).append(
+    keepFocus(sideBox, () => clear(sideBox).append(
       h('section', { class: 'panel qa-card', 'aria-label': 'Soru kartı' },
         h('span', { class: 'eyebrow' }, 'Soru kartı'),
         h('div', { class: 'qa-card-stats' },
@@ -815,10 +815,10 @@ function createQA(el, ctx) {
         h('div', { class: 'stack qa-cta-text' },
           h('span', { class: 'eyebrow' }, 'İkinci görüş'),
           h('p', { class: 'small muted' }, 'Bu soruyu kadim DOG Kâhini’ne de sor; hükmü anında gelsin.'),
-          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { sound.click(); ctx.setSub('kahin'); show('kahin'); oracleAsk(q.title || ''); } }, icon('eye', { size: 16 }), 'Kâhin’e sor'),
+          h('button', { class: 'btn ghost sm', type: 'button', dataset: { focusKey: 'ask-oracle' }, onclick: () => { sound.click(); ctx.setSub('kahin'); show('kahin'); oracleAsk(q.title || ''); } }, icon('eye', { size: 16 }), 'Kâhin’e sor'),
         ),
       ),
-    );
+    ));
   }
 
   // -------------------------------------------------------------- KÂHİN
@@ -922,12 +922,25 @@ function createQA(el, ctx) {
           h('p', null, m.text),
           m.topicLabel || m.hero
             ? h('div', { class: 'qa-msg-foot' },
-              m.topicLabel ? h('span', { class: 'qa-topic' }, icon('target', { size: 12 }), m.topicLabel) : null,
-              m.hero ? h('a', { class: 'qa-hero-link', href: '#kahramanlar' }, icon('swords', { size: 13 }), 'Kahraman DOG Endeksi’ne bak') : null,
+              // Kahraman bağlantısı kahramanın adını zaten taşıyorsa konu etiketini tekrar yazma
+              m.topicLabel && !(m.hero && heroOf(m) && heroOf(m).name === m.topicLabel)
+                ? h('span', { class: 'qa-topic' }, icon('target', { size: 12 }), m.topicLabel) : null,
+              m.hero ? heroLink(m) : null,
             )
             : null,
         ),
       );
+    }
+
+    /** Tanınan kahramanın endeks sayfasına (#kahramanlar--<Dota iç adı>) ya da genel endekse bağlantı. */
+    function heroOf(m) {
+      return m.heroId && typeof heroData.heroById === 'function' ? heroData.heroById(m.heroId) : null;
+    }
+    function heroLink(m) {
+      const hero = heroOf(m);
+      return h('a', { class: 'qa-hero-link', href: hero ? `#kahramanlar--${hero.id}` : '#kahramanlar' },
+        icon('swords', { size: 13 }),
+        hero ? `${hero.name} · Kahraman DOG Endeksi` : 'Kahraman DOG Endeksi’ne bak');
     }
 
     function scrollLog() { log.scrollTop = log.scrollHeight; }
@@ -956,7 +969,7 @@ function createQA(el, ctx) {
     }
 
     function finish(r) {
-      oracleSession.history.push({ who: 'oracle', text: r.text, verdictLabel: r.verdictLabel, tone: r.tone, topicLabel: r.topicLabel, hero: !!r.hero });
+      oracleSession.history.push({ who: 'oracle', text: r.text, verdictLabel: r.verdictLabel, tone: r.tone, topicLabel: r.topicLabel, hero: !!r.hero, heroId: r.heroId || null });
       if (oracleSession.history.length > 80) oracleSession.history.splice(0, oracleSession.history.length - 80);
     }
 

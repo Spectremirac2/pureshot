@@ -6,7 +6,8 @@ import { portraitEl } from '../../components/portrait.js';
 import { attachTilt } from '../../components/tilt.js';
 import { mountComments } from '../../components/comments.js';
 import { radarSvg } from './radar.js';
-import { pawsEl, dogIndex, STAT_KEYS, GOOD_STATS, contrastColor, idx2 } from './util.js';
+import { HEROES, heroByName } from '../../data/heroes.js';
+import { pawsEl, dogIndex, STAT_KEYS, GOOD_STATS, contrastColor, idx2, memeText, readOnlyNote } from './util.js';
 
 const TOTAL = ALL_TYPES.length;
 
@@ -43,7 +44,7 @@ const HERO_KEYS = {
   Mirana: 'mirana',
 };
 /** Ada göre anahtar; tabloda yoksa küçük harf + alt çizgi yedeği. */
-export const heroKey = (name) => HERO_KEYS[name] || String(name).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+export const heroKey = (name) => HERO_KEYS[name] || heroByName(name)?.id || String(name).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 /** "Kahraman DOG Endeksi" bölümüne çağrı kartı. */
 export function heroIndexCard(env, { big = false } = {}) {
@@ -52,7 +53,7 @@ export function heroIndexCard(env, { big = false } = {}) {
     h('span', { class: 'ch-hx-icon', 'aria-hidden': 'true' }, icon('swords', { size: big ? 34 : 28 })),
     h('div', { class: 'stack ch-hx-text' },
       h('span', { class: 'eyebrow' }, big ? 'Kahramanlar taşındı' : 'Ayrı bölüm'),
-      h('p', { class: 'h3' }, 'Tüm 127 Dota kahramanının DOG’luk endeksi'),
+      h('p', { class: 'h3' }, `Tüm ${HEROES.length} Dota kahramanının DOG’luk endeksi`),
       h('p', { class: 'small muted' }, big
         ? 'Kahraman listesi büyüdü ve kendi bölümüne taşındı: filtrele, ara, hangi kahramanın hangi DOG türünü beslediğine bak.'
         : 'Hangi kahraman hangi DOG türünü besliyor? Pudge’dan Io’ya hepsi tek listede.'),
@@ -171,7 +172,7 @@ export function renderArchive(el, env) {
         h('span', { class: 'ch-card-go' }, 'İncele', icon('arrowRight', { size: 14 })),
       ),
     ),
-    h('span', { class: 'stamp gold ch-legend-stamp', 'aria-hidden': 'true' }, '1vDOQUZ'),
+    h('span', { class: 'stamp gold ch-legend-stamp', 'aria-hidden': 'true' }, memeText('1vDOQUZ')),
   );
   const legend = h('a', {
     class: 'ch-legend',
@@ -305,6 +306,7 @@ export function renderDetail(el, env, arch) {
         likeBtn,
         h('a', { class: 'btn ghost', href: `#karakterler--vs-${arch.id}-${(isLegend ? ARCHETYPES[0] : LEGEND).id}` }, icon('swords', { size: 18 }), 'Karşılaştır'),
       ),
+      readOnlyNote(env.store, 'patin'),
     ),
   );
 
@@ -389,11 +391,11 @@ function verdict(a, b) {
   }
   const ia = dogIndex(a.stats);
   const ib = dogIndex(b.stats);
-  if (ia === ib) return { text: `Berabere: ikisi de DOG indeksinde ${ia}. Aynı takımda denk gelirlerse Allah yardımcın olsun.`, winner: null };
+  if (ia === ib) return { text: `Berabere: ikisi de DOG indeksinde ${ia}. Aynı takıma denk gelirlerse kolay gelsin.`, winner: null };
   const w = ia > ib ? a : b;
   const l = ia > ib ? b : a;
   const gap = Math.abs(ia - ib);
-  const tone = gap >= 20 ? 'farkı açık ara' : gap >= 8 ? 'fark belirgin' : 'kıl payı';
+  const tone = gap >= 20 ? 'açık ara' : gap >= 8 ? 'fark belirgin' : 'kıl payı';
   return { text: `Daha DOG olan: ${w.name} (${Math.max(ia, ib)} – ${Math.min(ia, ib)}, ${tone}). ${l.name} en azından bir şeyleri doğru yapıyor.`, winner: w.id };
 }
 
@@ -482,8 +484,8 @@ export function renderCompare(el, env, aId, bId) {
             h('p', null, v.text),
           ),
           h('div', { class: 'row' },
-            h('a', { class: 'btn ghost sm', href: '#karakterler--' + a.id }, `${a.name} sayfası`),
-            h('a', { class: 'btn ghost sm', href: '#karakterler--' + b.id }, `${b.name} sayfası`),
+            h('a', { class: 'btn ghost sm', href: '#karakterler--' + a.id }, memeText(`${a.name} sayfası`)),
+            h('a', { class: 'btn ghost sm', href: '#karakterler--' + b.id }, memeText(`${b.name} sayfası`)),
           ),
         ),
       ),
@@ -525,7 +527,8 @@ export function renderCompare(el, env, aId, bId) {
     h('div', { class: 'ch-vs-picks' }, pickA, h('div', { class: 'ch-vs-mid' }, h('span', { class: 'ch-vs-badge', 'aria-hidden': 'true' }, 'VS'), swap), pickB),
     result,
   );
-  if (!aId || !bId) env.replace(`vs-${a.id}-${b.id}`);
+  // Eksik, geçersiz ya da aynı türler düzeltildiyse adres çubuğu da gösterilen karşılaştırmayı yansıtsın
+  if (aId !== a.id || bId !== b.id) env.replace(`vs-${a.id}-${b.id}`);
   render();
 
   return () => {};

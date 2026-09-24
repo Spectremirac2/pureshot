@@ -209,7 +209,8 @@ export default {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
     function open(sub) {
-      ctx.setSub(sub || null);
+      // Geçmişe kayıt ekle: tarayıcının geri tuşu quizden merkeze dönsün
+      ctx.setSub(sub || null, { push: true });
       show(sub || null);
     }
 

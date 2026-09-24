@@ -3,7 +3,7 @@
 import { h, clear, shuffle, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { ARCHETYPES } from '../../data/archetypes.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, faceArt } from './kit.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, faceArt } from './kit.js';
 
 const PAIRS = 8;
 const COLS = 4;
@@ -40,7 +40,7 @@ export function mount(el, ctx, nav) {
   const sMoves = hudStat('Hamle', '0', { ico: 'refresh' });
   const sTime = hudStat('Süre', '0 sn', { ico: 'hourglass' });
   const sPairs = hudStat('Eşleşen', `0/${PAIRS}`, { ico: 'check' });
-  const sScore = hudStat('Olası skor', '1.000', { ico: 'trophy', cls: 'gm-stat-score' });
+  const sScore = hudStat('Skor', '1.000', { ico: 'trophy', cls: 'gm-stat-score' });
   L.hud.append(sMoves.el, sTime.el, sPairs.el, sScore.el);
 
   const grid = h('div', { class: 'gm-mm-grid', role: 'group', 'aria-label': 'DOG Hafıza kartları' });
@@ -187,6 +187,10 @@ export function mount(el, ctx, nav) {
     L.stage.classList.remove('playing');
     const secs = runner.time - g.t0;
     const score = scoreOf(g.moves, secs);
+    // HUD son hamleyle güncellensin (kare döngüsü artık 'play' değil) ve skor hemen kaydedilsin
+    sTime.set(`${Math.floor(secs)} sn`);
+    sScore.set(fmtNum(score));
+    const saved = submitResult(meta, score);
     const quip = g.moves <= 11
       ? 'Fil hafızası. Hangi DOG’un nerede farm yaptığını bile biliyorsun.'
       : g.moves <= 16
@@ -197,6 +201,7 @@ export function mount(el, ctx, nav) {
     runner.after(0.7, () => {
       const { node } = resultCard(meta, {
         score,
+        saved,
         title: 'Tüm DOG’lar bulundu',
         stats: [
           ['Hamle', fmtNum(g.moves)],
@@ -207,7 +212,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
-      closeOverlay = showOverlay(L.stage, node);
+      closeOverlay = showOverlay(L.stage, node, { reveal: true });
       L.live.textContent = `Bitti. ${g.moves} hamle, ${Math.floor(secs)} saniye, ${score} puan.`;
       runner.destroy();
       runner = null;

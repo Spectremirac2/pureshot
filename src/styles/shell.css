@@ -58,7 +58,15 @@
 
 @media (max-width: 900px) {
   .hud-clock-label { display: none; }
-  .hud-nick { display: none; }
+  /* Dar ekranda takma ad düğmesi yalnızca ikon olarak kalır */
+  .hud-nick span { display: none; }
+  .hud-nick { padding-inline: 10px; }
+}
+@media (pointer: coarse) {
+  .hud-dog, .hud-right .btn.sm.icon, .hud-nick { min-height: 44px; }
+  .hud-right .btn.sm.icon { width: 44px; }
+  .hud-nick { min-width: 44px; justify-content: center; }
+  .hud-brand { min-height: 44px; }
 }
 @media (max-width: 640px) {
   .hud-top { grid-template-columns: auto 1fr auto; }
@@ -176,9 +184,10 @@
   .ability-key { font-size: 9px; }
 }
 @media (max-width: 420px) {
-  .ability-slots { gap: 3px; padding: 5px; }
-  .ability { width: 36px; height: 46px; }
-  .ability.ult { width: 44px; height: 52px; }
+  .ability-bar { padding-inline: 4px; }
+  .ability-slots { width: 100%; justify-content: space-between; gap: 2px; padding: 4px; }
+  .ability { flex: 1 1 0; min-width: 0; width: auto; height: 48px; }
+  .ability.ult { flex: 1.25 1 0; width: auto; height: 54px; }
   .ability-sep { margin: 4px 0; }
   .ability-label { display: none; }
   .ability { grid-template-rows: 1fr; }

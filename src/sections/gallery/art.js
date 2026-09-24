@@ -239,7 +239,7 @@ export function mountArt(el, ctx, { onHow } = {}) {
       desc.textContent = it.desc;
       clear(meta);
       append(meta, [
-        it.procedural ? h('span', { class: 'badge ember' }, 'prosedürel yer tutucu') : h('span', { class: 'badge gold' }, 'fal.ai · ' + it.model),
+        it.procedural ? h('span', { class: 'badge ember' }, 'prosedürel yer tutucu') : h('span', { class: 'badge gold', lang: 'en' }, 'fal.ai · ' + it.model),
         it.spec ? h('span', { class: 'badge' }, it.spec) : null,
         it.arch ? h('span', { class: 'badge', style: { color: 'var(--arch)', '--arch': it.arch.color } }, `DOG seviyesi ${it.arch.dogLevel}/5`) : null,
         h('span', { class: 'mono xsmall dim' }, it.key),

@@ -33,13 +33,23 @@ function token(name, fallback) {
   }
 }
 
+// Sonuç önbelleklenir ve deneme bağlamı hemen bırakılır: her ana sayfa ziyaretinde
+// fazladan bir WebGL bağlamı açık kalmasın (tarayıcı ~16 bağlamda eskileri öldürür).
+let glSupport = null;
 export function webglSupported() {
+  if (glSupport) return true; // olumsuz sonuç önbelleklenmez: geçici hatadan sonra yeniden denenir
   try {
     const c = document.createElement('canvas');
-    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+    const gl = window.WebGLRenderingContext ? (c.getContext('webgl2') || c.getContext('webgl')) : null;
+    glSupport = !!gl;
+    if (gl) {
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+    }
   } catch {
-    return false;
+    glSupport = false;
   }
+  return glSupport;
 }
 
 export function createHero3D(host, { getFocus, reduced = false, pointerEl = host, onPoke, onLost } = {}) {

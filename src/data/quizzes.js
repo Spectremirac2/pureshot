@@ -67,7 +67,7 @@ export const HANGIDOG_QUESTIONS = [
   },
   {
     id: 'support',
-    q: 'Support oldun. İlk 600 altınla ne alırsın?',
+    q: 'Support oldun. Başlangıç altınıyla ne alırsın?',
     options: [
       { t: 'Ward, Tango, Salve ve kurye için bir dua.', s: { legend: 3 } },
       { t: 'Hiçbir şey. Midas’a biriktiriyorum.', s: { ward: 3, farm: 1 } },
@@ -182,7 +182,7 @@ export const BILGI_BANK = [
   { id: 'taraf', q: 'Dota 2’deki iki tarafın adı nedir?', a: 'Radiant ve Dire', wrong: ['Sentinel ve Scourge', 'Alliance ve Horde', 'Kırmızı ve Mavi'], why: 'Dota 2’de taraflar Radiant ve Dire. Sentinel ve Scourge, eski DotA haritasındaki adlardı.' },
   { id: 'besbes', q: 'Bir Dota 2 maçında her takımda kaç oyuncu bulunur?', a: '5', wrong: ['4', '6', '3'], why: '5v5. Yani 1v9 dediğinde: 4 takım arkadaşı + 5 rakip.' },
   { id: 'tango', q: 'Tango sana nasıl can verir?', a: 'Bir ağacı yiyerek zamanla can yeniler', wrong: ['Anında bütün canı doldurur', 'Can değil mana verir', 'Kuleye atılınca hasar verir'], why: 'Tango ağaç yer, kahraman iyileşir. Orman kısalır, laning uzar.' },
-  { id: 'bkb', q: 'Black King Bar (BKB) etkinleştirildiğinde temel olarak ne sağlar?', a: 'Büyülere karşı bağışıklık', wrong: ['Görünmezlik', 'Ağaçların üstünden geçme', 'Her saniye altın'], why: 'BKB kısa bir süre büyülerin çoğuna karşı korur. Savaşa BKB’siz dalmak DOG Arşivi’nde ayrı bir sayfa.' },
+  { id: 'bkb', q: 'Black King Bar (BKB) etkinleştirildiğinde temel olarak ne sağlar?', a: 'Büyülere ve olumsuz etkilere karşı koruma', wrong: ['Görünmezlik', 'Ağaçların üstünden geçme', 'Her saniye altın'], why: 'BKB’ye basınca bir süre büyülerin ve sersemletme gibi olumsuz etkilerin çoğundan korunursun. Savaşa BKB’siz dalmak DOG Arşivi’nde ayrı bir sayfa.' },
   { id: 'observer', q: 'Observer Ward ne işe yarar?', a: 'Dikildiği bölgede görüş sağlar', wrong: ['Görünmez birimleri açığa çıkarır', 'Yakındaki düşmanlara hasar verir', 'Takıma altın kazandırır'], why: 'Observer haritayı aydınlatır. Görünmezleri göstermek ise Sentry’nin işi.' },
   { id: 'sentry', q: 'Sentry Ward’ın asıl görevi nedir?', a: 'Gerçek görüş: görünmez birimleri ve ward’ları gösterir', wrong: ['Haritada geniş bir alanı aydınlatmak', 'Creep dalgasını durdurmak', 'Kahramanı iyileştirmek'], why: 'Sentry gerçek görüş verir; görünmez kahramanlar ve rakip ward’ları ortaya çıkar.' },
   { id: 'tp', q: 'Town Portal Scroll (TP) ne yapar?', a: 'Kısa bir beklemeden sonra dost bir binaya ışınlar', wrong: ['Rakip üssüne ışınlar', 'Bütün takımı çeşmeye ışınlar', 'Kuryeyi yanına çağırır'], why: 'TP, savaşa geç kalmamanın yolu. Yine de ters yöndeki kuleye basmamaya dikkat.' },
@@ -193,10 +193,10 @@ export const BILGI_BANK = [
   { id: 'buyback', q: 'Buyback ne işe yarar?', a: 'Altın ödeyip ölüm süresini beklemeden hemen yeniden doğmak', wrong: ['Dükkândan indirimli eşya almak', 'Rakibin Aegis’ini satın almak', 'Kaybedilen maçı geri almak'], why: 'Ölüm süresini altınla atlarsın. Son savaşta unutan, DOG DOG DOG’u hak eder.' },
   { id: 'kurye', q: 'Kurye (Courier) ne işe yarar?', a: 'Dükkândan kahramana eşya taşır', wrong: ['Rakip ward’larını söker', 'Kuleleri tamir eder', 'Creep dalgasını yönlendirir'], why: 'Kurye takımın postacısıdır. Onu altıncı kez bottle doldurmaya yollamak ise ayrı bir vaka.' },
   { id: 'pudge', q: 'Pudge’ın en meşhur yeteneği hangisi?', a: 'Meat Hook', wrong: ['Chronosphere', 'Black Hole', 'Ravage'], why: 'Meat Hook ile kancayı fırlatıp yakaladığı birimi kendine çeker.' },
-  { id: 'invoker', q: 'Invoker büyülerini hangi üç küreyi birleştirerek oluşturur?', a: 'Quas, Wex ve Exort', wrong: ['Güç, Çeviklik ve Zekâ', 'Radiant, Dire ve Roshan', 'Ateş, Buz ve Şimşek'], why: 'Quas, Wex ve Exort’u farklı birleşimlerle dizip Invoke eder. Bu yüzden herkes “mid” diyor.' },
+  { id: 'invoker', q: 'Invoker büyülerini hangi üç küreyi birleştirerek oluşturur?', a: 'Quas, Wex ve Exort', wrong: ['Güç, Çeviklik ve Zekâ', 'Radiant, Dire ve Roshan', 'Ateş, Buz ve Şimşek'], why: 'Üç küreyi farklı sıralarla dizip Invoke eder; üç küreden on ayrı büyü çıkar. Pub’da çoğu zaman biri doğru basılır.' },
   { id: 'techies', q: 'Techies en çok neyle tanınır?', a: 'Haritaya döşediği mayınlarla', wrong: ['Kanca atmasıyla', 'Ejderhaya dönüşmesiyle', 'Ağaç dikmesiyle'], why: 'Techies mayın döşer; basan da “bu nereden çıktı” diye sorar.' },
   { id: 'ti', q: 'The International nedir?', a: 'Dota 2’nin en büyük dünya turnuvası', wrong: ['Bir Dota 2 kahramanı', 'Roshan’ın diğer adı', 'Nadir bir eşya'], why: 'TI, Valve’ın düzenlediği Dota 2 dünya şampiyonası. Pub’da TI oynayan çok, TI’a giden az.' },
-  { id: 'ozellik', q: 'Dota 2 kahramanlarının ana özellik türleri hangileri?', a: 'Güç, Çeviklik, Zekâ ve Evrensel', wrong: ['Ateş, Buz, Şimşek ve Toprak', 'Hız, Zırh, Şans ve Mana', 'Carry, Support, Mid ve Orman'], why: 'Her kahramanın ana özelliği Güç, Çeviklik ya da Zekâdır; Evrensel kahramanlar üçünden birden güç alır.' },
+  { id: 'ozellik', q: 'Dota 2 kahramanlarının üç temel özelliği (attribute) hangileridir?', a: 'Güç, Çeviklik ve Zekâ', wrong: ['Ateş, Su ve Toprak', 'Hız, Zırh ve Şans', 'Carry, Support ve Mid'], why: 'Her kahramanın Güç, Çeviklik ve Zekâ değerleri vardır: Güç daha çok can, Zekâ daha çok mana demektir.' },
   { id: 'smoke', q: 'Smoke of Deceit ne yapar?', a: 'Seni ve yakınındaki takım arkadaşlarını görünmez yapar', wrong: ['Rakibi susturur', 'Kuleleri görünmez yapar', 'Kuryeyi hızlandırır'], why: 'Smoke gank ve Roshan için gizlenmeni sağlar; düşmana fazla yaklaşınca bozulur.' },
   { id: 'dust', q: 'Dust of Appearance ne işe yarar?', a: 'Yakındaki görünmez düşmanları açığa çıkarır', wrong: ['Kahramanını görünmez yapar', 'Ağaçları keser', 'Kuleye can verir'], why: 'Görünmez kahramanlara karşı cebindeki en iyi arkadaş.' },
   { id: 'ultitus', q: 'Varsayılan tuş düzeninde bir kahramanın ultimate yeteneği hangi tuştadır?', a: 'R', wrong: ['Q', 'Boşluk', 'Tab'], why: 'Q-W-E yetenekler, R ultimate. Bu sitenin alt çubuğunda da R, ultimate: 1vDOQUZ Arena.' },
@@ -218,7 +218,7 @@ export const BILGI_BANK = [
 
 /** Bilgi yarışması unvanları (10 sorudaki doğru sayısına göre). */
 export const BILGI_TITLES = [
-  { min: 9, title: 'Wiki’yi Ezberlemiş', note: 'Bu bilgiyle pub’da değil, masada oturman lazım.', tone: 'gold' },
+  { min: 9, title: 'Wiki’yi Ezberlemiş', note: 'Bu bilgiyle pub’da değil, TI yorum masasında oturman lazım.', tone: 'gold' },
   { min: 7, title: 'Arşiv Kurdu', note: 'Patch notlarını yatmadan önce okuyanlardan.', tone: 'gold' },
   { min: 5, title: 'Pub Efsanesi', note: 'Bildiğin yetiyor; bilmediğini chat’e sorarsın.', tone: 'jade' },
   { min: 3, title: 'Tango Yiyen Çırak', note: 'Ağaçlar senden korkuyor, rakipler henüz değil.', tone: 'ember' },
@@ -231,9 +231,9 @@ export const DOGMU_CARDS = [
   { id: 'stack35', t: '35:00', who: 'Carry', text: 'Takım arkadaşın 35. dakikada hâlâ ormanda üçlü kamp stack’liyor. Takım 4v5 savaşıyor.', verdict: 'dog', why: 'Stack güzel şeydir; takım savaşırken değil. Farm Köpeği kokusu alıyoruz.' },
   { id: 'midas20', t: '20:00', who: 'Support', text: 'Support 20. dakikada Midas aldı. Haritada tek bir ward yok.', verdict: 'dog', why: 'Midas’ın suçu yok; karanlık harita suçlu. Ward’sız Destek Köpeği iş başında.' },
   { id: 'buyback', t: '52:10', who: 'Carry', text: 'Carry son savaşta buyback’i unuttu. Altını vardı, tuşa basmadı.', verdict: 'dog', why: 'Altın cepte, carry çeşmede, Ancient yerde. Klasik DOG DOG DOG.' },
-  { id: 'roshsolo', t: '28:40', who: 'Sen', text: 'Roshan’ı tek başına kesmeyi bekliyordun. Rakip 5 kişi dalıp Roshan’ı çaldı.', verdict: 'dog', why: 'Rakip gayet mantıklı oynadı. DOG olan, Roshan’ı tek başına beklemeye karar veren.' },
+  { id: 'roshsolo', t: '28:40', who: 'Sen', text: 'Roshan’ı tek başına kesmeye çalışırken rakip beş kişi gelip Roshan’ı çaldı.', verdict: 'dog', why: 'Rakip gayet mantıklı oynadı. DOG olan, Roshan’a tek başına girmeye karar veren.' },
   { id: 'smokegank', t: '12:30', who: 'Support', text: 'Support smoke alıp takımı sessizce gank’e götürdü, iki kill geldi.', verdict: 'not', why: 'Bu düpedüz iyi oyun. DOG değil, alkış.' },
-  { id: 'wardrosh', t: '24:05', who: 'Support', text: 'Ölmeden hemen önce son ward’unu Roshan çukurunun önüne dikti.', verdict: 'not', why: 'Öldü ama takıma görüş bıraktı. Kahramanca bir veda.' },
+  { id: 'wardrosh', t: '24:05', who: 'Support', text: 'Ölmeden hemen önce son ward’ını Roshan çukurunun önüne dikti.', verdict: 'not', why: 'Öldü ama takıma görüş bıraktı. Kahramanca bir veda.' },
   { id: 'tpsave', t: '31:15', who: 'Carry', text: 'Savaş başlar başlamaz TP ile geldi ve takımı kurtardı.', verdict: 'not', why: 'TP’si hazır carry, nesli tükenmekte olan tür. Koruma altına alındı.' },
   { id: 'pausekombo', t: '18:22', who: 'Mid', text: 'Rakip kombo atarken “1 dk su içicem” deyip pause attı.', verdict: 'dog', why: 'Zamanın efendisi Pause Köpeği. Su önemli ama zamanlama da önemli.' },
   { id: 'rapierdive', t: '41:00', who: 'Carry', text: 'Rapier’i alan takım arkadaşın tek başına rakip üssüne daldı.', verdict: 'dog', why: 'Rapier 30 saniye sonra rakip carry’nin elindeydi. Kumar hayattır, DOG da.' },
@@ -295,7 +295,7 @@ export const HAYRAN_QUESTIONS = [
 
 /** Hayran kademeleri (12 sorudaki doğru sayısı). */
 export const HAYRAN_TIERS = [
-  { min: 12, title: '1vDOQUZ Tanığı', note: 'Dokuz DOG’a karşı o efsane anı canlı izlemiş gibisin. Tam puan.', tone: 'gold' },
+  { min: 12, title: '1vDOQUZ Tanığı', note: 'DOG DOG DOG’un da 1vDOQUZ’un da ne demek olduğunu biliyorsun. Tam puan.', tone: 'gold' },
   { min: 9, title: '24 Saat İzleyen', note: 'Maratonun başında girdin, sonunda hâlâ buradasın.', tone: 'gold' },
   { min: 5, title: 'Emote Ustası', note: 'Chat’te doğru anda doğru DOG’u atıyorsun.', tone: 'jade' },
   { min: 0, title: 'Chat’e Yeni Katılmış', note: 'Hoş geldin! 24 saatlik bir yayın, öğrenmek için bol vakit demek.', tone: 'ember' },

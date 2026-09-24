@@ -120,7 +120,7 @@ export function mountDaha(host, env) {
     clear(overBox).append(
       h('span', { class: 'eyebrow' }, 'Seri bitti'),
       h('p', { class: 'hr-daha-final' }, h('span', { class: 'mono' }, String(final)), h('small', null, ' doğru tahmin')),
-      h('p', { class: 'small muted' }, `${other.name} (%${other.dogRate}) aslında ${chosen.name} (%${chosen.dogRate}) oyuncusundan daha çok DOG damgası yiyor.`),
+      h('p', { class: 'small muted' }, `Topluluk gözünde ${other.name} oyuncusu (%${other.dogRate}), ${chosen.name} oyuncusundan (%${chosen.dogRate}) daha çok DOG damgası yiyor.`),
       isBest ? h('p', { class: 'badge gold' }, icon('trophy', { size: 14 }), 'Yeni kişisel rekor') : null,
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', type: 'button', onclick: restart }, icon('refresh', { size: 18 }), 'Tekrar oyna'),
@@ -129,7 +129,8 @@ export function mountDaha(host, env) {
     );
     overBox.hidden = false;
     if (final >= 10) {
-      ctx.fx.stamp('1vDOQUZ', { variant: 'gold' });
+      // .stamp büyük harfe çevirir; özel yazım (1vDOQUZ) .meme ile korunur
+      ctx.fx.stamp(h('span', { class: 'meme' }, '1vDOQUZ'), { variant: 'gold' });
       ctx.sound.win();
     } else {
       ctx.fx.stamp('DOG DOG DOG');

@@ -6,7 +6,7 @@ import { store } from '../../core/store.js';
 import { sound } from '../../core/sound.js';
 import { fx } from '../../core/fx.js';
 import { HAYRAN_QUESTIONS, HAYRAN_TIERS, tierFor } from '../../data/quizzes.js';
-import { makeScope, quizBar, centerOf, scrollToTop, saveLast } from './ui.js';
+import { makeScope, quizBar, centerOf, scrollToTop, saveLast, memeText, readOnlyNote } from './ui.js';
 import { runMC, prepQuestion, answerKey } from './mc.js';
 
 const TIER_ICONS = ['chat', 'laugh', 'hourglass', 'bow'];
@@ -64,15 +64,16 @@ export function mountHayran(root, { quiz, back }) {
           h('div', { class: 'stack' },
             h('span', { class: 'eyebrow' }, 'Gerçek hayran testi sonucu'),
             h('div', { class: 'qz-big-wrap' }, bigEl, h('span', { class: 'qz-big-unit' }, `/ ${total} doğru`)),
-            h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, tier.title),
+            h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, memeText(tier.title)),
             h('p', { class: 'muted' }, tier.note),
+            readOnlyNote(),
             record && prevBest != null ? h('span', { class: 'badge gold qz-record' }, icon('crown', { size: 14 }), 'Yeni kişisel rekor') : null,
           ),
           ladder,
         ),
         h('div', { class: 'row' },
           again,
-          h('a', { class: 'btn ghost', href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer' }, icon('kick', { size: 18 }), 'Kick’te izle'),
+          h('a', { class: 'btn ghost', href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer' }, icon('kick', { size: 18 }), h('span', null, h('span', { lang: 'en' }, 'Kick'), '’te izle')),
           h('button', { class: 'btn ghost', type: 'button', onclick: back }, icon('arrowLeft', { size: 18 }), 'Tüm quizler'),
         ),
       ),
@@ -85,7 +86,7 @@ export function mountHayran(root, { quiz, back }) {
     if (correct >= 9) {
       sound.win();
       s.timeout(() => { const c = centerOf(bigEl); fx.confetti(c.x, c.y, correct === total ? 150 : 100); }, 200);
-      if (correct === total) s.timeout(() => fx.stamp('1vDOQUZ', { variant: 'gold' }), 500);
+      if (correct === total) s.timeout(() => fx.stamp(h('span', { class: 'meme' }, '1vDOQUZ'), { variant: 'gold' }), 500);
     } else if (correct >= 5) {
       sound.good();
     } else {

@@ -1,7 +1,7 @@
 // Mini oyunlar için ortak iskelet: sayfa düzeni, görünürlüğe duyarlı oyun saati,
 // başlangıç/sonuç kartları, HUD istatistikleri ve jeton renk yardımcıları.
 
-import { h, clear, fmtNum, clamp } from '../../core/dom.js';
+import { h, clear, fmtNum, clamp, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
 import { sound } from '../../core/sound.js';
@@ -62,6 +62,14 @@ export function hexA(hex, a) {
   if (!m) return hex;
   const n = parseInt(m[1], 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * "1vDOQUZ" yazımını büyük harf dönüşümünden korur: metni parçalara ayırıp memeyi
+ * <span class="meme"> içine alır (eyebrow, kırıntı gibi uppercase bağlamlar için).
+ */
+export function memeText(s) {
+  return String(s || '').split(/(1vDOQUZ)/).filter(Boolean).map((p) => (p === '1vDOQUZ' ? h('span', { class: 'meme' }, p) : p));
 }
 
 /** Kısa sayı: 1.2B gibi (envanter "şarj" yazısı için). */
@@ -150,7 +158,7 @@ export function gameLayout(el, meta, { nav } = {}) {
   const keys = (meta.keys || []).length
     ? h('dl', { class: 'gm-keys' },
       meta.keys.map(([k, v]) => [
-        h('dt', null, k.split(' ').map((part) => (part === '/' || part === 'veya' ? ` ${part} ` : h('span', { class: 'kbd' }, part)))),
+        h('dt', null, k.split(' ').map((part) => (part === '/' || part === 'veya' || part === '…' ? ` ${part} ` : h('span', { class: 'kbd' }, part)))),
         h('dd', null, v),
       ]),
     )
@@ -252,8 +260,31 @@ export function hudStat(label, value = '0', { cls = '', ico } = {}) {
 }
 
 // ------------------------------------------------------------------ kaplamalar
-/** Sahnenin üstüne kart kaplaması; kaldırma fonksiyonu döndürür. */
-export function showOverlay(stage, node, { cls = '' } = {}) {
+function cssPx(name, fallback) {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  return Number.isFinite(v) ? v : fallback;
+}
+
+/**
+ * Öğeyi sabit üst HUD ile alt yetenek çubuğunun arasındaki görünür alana kaydırır
+ * (mobilde sonuç kartının düğmeleri çubuğun altında kalmasın). Üst kenar önceliklidir.
+ */
+export function revealInView(el) {
+  if (!el || !el.isConnected) return;
+  const r = el.getBoundingClientRect();
+  if (!r.height) return;
+  const top = cssPx('--hud-h', 56) + 8;
+  const bottom = window.innerHeight - cssPx('--bar-h', 84) - 8;
+  let dy = 0;
+  if (r.bottom > bottom) dy = r.bottom - bottom;
+  if (r.top - dy < top) dy = r.top - top;
+  if (Math.abs(dy) < 2) return;
+  const behavior = prefersReducedMotion() ? 'instant' : 'smooth';
+  try { window.scrollBy({ top: dy, behavior }); } catch { window.scrollBy(0, dy); }
+}
+
+/** Sahnenin üstüne kart kaplaması; kaldırma fonksiyonu döndürür. reveal: kartı görünür alana kaydır. */
+export function showOverlay(stage, node, { cls = '', reveal = false } = {}) {
   const card = h('div', { class: 'gm-overlay-card panel raised frame' }, node);
   const ov = h('div', { class: `gm-overlay ${cls}` }, card);
   (stage.closest('.gm-stage') || stage).appendChild(ov);
@@ -261,6 +292,7 @@ export function showOverlay(stage, node, { cls = '' } = {}) {
   if (btn) {
     try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
   }
+  if (reveal) revealInView(card);
   return () => ov.remove();
 }
 
@@ -288,13 +320,23 @@ export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
 }
 
 /**
- * Sonuç kartı. Skoru kaydeder (submitScore) ve rekor ise kutlar.
+ * Skoru hemen kaydeder (oyun biter bitmez; sonuç kartı gecikmeli gösterilse de
+ * oyuncu o arada sayfadan ayrılırsa skor kaybolmasın). { record, prev } döndürür.
+ */
+export function submitResult(meta, score) {
+  const prev = (store.me.get().scores || {})[meta.id];
+  const record = store.me.submitScore(meta.id, score, meta.higherIsBetter !== false);
+  return { record, prev };
+}
+
+/**
+ * Sonuç kartı. Skor submitResult ile önceden kaydedildiyse `saved` olarak ver;
+ * verilmezse burada kaydeder. Rekor ise kutlar.
  * stats: [[etiket, değer]], quip: kısa espri.
  */
-export function resultCard(meta, { score, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu' }) {
-  const higher = meta.higherIsBetter !== false;
-  const prev = (store.me.get().scores || {})[meta.id];
-  const record = store.me.submitScore(meta.id, score, higher);
+export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu' }) {
+  const { record, prev } = saved || submitResult(meta, score);
+  const readOnly = store.shared && !store.canWrite();
   const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon('refresh', { size: 18 }), 'Tekrar oyna');
   retry.addEventListener('click', () => { sound.click(); onRetry(); });
   const back = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 18 }), 'Oyunlar');
@@ -312,6 +354,7 @@ export function resultCard(meta, { score, stats = [], quip = '', onRetry, onBack
     ),
     stats.length ? h('dl', { class: 'gm-result-stats' }, stats.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))) : null,
     quip ? h('p', { class: 'gm-result-quip' }, quip) : null,
+    readOnly ? h('p', { class: 'xsmall dim gm-result-note' }, 'Salt okunur görüntülüyorsun: rekorun bu cihazda saklanır, salon tablosuna yazılmayabilir.') : null,
     h('div', { class: 'row gm-result-actions' }, retry, back),
   );
   if (record) {
@@ -330,6 +373,18 @@ export function resultCard(meta, { score, stats = [], quip = '', onRetry, onBack
 export function isTyping(e) {
   const t = e.target;
   return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable));
+}
+
+/**
+ * Boşluk/Enter gibi etkinleştirme tuşları odaktaki başka bir denetime (düğme, bağlantı,
+ * sekme…) mi gidiyor? Öyleyse oyun tuşu yutmamalı; `surface` oyunun kendi alanıdır.
+ */
+export function onOtherControl(e, surface) {
+  const t = e.target;
+  if (!t || !t.closest || t === document.body || t === document.documentElement) return false;
+  if (surface && (t === surface || surface.contains(t))) return false;
+  if (isTyping(e)) return true;
+  return !!t.closest('a[href], button, summary, [role="button"], [role="tab"], [role="link"], [role="checkbox"], [role="menuitem"], .modal-backdrop');
 }
 
 export { clear };

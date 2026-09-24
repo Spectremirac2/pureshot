@@ -177,6 +177,7 @@ export function mountMuseum(el, ctx) {
   const { sound, fx } = ctx;
   const reduced = prefersReducedMotion();
   const isMobile = window.matchMedia('(max-width: 720px), (pointer: coarse)').matches;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
   let themeIdx = Math.max(0, THEMES.findIndex((t) => t.id === ls.get('gl:light', 'kor')));
   let current = 0;
   let destroyed = false;
@@ -186,7 +187,7 @@ export function mountMuseum(el, ctx) {
   const canvas = h('canvas', { class: 'gl-canvas', tabindex: '0', role: 'img', 'aria-label': '3D müze sahnesi' });
   const loadingEl = h('div', { class: 'gl-stage-loading', hidden: true, role: 'status' }, h('span', { class: 'spinner' }), h('span', null, 'fal modeli yükleniyor…'));
   const stageNo = h('span', { class: 'gl-stage-no' }, 'Eser I / III');
-  const hint = h('p', { class: 'gl-stage-hint' }, icon('refresh', { size: 14 }), h('span', null, isMobile ? 'Sürükle: döndür · İki parmak: yakınlaştır' : 'Sürükle: döndür · Tekerlek: yakınlaştır'));
+  const hint = h('p', { class: 'gl-stage-hint' }, icon('refresh', { size: 14 }), h('span', null, coarse ? 'Yana sürükle: döndür · İki parmak: yakınlaştır' : 'Sürükle: döndür · Tekerlek: yakınlaştır'));
   const stage = h('div', { class: 'gl-stage frame', 'data-light': THEMES[themeIdx].id },
     canvas,
     h('div', { class: 'gl-stage-hud', 'aria-hidden': 'true' }, h('span', { class: 'gl-stage-room' }, 'Salon T'), stageNo),
@@ -280,7 +281,7 @@ export function mountMuseum(el, ctx) {
     append(plaque, [
       h('div', { class: 'gl-plaque-top' }, h('span', { class: 'eyebrow' }, `Eser No. ${ex.no}`), badge),
       h('h2', { class: 'gl-plaque-title' }, ex.name),
-      h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '), 'fal.ai Trellis 2 · kaynak görsel Nano Banana 2'),
+      h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '), h('span', { lang: 'en' }, 'fal.ai Trellis 2'), ' · kaynak görsel ', h('span', { lang: 'en' }, 'Nano Banana 2')),
       h('hr', { class: 'divider' }),
       h('p', { class: 'gl-plaque-desc' }, ex.desc),
       h('dl', { class: 'gl-plaque-stats' }, rows.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))),
@@ -620,6 +621,9 @@ export function mountMuseum(el, ctx) {
     controls.zoomSpeed = 0.7;
     controls.autoRotate = !reduced;
     controls.autoRotateSpeed = 1.5;
+    // Dokunmatikte dikey kaydırma sayfaya kalsın: sahne ekranın çoğunu kapladığında sayfa sahnede "takılmasın".
+    // Yatay sürükleme döndürür, iki parmak yakınlaştırır; dikey kaydırmada tarayıcı pointercancel gönderir.
+    if (coarse) canvas.style.touchAction = 'pan-y';
     controls.addEventListener('start', onControlStart);
     controls.addEventListener('end', onControlEnd);
     controls.update();
@@ -1005,6 +1009,7 @@ export function mountMuseum(el, ctx) {
       ),
       stage.firstChild,
     );
+    slotBtns.forEach((b) => { b.querySelector('.gl-slot-src').textContent = '2D önizleme'; });
     select2D(current);
   }
 

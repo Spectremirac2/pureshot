@@ -57,6 +57,22 @@ export function rich(text, q) {
 }
 
 // ---------------------------------------------------------------- biçim ayrıştırma
+/**
+ * "Konuşan: metin" satırındaki konuşan kısmı geçerli mi? Tırnak içeren konuşanlara
+ * (ör. “ben mid” diye bağıran arkadaş) izin verilir, ama tırnaklar kapanmış olmalı ve
+ * tırnaksız kısım 44 karakteri aşmamalı (uzun cümleler konuşan sayılmaz).
+ */
+function speakerOk(who) {
+  const open = (who.match(/“/g) || []).length;
+  const close = (who.match(/”/g) || []).length;
+  const straight = (who.match(/"/g) || []).length;
+  if (open !== close || straight % 2) return false;
+  const bare = who.replace(/“[^”]*”|"[^"]*"/g, '');
+  if (bare.length > 44 || /[“”"]/.test(bare)) return false;
+  // Tamamen tırnak içindeki bir alıntı konuşan değildir
+  return bare.trim().length > 0;
+}
+
 export function parseJoke(text) {
   const t = String(text || '').trim();
   const lines = t.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -73,8 +89,8 @@ export function parseJoke(text) {
     if (/^—\s?/.test(line)) return { type: 'voice', text: line.replace(/^—\s?/, '') };
     const n = line.match(/^(\d{1,2})[.)]\s+(.*)$/);
     if (n) return { type: 'step', n: n[1], text: n[2] };
-    const m = line.match(/^([^:“”"]{1,44}):\s+(.*)$/);
-    if (m) return { type: 'line', who: m[1], text: m[2] };
+    const m = line.match(/^([^:]{1,60}?):\s+(.*)$/);
+    if (m && speakerOk(m[1])) return { type: 'line', who: m[1], text: m[2] };
     return { type: 'note', text: line };
   });
   let title = null;

@@ -7,7 +7,7 @@ import { agg } from '../../core/store.js';
 import { ALL_TYPES, STAT_LABELS, byId } from '../../data/archetypes.js';
 import { portraitEl } from '../../components/portrait.js';
 import { radarSvg } from './radar.js';
-import { pawsLevelEl, dogIndex, STAT_KEYS, GOOD_STATS, contrastColor } from './util.js';
+import { pawsLevelEl, dogIndex, STAT_KEYS, GOOD_STATS, contrastColor, readOnlyNote } from './util.js';
 
 const FORM_KEY = 'ch:analiz-form';
 
@@ -164,7 +164,7 @@ function suggestions(res) {
   const fallbacks = [
     'Aynen devam: bu gidişle takımın 1vDOQUZ umudu sensin.',
     'Takım arkadaşlarına ward almayı öğret; dünya daha aydınlık bir yer olur.',
-    'Maraton maçlara hazırlan: bazı yayınlarda en kısa süre bile 24 saat.',
+    'Maratona hazırlan: burada en kısa yayın bile 24 saat sürüyor.',
   ];
   while (picked.length < 3) picked.push(fallbacks[picked.length]);
   return picked;
@@ -246,6 +246,7 @@ export function renderAnalysis(el, env) {
     h('div', { class: 'ch-ranges' }, sliderRows),
     roles,
     submit,
+    readOnlyNote(store, 'analiz sonucun'),
   );
 
   const community = h('div', { class: 'panel tight ch-an-community' });
@@ -382,7 +383,7 @@ export function renderAnalysis(el, env) {
       renderResult(res, nm);
       if (res.best.t.id === 'legend') {
         ctx.sound.win();
-        ctx.fx.stamp('1vDOQUZ', { variant: 'gold' });
+        ctx.fx.stamp(h('span', { class: 'meme' }, '1vDOQUZ'), { variant: 'gold' });
       } else {
         ctx.sound.dogdogdog();
       }

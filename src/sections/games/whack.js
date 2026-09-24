@@ -4,7 +4,7 @@
 import { h, clear, pick, rand, clamp, lerp, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { ARCHETYPES, LEGEND } from '../../data/archetypes.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok, faceArt, hasRealPortrait } from './kit.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, isTyping, tok, faceArt, hasRealPortrait } from './kit.js';
 
 const DURATION = 45;
 const STREAK = 5;
@@ -301,7 +301,10 @@ export function mount(el, ctx, nav) {
     sScore.set('0');
     state = 'play';
     L.stage.classList.add('playing');
-    if (cols === 4) { ctx.hotkeys(false); hotkeysOff = true; }
+    // Oyun sırasında kabuğun gezinme kısayolları kapalı: 4×3'te Q/W/E/R çukur tuşu,
+    // 3×3'te de yanlışlıkla basılan bir harf oyunun ortasında sayfadan çıkarmasın.
+    ctx.hotkeys(false);
+    hotkeysOff = true;
     ctx.sound.whoosh();
     say('DOG Avı başladı. 45 saniye.');
   }
@@ -313,6 +316,8 @@ export function mount(el, ctx, nav) {
     if (hotkeysOff) { ctx.hotkeys(true); hotkeysOff = false; }
     const acc = g.clicks ? Math.round((g.hits / g.clicks) * 100) : 0;
     const s = g.score;
+    // Skoru hemen kaydet: kart gecikmeli açılır, oyuncu o arada ayrılsa da skor kaybolmaz.
+    const saved = submitResult(meta, s);
     const quip = s >= 1200
       ? '1vDOQUZ onaylı. Koridorda report edilmemiş tek DOG kalmadı.'
       : s >= 700
@@ -323,6 +328,7 @@ export function mount(el, ctx, nav) {
     runner.after(0.5, () => {
       const { node } = resultCard(meta, {
         score: s,
+        saved,
         stats: [
           ['Report edilen', fmtNum(g.hits)],
           ['İsabet', `%${acc}`],
@@ -335,7 +341,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
-      closeOverlay = showOverlay(L.stage, node);
+      closeOverlay = showOverlay(L.stage, node, { reveal: true });
       say(`Süre bitti. Skorun ${s} puan.`);
       runner.destroy();
       runner = null;

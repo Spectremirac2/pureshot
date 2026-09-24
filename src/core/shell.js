@@ -109,7 +109,7 @@ export function openNickEditor() {
     fx.toast(`Artık sen "${v}" oldun.`, 'jade');
     close();
   };
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); save(); } });
   close = fx.modal(
     h('div', { class: 'stack' },
       h('span', { class: 'eyebrow' }, 'Oyuncu kartı'),
@@ -154,7 +154,7 @@ export function mountShell(root) {
   renderSound();
   soundBtn.addEventListener('click', () => { sound.setEnabled(!sound.enabled); renderSound(); if (sound.enabled) sound.click(); });
 
-  const nickBtn = h('button', { class: 'chip hud-nick', type: 'button', title: 'Takma adını değiştir' }, icon('user', { size: 14 }), h('span', null, store.me.get().nick));
+  const nickBtn = h('button', { class: 'chip hud-nick', type: 'button', title: 'Takma adını değiştir', 'aria-label': 'Takma adını değiştir' }, icon('user', { size: 14 }), h('span', null, store.me.get().nick));
   nickBtn.addEventListener('click', openNickEditor);
   store.me.subscribe((d) => { nickBtn.lastChild.textContent = d.nick || 'Anonim'; });
 
@@ -182,7 +182,7 @@ export function mountShell(root) {
       ),
     ),
     h('div', { class: 'hud-right' },
-      h('a', { class: 'badge live hud-kick', href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer' }, 'Kick'),
+      h('a', { class: 'badge live hud-kick', lang: 'en', href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer' }, 'Kick'),
       nickBtn,
       soundBtn,
     ),
@@ -244,6 +244,14 @@ export function mountShell(root) {
   );
 
   root.append(hud, viewEl, footer, bar);
+
+  // Alt çubuğun gerçek yüksekliğini --bar-h olarak yayınla (güvenli alan payı hariç; tüketiciler onu ayrıca ekler)
+  const syncBarH = () => {
+    const hgt = slots.offsetHeight + 16;
+    if (hgt > 16) document.documentElement.style.setProperty('--bar-h', hgt + 'px');
+  };
+  syncBarH();
+  try { new ResizeObserver(syncBarH).observe(slots); } catch { window.addEventListener('resize', syncBarH); }
 
   // Klavye kısayolları
   window.addEventListener('keydown', (e) => {

@@ -3,7 +3,7 @@
 import { h, pick, rand, randInt, clamp, lerp, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { ARCHETYPES } from '../../data/archetypes.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, isTyping, tok, hexA } from './kit.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, isTyping, onOtherControl, tok, hexA } from './kit.js';
 
 const ROUND = 60;
 const WAVE_EVERY = 12;
@@ -648,7 +648,7 @@ export function mount(el, ctx, nav) {
     g.font = `700 10px ${'JetBrains Mono'}, monospace`;
     g.textAlign = 'center';
     g.fillStyle = hexA(C.ember, 0.95);
-    g.fillText(st && st.mate ? st.mate.name.replace(' Köpeği', ' DOG').toUpperCase() : 'DOG', x + 4, y + 14 > H - 4 ? y - 80 : y + 14);
+    g.fillText(st && st.mate ? st.mate.name.replace(' Köpeği', ' DOG').toLocaleUpperCase('tr-TR') : 'DOG', x + 4, y + 14 > H - 4 ? y - 80 : y + 14);
     if (st && st.bubble && st.bubble.t > 0) {
       const bx = x + 30, by = y - 70;
       g.font = '700 12px Barlow, sans-serif';
@@ -831,6 +831,8 @@ export function mount(el, ctx, nav) {
       const c = selected;
       say(`${c.side === 'enemy' ? 'Düşman' : 'Müttefik'} ${c.type === 'melee' ? 'yakın dövüş' : 'menzilli'} creep, can yüzde ${Math.round((c.hp / c.maxHp) * 100)}.`);
     } else if (k === ' ' || k === 'Enter') {
+      // Odak başka bir düğme/bağlantıdaysa (geri, diğer oyunlar…) Enter/Boşluk ona aittir
+      if (onOtherControl(e, canvas)) return;
       if (e.repeat) return;
       e.preventDefault();
       if (!alive(selected)) {
@@ -875,6 +877,8 @@ export function mount(el, ctx, nav) {
     selected = null;
     hover = null;
     const acc = st.attacks ? Math.round(((st.lh + st.dn) / st.attacks) * 100) : 0;
+    // Skoru hemen kaydet: kart gecikmeli açılır, oyuncu o arada ayrılsa da skor kaybolmaz.
+    const saved = submitResult(meta, st.gold);
     const quip = st.lh >= 14
       ? 'Mid or feed? Mid. Tartışmasız mid.'
       : st.lh >= 9
@@ -885,6 +889,7 @@ export function mount(el, ctx, nav) {
     runner.after(0.8, () => {
       const { node } = resultCard(meta, {
         score: st.gold,
+        saved,
         stats: [
           ['Last hit', fmtNum(st.lh)],
           ['Deny', fmtNum(st.dn)],
@@ -897,7 +902,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
-      closeOverlay = showOverlay(L.stage, node);
+      closeOverlay = showOverlay(L.stage, node, { reveal: true });
       say(`Süre bitti. ${st.lh} last hit, ${st.dn} deny, ${st.gold} altın.`);
     });
   }

@@ -409,6 +409,7 @@ export function mountArena(el, ctx = {}) {
   }
 
   const isFs = () => (document.fullscreenElement || document.webkitFullscreenElement) === stage;
+  // text: dize ya da düğüm (ör. büyük harfe çevrilmemesi gereken <span class="meme">1vDOQUZ!</span>)
   function stamp(text, variant = '') {
     if (isFs() || !fx.stamp) {
       clear(stampHost);
@@ -526,7 +527,7 @@ export function mountArena(el, ctx = {}) {
         }
         break;
       case 'aegisUsed':
-        showBanner('Aegis kırıldı', 'Yeniden doğuyorsun…', 'gold', 1300);
+        showBanner('AEGIS kırıldı', 'Yeniden doğuyorsun…', 'gold', 1300);
         break;
       case 'revive':
         stamp('AEGIS!', 'gold');
@@ -534,7 +535,8 @@ export function mountArena(el, ctx = {}) {
         say('Aegis ile geri döndün.', true);
         break;
       case 'waveClear': {
-        stamp('1vDOQUZ!', 'gold');
+        // .stamp büyük harfe çevirir; özel yazım "1vDOQUZ" korunmalı
+        stamp(h('span', { class: 'meme' }, '1vDOQUZ!'), 'gold');
         snd('win', 0);
         if (!isFs() && !reduced) {
           const r = stage.getBoundingClientRect();
@@ -610,11 +612,12 @@ export function mountArena(el, ctx = {}) {
   }
 
   function scrollStageIntoView() {
+    if (isFs()) return;
+    measureAvail();
     const r = stage.getBoundingClientRect();
-    const hudH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hud-h')) || 56;
-    const barH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bar-h')) || 84;
-    const visTop = hudH + 6;
-    const visBottom = window.innerHeight - barH - 6;
+    const edges = chromeEdges();
+    const visTop = edges.top + 6;
+    const visBottom = edges.bottom - 6;
     if (r.top < visTop || r.bottom > visBottom) {
       const target = window.scrollY + r.top - visTop - Math.max(0, (visBottom - visTop - r.height) / 2);
       window.scrollTo({ top: Math.max(0, target), behavior: reduced ? 'auto' : 'smooth' });
@@ -635,7 +638,7 @@ export function mountArena(el, ctx = {}) {
     sound.click();
   }
 
-  function pause() {
+  function pause({ focus = true } = {}) {
     if (mode !== 'playing') return;
     mode = 'paused';
     keys.clear();
@@ -644,7 +647,8 @@ export function mountArena(el, ctx = {}) {
     showScreen('pause');
     stage.classList.remove('is-playing');
     say('Oyun duraklatıldı.', true);
-    later(() => { try { resumeBtn.focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
+    // Dışarı tıklama/odak kaybında odağı çalma (ör. açılan takma ad penceresi odağını korusun)
+    if (focus) later(() => { try { resumeBtn.focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
   }
 
   function resume() {
@@ -737,7 +741,11 @@ export function mountArena(el, ctx = {}) {
   restartBtn.addEventListener('click', startGame);
   menuBtn.addEventListener('click', toMenu);
   pauseBtn.addEventListener('click', () => { if (mode === 'playing') pause(); else if (mode === 'paused') resume(); });
-  fsBtn.addEventListener('click', toggleFs);
+  fsBtn.addEventListener('click', () => {
+    toggleFs();
+    // Odak butonda kalırsa Boşluk (Rüzgâr Koşusu) tam ekranı kapatır: odağı sahneye geri ver
+    if (mode === 'playing') focusStage();
+  });
 
   function toggleFs() {
     try {
@@ -819,8 +827,13 @@ export function mountArena(el, ctx = {}) {
   on(window, 'keyup', onKeyUp);
   on(window, 'blur', () => {
     keys.clear();
-    if (mode === 'playing') { game.chargeCancel(); mouseDown = false; }
+    // Pencere/iframe odağı kaybedince (ör. claude.ai sohbetine tıklama) klavye girdisi gelmez: oyunu durdur
+    if (mode === 'playing') { game.chargeCancel(); mouseDown = false; pause({ focus: false }); }
   });
+  // Oyun sırasında sahne dışına tıklama (üst HUD, takma ad penceresi vb.) oyunu duraklatır
+  on(document, 'pointerdown', (e) => {
+    if (mode === 'playing' && e.target instanceof Node && !stage.contains(e.target)) pause({ focus: false });
+  }, true);
 
   // fare ve dokunma (sahne)
   let mouseDown = false;
@@ -861,6 +874,7 @@ export function mountArena(el, ctx = {}) {
       tAim.id = e.pointerId;
       tAim.x = p.x;
       tAim.y = p.y;
+      aimAtScreen(p.x, p.y);
       game.chargeStart();
     }
     try { canvasHost.setPointerCapture(e.pointerId); } catch { /* yok say */ }
@@ -875,10 +889,19 @@ export function mountArena(el, ctx = {}) {
       tAim.id = null;
       if (mode === 'playing') {
         if (e.type === 'pointercancel') game.chargeCancel();
-        else game.chargeRelease();
+        else {
+          // Hızlı dokunuşta arada simülasyon adımı olmayabilir: ok dokunulan noktaya gitsin
+          const p = localXY(e);
+          aimAtScreen(p.x, p.y);
+          game.chargeRelease();
+        }
       }
     }
   };
+  function aimAtScreen(x, y) {
+    const gp = view && view.groundAt(x, y);
+    if (gp) { game.player.aimX = gp.x; game.player.aimZ = gp.z; }
+  }
   on(canvasHost, 'pointerup', endCanvasPointer);
   on(canvasHost, 'pointercancel', endCanvasPointer);
   on(canvasHost, 'contextmenu', (e) => e.preventDefault());
@@ -891,12 +914,15 @@ export function mountArena(el, ctx = {}) {
     measure();
     const p = localXY(e);
     joy.id = e.pointerId;
-    joy.bx = Math.max(JOY_R + 8, Math.min(stageW / 2 - JOY_R, p.x));
-    joy.by = Math.max(JOY_R + 70, Math.min(stageH - JOY_R - 8, p.y));
+    // bx/by sahne koordinatında; taban ise joyzone içinde konumlanır (zone sahnenin tepesinden aşağıda başlar)
+    const zx = joyZone.offsetLeft;
+    const zy = joyZone.offsetTop;
+    joy.bx = Math.max(zx + JOY_R + 8, Math.min(stageW / 2 - JOY_R, p.x));
+    joy.by = Math.max(zy + JOY_R - 12, Math.min(stageH - JOY_R - 8, p.y));
     joy.x = 0;
     joy.y = 0;
-    joyBase.style.left = `${joy.bx}px`;
-    joyBase.style.top = `${joy.by}px`;
+    joyBase.style.left = `${joy.bx - zx}px`;
+    joyBase.style.top = `${joy.by - zy}px`;
     joyZone.classList.add('active');
     moveJoy(p);
     try { joyZone.setPointerCapture(e.pointerId); } catch { /* yok say */ }
@@ -969,6 +995,8 @@ export function mountArena(el, ctx = {}) {
         else game.chargeRelease();
         qTouch.id = null;
         qTouch.drag = false;
+        // Fareyle tıklanan slot odakta kalırsa Boşluk/Enter butonu tetikler (Rüzgâr Koşusu yerine ok atar)
+        if (e.pointerType === 'mouse') focusStage();
       };
       on(s.btn, 'pointerup', end);
       on(s.btn, 'pointercancel', end);
@@ -1164,10 +1192,33 @@ export function mountArena(el, ctx = {}) {
       stageH = hh;
       if (view) view.resize(w, hh);
       stage.classList.toggle('is-narrow', w < 560);
+      // Yatay telefon gibi alçak sahneler: dokunmatik butonlar tek sıraya iner
+      stage.classList.toggle('is-short', hh < 440 && w >= 560);
     }
   }
   const ro = new ResizeObserver(() => measure());
   ro.observe(stage);
+
+  // Üst HUD ile alt yetenek çubuğu arasındaki gerçek boşluk (çubuk --bar-h jetonundan uzun olabilir).
+  // Sahne bu yüksekliğe sığdırılır ki dokunmatik butonlar ve can çubuğu alt çubuğun altında kalmasın.
+  function chromeEdges() {
+    const cs = getComputedStyle(document.documentElement);
+    const hudH = parseFloat(cs.getPropertyValue('--hud-h')) || 56;
+    const barH = parseFloat(cs.getPropertyValue('--bar-h')) || 84;
+    const hudEl = document.querySelector('.hud-top');
+    const barEl = document.querySelector('.ability-slots');
+    const top = hudEl ? hudEl.getBoundingClientRect().bottom : hudH;
+    const bottom = barEl && barEl.offsetParent !== null ? barEl.getBoundingClientRect().top : window.innerHeight - barH;
+    return { top, bottom };
+  }
+  function measureAvail() {
+    const { top, bottom } = chromeEdges();
+    const avail = Math.max(200, Math.round(bottom - top - 12));
+    root.style.setProperty('--ar-avail', `${avail}px`);
+  }
+  measureAvail();
+  on(window, 'resize', measureAvail);
+  on(window, 'orientationchange', measureAvail);
   on(window, 'scroll', () => { const r = stage.getBoundingClientRect(); stageRect = { left: r.left, top: r.top }; }, { passive: true });
 
   let stageVisible = true;

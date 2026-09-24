@@ -5,7 +5,7 @@ import { h, clear, fmtClock, prefersReducedMotion, seeded, hashStr } from '../..
 import { icon } from '../../core/icons.js';
 import { artUrl } from '../../core/assets.js';
 import { pressDog } from '../../core/shell.js';
-import { s } from './util.js';
+import { s, memeText } from './util.js';
 
 const KICK_URL = 'https://kick.com/cureshotkick';
 const DISCLAIMER = 'Hayran yorumu · mizah amaçlıdır · gerçek istatistik değildir';
@@ -14,7 +14,7 @@ const STATS = [
   { name: 'DOG Radarı', value: '100/100', pct: 100, kind: 'ember', note: 'Kötü oynayan kimse radara girer: takım arkadaşı, rakip, fark etmez.' },
   { name: '1vDOQUZ Kapasitesi', value: '9/9', pct: 100, kind: 'gold', segments: 9, note: '4 takım arkadaşı + 5 rakip = dokuz. Hepsi aynı anda taşınır.' },
   { name: 'Maraton Dayanıklılığı', value: '∞', pct: 100, kind: 'jade', infinite: true, note: 'En kısa yayın bile 24 saat. Üst sınırı ölçmeye cesaret edemedik.' },
-  { name: 'Sabır', value: 'ERR', pct: 72, kind: 'glitch', note: '24. saatte ölçüm cihazı pes etti.' },
+  { name: 'Sabır', value: 'ERR', pct: 72, kind: 'glitch', note: 'Ölçüm cihazının sabrı 24. saatte tükendi; yayın devam ediyordu.' },
   { name: 'Chat Enerjisi', value: 'MAX', pct: 100, kind: 'arcane', pulse: true, note: 'Birim: DOG/dakika. Ölçüm yöntemi: hayran tahmini.' },
 ];
 
@@ -306,8 +306,8 @@ export function renderProfile(el, env) {
     h('span', { class: 'ch-pro-ribbon' }, icon('info', { size: 14 }), DISCLAIMER),
     h('div', { class: `ch-pro-visual${art ? ' is-img' : ''}` }, visual),
     h('div', { class: 'ch-pro-plate' },
-      h('span', { class: 'ch-pro-plate-name' }, 'CureShotKick'),
-      h('span', { class: 'ch-pro-plate-sub' }, 'Kick · Dota 2 · Maraton'),
+      h('span', { class: 'ch-pro-plate-name', lang: 'en' }, 'CureShotKick'),
+      h('span', { class: 'ch-pro-plate-sub' }, h('span', { lang: 'en' }, 'Kick'), ' · Dota 2 · Maraton'),
     ),
   );
 
@@ -323,7 +323,7 @@ export function renderProfile(el, env) {
     },
       h('span', { class: 'ch-abil-key' }, ab.slot === 'Pasif' ? 'P' : ab.slot),
       icon(ab.icon, { size: 26 }),
-      h('span', { class: 'ch-abil-name' }, ab.name),
+      h('span', { class: 'ch-abil-name' }, memeText(ab.name)),
     );
     b.addEventListener('click', () => { ctx.sound.click(); select(i); });
     return b;
@@ -335,7 +335,7 @@ export function renderProfile(el, env) {
       ctx.fx.stamp('DOG DOG DOG');
     } else if (ab.cast === '1v9') {
       ctx.sound.charge(0.9);
-      ctx.fx.stamp('1vDOQUZ', { variant: 'gold' });
+      ctx.fx.stamp(h('span', { class: 'meme' }, '1vDOQUZ'), { variant: 'gold' });
     } else if (ab.cast === 'clock') {
       if (marathon) marathon.fast();
     } else if (ab.cast === 'ult') {
@@ -376,7 +376,7 @@ export function renderProfile(el, env) {
     h('span', { class: 'eyebrow' }, 'Hayran oyuncu kartı'),
     h('h2', { class: 'h1 ch-pro-name' }, 'CureShotKick'),
     h('div', { class: 'row ch-pro-tags' },
-      h('span', { class: 'badge ch-kick-badge' }, icon('kick', { size: 12 }), 'Kick yayıncısı'),
+      h('span', { class: 'badge ch-kick-badge' }, icon('kick', { size: 12 }), h('span', null, h('span', { lang: 'en' }, 'Kick'), ' yayıncısı')),
       h('span', { class: 'badge ember' }, 'Dota 2'),
       h('span', { class: 'badge gold' }, 'Maraton yayınları'),
     ),
@@ -391,8 +391,8 @@ export function renderProfile(el, env) {
       detail,
     ),
     h('div', { class: 'row ch-pro-cta' },
-      h('a', { class: 'btn primary lg ch-kick-btn', href: KICK_URL, target: '_blank', rel: 'noopener noreferrer' }, icon('kick', { size: 18 }), 'Kick’te izle'),
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => ctx.go('oyunlar', 'arena') }, icon('bow', { size: 18 }), '1vDOQUZ Arenası'),
+      h('a', { class: 'btn primary lg ch-kick-btn', href: KICK_URL, target: '_blank', rel: 'noopener noreferrer' }, icon('kick', { size: 18 }), h('span', null, h('span', { lang: 'en' }, 'Kick'), '’te izle')),
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => ctx.go('oyunlar', 'arena') }, icon('bow', { size: 18 }), memeText('1vDOQUZ Arenası')),
     ),
   );
 

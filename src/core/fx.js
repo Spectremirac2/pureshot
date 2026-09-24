@@ -145,7 +145,11 @@ export const fx = {
 
   /** Ekran ortasında büyük meme damgası: "DOG DOG DOG" */
   stamp(text = 'DOG DOG DOG', { variant = '', ms = 1100 } = {}) {
-    const el = h('div', { class: 'stamp-overlay', 'aria-hidden': 'true' }, h('span', { class: `stamp ${variant}` }, text));
+    // "1vDOQUZ" büyük harf dönüşümünden korunur (metin ya da hazır Node kabul edilir)
+    const body = typeof text === 'string'
+      ? text.split(/(1vDOQUZ)/).map((part) => (part === '1vDOQUZ' ? h('span', { class: 'meme' }, part) : part))
+      : text;
+    const el = h('div', { class: 'stamp-overlay', 'aria-hidden': 'true' }, h('span', { class: `stamp ${variant}` }, body));
     fxHost().appendChild(el);
     sound.stamp();
     setTimeout(() => el.remove(), ms);

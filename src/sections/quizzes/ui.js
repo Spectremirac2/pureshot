@@ -124,6 +124,27 @@ export function pawMeter(level, { size = 22 } = {}) {
   return wrap;
 }
 
+/**
+ * "1vDOQUZ" özel yazımını büyük harf dönüşümünden korur (.stamp, .btn gibi uppercase bağlamlar):
+ * metni parçalara ayırıp meme kelimesini <span class="meme"> ile sarar.
+ */
+export function memeText(str) {
+  const parts = String(str).split(/(1vDOQUZ)/);
+  if (parts.length === 1) return str;
+  // Tek sarmalayıcı: flex kapsayıcılarda (.btn) parçalar arasına boşluk (gap) girmesin
+  return h('span', null, parts.filter(Boolean).map((p) => (p === '1vDOQUZ' ? h('span', { class: 'meme' }, p) : p)));
+}
+
+/** Salt okunur paylaşımlı görünümde sonucun yalnızca bu cihazda kaldığını açıklar (yoksa null). */
+export function readOnlyNote(what = 'Sonucun') {
+  const el = h('p', { class: 'xsmall dim qz-ro-note', hidden: true }, icon('info', { size: 14 }),
+    h('span', null, `Salt okunur görüntülüyorsun: ${what} bu cihazda saklanır, topluluk verisine yazılmayabilir.`));
+  const check = () => { el.hidden = !(store.shared && !store.canWrite()); };
+  check();
+  Promise.resolve(store.ready).then(check, () => {});
+  return el;
+}
+
 /** Ton adından rozet sınıfı */
 export const toneClass = (tone) => ({ gold: 'gold', jade: 'jade', ember: 'ember', blood: 'blood' }[tone] || 'ember');
 

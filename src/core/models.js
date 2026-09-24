@@ -53,7 +53,8 @@ export async function loadModel(key, { height = 1 } = {}) {
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             getLoader().parse(bytes.buffer, '', onLoad, onError);
           })
-          .catch(onError);
+          // JSON kopyası yoksa (ör. yerel geliştirme) doğrudan .glb dene
+          .catch(() => getLoader().load(url, onLoad, undefined, onError));
       } else {
         getLoader().load(url, onLoad, undefined, onError);
       }

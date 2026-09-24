@@ -67,13 +67,14 @@ export default {
     const ledger = h('dl', { class: 'gl-ledger', 'aria-label': 'Koleksiyon özeti' },
       h('div', null, h('dt', null, 'Görsel'), h('dd', { class: 'num' }, imgCount ? String(imgCount) : `0/${IMAGE_KEYS.length}`)),
       h('div', null, h('dt', null, '3D model'), h('dd', { class: 'num' }, `${modelCount}/${MODEL_KEYS.length}`)),
-      h('div', { class: 'is-zero' }, h('dt', null, 'Canlı fal.ai çağrısı'), h('dd', { class: 'num' }, '0')),
+      h('div', { class: 'is-zero' }, h('dt', null, 'Canlı ', h('span', { lang: 'en' }, 'fal.ai'), ' çağrısı'), h('dd', { class: 'num' }, '0')),
     );
 
     const root = h('div', { class: 'wrap gl' },
       h('header', { class: 'gl-head' },
         h('div', { class: 'section-head' },
-          h('span', { class: 'eyebrow' }, 'Salon T · fal.ai koleksiyonu'),
+          // "fal.ai" marka adı: Türkçe büyük harf kuralı "FAL.Aİ" yapmasın
+          h('span', { class: 'eyebrow' }, 'Salon T · ', h('span', { lang: 'en' }, 'fal.ai'), ' koleksiyonu'),
           h('h1', { class: 'h1' }, 'Galeri & ', h('em', null, '3D Müze')),
           h('p', { class: 'lead' },
             imgReady || modelCount

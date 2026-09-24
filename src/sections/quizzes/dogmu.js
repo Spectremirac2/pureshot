@@ -8,7 +8,7 @@ import { sound } from '../../core/sound.js';
 import { fx } from '../../core/fx.js';
 import { DOGMU_CARDS, DOGMU_TITLES, tierFor } from '../../data/quizzes.js';
 import {
-  makeScope, keyOk, isActivator, quizBar, xpBar, centerOf, reveal, scrollToTop, saveLast, withMe,
+  makeScope, keyOk, isActivator, quizBar, xpBar, centerOf, reveal, scrollToTop, saveLast, withMe, memeText, readOnlyNote,
 } from './ui.js';
 
 const ROUND = 10;
@@ -308,8 +308,9 @@ export function mountDogMu(root, { quiz, back }) {
         h('div', { class: 'stack' },
           h('span', { class: 'eyebrow' }, 'DOG radarın'),
           h('div', { class: 'qz-big-wrap' }, h('span', { class: 'qz-big num' }, `%${pct}`), h('span', { class: 'qz-big-unit' }, 'siteyle uyum')),
-          h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, tier.title),
+          h('h2', { class: `stamp ${tier.tone === 'gold' ? 'gold' : tier.tone === 'jade' ? 'jade' : ''} qz-tier` }, memeText(tier.title)),
           h('p', { class: 'muted' }, tier.note),
+          readOnlyNote('Oyların ve sonucun'),
           h('div', { class: 'qz-kv' },
             h('span', null, h('small', null, 'Uyum'), h('b', { class: 'num' }, `${agreeN}/${results.length}`)),
             h('span', null, h('small', null, 'DOG dediğin'), h('b', { class: 'num' }, String(dogN))),

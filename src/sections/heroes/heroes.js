@@ -35,6 +35,8 @@ function createApp(el, ctx) {
     role: 'img',
     'aria-label': '3D kahraman sikke halkası: en yüksek DOG’luklu kahramanlar en üst halkada. Sürükleyerek döndür, bir sikkeye tıklayarak kahramanın dosyasını aç.',
   });
+  const ringHintText = h('span', null, 'Sürükle: döndür · Sikkeye dokun: dosyayı aç');
+  const ringHint = h('p', { class: 'hr-ring-hint xsmall dim' }, icon('refresh', { size: 14 }), ringHintText);
   const head = h('header', { class: 'hr-head' },
     h('div', { class: 'hr-head-text section-head' },
       h('span', { class: 'eyebrow' }, 'Kahraman DOG Endeksi · ', String(HEROES.length), ' kahraman'),
@@ -51,7 +53,7 @@ function createApp(el, ctx) {
     ),
     h('div', { class: 'hr-ring-wrap' },
       ringHost,
-      h('p', { class: 'hr-ring-hint xsmall dim' }, icon('refresh', { size: 14 }), 'Sürükle: döndür · Sikkeye dokun: dosyayı aç'),
+      ringHint,
     ),
   );
 
@@ -92,6 +94,7 @@ function createApp(el, ctx) {
     onPick: (hero) => env.openHero(hero.id),
   });
   cleanups.push(() => ring.destroy());
+  if (ring.fallback) ringHintText.textContent = 'Sikkeye dokun: kahramanın dosyasını aç';
 
   const renderStats = () => {
     const votes = comm.totalVotes();
