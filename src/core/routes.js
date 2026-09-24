@@ -10,6 +10,7 @@ export const ROUTES = [
   { id: 'karakterler', label: 'Karakter Analizleri', short: 'Analiz', key: 'D', icon: 'mask', load: () => import('../sections/characters/characters.js') },
   { id: 'soru-cevap', label: 'Soru-Cevap', short: 'S&C', key: 'F', icon: 'chat', load: () => import('../sections/qa/qa.js') },
   { id: 'galeri', label: 'Galeri & 3D Müze', short: 'Galeri', key: 'T', icon: 'cube', load: () => import('../sections/gallery/gallery.js') },
+  { id: 'kahramanlar', label: 'Kahraman DOG Endeksi', short: 'Hero', key: 'Z', icon: 'swords', item: true, load: () => import('../sections/heroes/heroes.js') },
 ];
 
 export const DEFAULT_ROUTE = 'ana';

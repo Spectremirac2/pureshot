@@ -485,7 +485,8 @@ export const agg = {
       }
     } catch { /* ağ hatası: yerel veriyle devam */ }
   }
-  for (const entry of subs.values()) attach(entry);
+  // Arka uç atandıktan sonra açılan abonelikler zaten bağlandı; yalnızca bekleyenleri bağla
+  for (const entry of subs.values()) if (!entry.unsub) attach(entry);
   readyResolve(store);
 })();
 

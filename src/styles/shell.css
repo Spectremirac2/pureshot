@@ -146,6 +146,16 @@
 }
 @keyframes ult-ready { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
+/* Eşya slotu (Kahraman DOG Endeksi): yetenek çubuğundan ayraçla ayrılır */
+.ability-sep { flex: none; align-self: stretch; width: 1px; margin: 4px 2px; background: linear-gradient(180deg, transparent, var(--aegis), transparent); opacity: 0.5; }
+.ability.item {
+  border-color: rgba(233, 185, 73, 0.45);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(233, 185, 73, 0.18), transparent 60%),
+    linear-gradient(160deg, #2b2533, #15111c);
+}
+.ability.item .ability-icon { color: var(--aegis-2); }
+
 /* Tıklayınca bekleme süresi süpürmesi */
 .ability-cd {
   position: absolute; inset: 0;
@@ -167,8 +177,9 @@
 }
 @media (max-width: 420px) {
   .ability-slots { gap: 3px; padding: 5px; }
-  .ability { width: 40px; height: 48px; }
-  .ability.ult { width: 48px; height: 54px; }
+  .ability { width: 36px; height: 46px; }
+  .ability.ult { width: 44px; height: 52px; }
+  .ability-sep { margin: 4px 0; }
   .ability-label { display: none; }
   .ability { grid-template-rows: 1fr; }
 }

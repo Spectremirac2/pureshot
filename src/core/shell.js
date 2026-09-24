@@ -213,6 +213,10 @@ export function mountShell(root) {
       btn.classList.add('casting');
     });
     barButtons.set(r.id, btn);
+    if (r.item) {
+      btn.classList.add('item');
+      slots.appendChild(h('span', { class: 'ability-sep', 'aria-hidden': 'true' }));
+    }
     slots.appendChild(btn);
   }
   bar.appendChild(slots);
@@ -231,7 +235,7 @@ export function mountShell(root) {
       h('div', { class: 'stack' },
         h('span', { class: 'eyebrow' }, 'Yayın'),
         h('a', { href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer', class: 'small' }, 'kick.com/cureshotkick'),
-        h('p', { class: 'xsmall dim' }, 'Kısayollar: Q W E R D F T · Üs için H'),
+        h('p', { class: 'xsmall dim' }, 'Kısayollar: Q W E R D F T Z · Üs için H'),
       ),
     ),
   );
