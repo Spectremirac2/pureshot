@@ -86,11 +86,20 @@ export function thinkDog(d, g, dt) {
   if (d.stun > 0) {
     d.stun -= dt;
     d.status = 'stun';
+    d.canBite = false;
+    return { mx: 0, mz: 0, spd: 0 };
+  }
+  if (d.root > 0) {
+    // Buz Zinciri: yürüyemez, ısıramaz
+    d.status = 'frozen';
+    d.canBite = false;
+    d.windup = 0;
     return { mx: 0, mz: 0, spd: 0 };
   }
   if (d.fear > 0) {
     d.fear -= dt;
     d.status = 'fear';
+    d.canBite = false;
     return { mx: -ux, mz: -uz, spd: d.speed * 1.05 };
   }
   // oyuncu düştüyse sürü kutlar
@@ -98,6 +107,45 @@ export function thinkDog(d, g, dt) {
     d.status = 'gg';
     return { mx: 0, mz: 0, spd: 0 };
   }
+  // Rapier hırsızı Kurye: en yakın kapıya kaçar
+  if (d.thief) {
+    d.canBite = false;
+    d.status = 'loot';
+    let best = null;
+    let bd = Infinity;
+    for (const a of g.dogGates) {
+      const gx = Math.sin(a) * R;
+      const gz = Math.cos(a) * R;
+      const q = (gx - d.x) ** 2 + (gz - d.z) ** 2 - ((gx - p.x) ** 2 + (gz - p.z) ** 2) * 0.35;
+      if (q < bd) { bd = q; best = [gx, gz]; }
+    }
+    const [tx, tz] = toward(d, best[0], best[1]);
+    const zz = Math.sin(g.time * 6 + d.seed) * 0.5;
+    return { mx: tx - tz * zz, mz: tz + tx * zz, spd: d.speed * 1.05 };
+  }
+  // Savaş Çağrısı: özel durumları unut, doğrudan Balta'ya
+  if (d.taunt > 0) {
+    d.status = 'taunt';
+    if (d.state === 'afk' || d.state === 'farm' || d.state === 'flee' || d.state === 'guard' || d.state === 'paused' || d.state === 'tele') d.state = d.type === 'mid' ? 'chase' : 'go';
+    d.canBite = true;
+    return { mx: ux, mz: uz, spd: d.speed * 1.1 };
+  }
+  // görünmez kahraman: son görülen yere git, etrafı kokla
+  if (!g.heroVisible) {
+    d.canBite = false;
+    d.status = 'lost';
+    d.windup = 0;
+    if (d.lostT == null || d.lostT <= 0) {
+      d.lostT = 1.2 + Math.random();
+      const a = Math.random() * Math.PI * 2;
+      d.tx = g.lastSeenX + Math.sin(a) * 2.5;
+      d.tz = g.lastSeenZ + Math.cos(a) * 2.5;
+    }
+    d.lostT -= dt;
+    const [wx, wz, wd] = toward(d, d.tx, d.tz);
+    return wd < 0.4 ? { mx: 0, mz: 0, spd: 0 } : { mx: wx, mz: wz, spd: d.speed * 0.5 };
+  }
+  d.lostT = 0;
 
   const canBite = { value: true };
   let mx = ux;
@@ -251,7 +299,7 @@ export function thinkDog(d, g, dt) {
         canBite.value = false;
         if (dist < d.r + 0.5 && !d.dashHit) {
           d.dashHit = true;
-          g.hurtPlayer(d.dmg, d);
+          g.hurtPlayer(d.dmg, d, { attack: true });
         }
         if (d.t <= 0) {
           d.state = 'go';
@@ -296,19 +344,20 @@ export function thinkDog(d, g, dt) {
 /** Isırma: kısa bir hazırlık (telgraf), sonra menzildeyse hasar. */
 export function tryBite(d, g, dt) {
   if (d.attackCd > 0) d.attackCd -= dt;
+  if (d.root > 0 || d.stun > 0) { d.windup = 0; return false; }
   if (d.windup > 0) {
     d.windup -= dt;
     if (d.windup <= 0) {
       d.attackCd = 1.05;
       d.lunge = 0.25;
-      if (d.dist < d.r + 0.95 && !g.player.dead) {
-        g.hurtPlayer(d.dmg, d);
+      if (d.dist < d.r + 0.95 && !g.player.dead && g.heroVisible) {
+        g.hurtPlayer(d.dmg, d, { attack: true });
         if (d.type === 'chat') g.slowPlayer(1.6);
       }
     }
     return true;
   }
-  if (d.canBite && d.attackCd <= 0 && d.dist < d.r + 0.6 && d.status == null) {
+  if (d.canBite && d.attackCd <= 0 && d.dist < d.r + 0.6 && (d.status == null || d.status === 'taunt')) {
     d.windup = 0.3;
     g.emit('windup', { dog: d });
     return true;
