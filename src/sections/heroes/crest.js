@@ -1,9 +1,12 @@
-// Prosedürel kahraman armaları (Valve görseli yok): özellik şekli + rengi, kısaltma ve DOG% halkası.
+// Kahraman armaları: DOG% halkalı madalyon. Madalyonda kahramanın resmi portresi (Valve) durur;
+// portre yoksa prosedürel yedek çizilir (özellik şekli + rengi ve kısaltma).
 //   crestSvg(hero, { value, size, cls })  → <svg> (kartlar, detay, tier listesi)
-//   drawCrestCanvas(g, x, y, size, hero, value) → doku atlası hücresi (3D sikkeler, çark)
+//   drawCrestCanvas(g, x, y, size, hero, value, { img }) → doku atlası hücresi (3D sikkeler)
+//   loadPortraits(heroes) → Map<id, HTMLImageElement> (canvas'a çizmek için)
 
 import { h } from '../../core/dom.js';
 import { ATTRS } from '../../data/heroes.js';
+import { heroPortraitUrl } from '../../core/assets.js';
 
 // Özellik şekilleri (viewBox 0 0 100 100, merkez 50,50)
 const hexPts = (r, rot = -90) => Array.from({ length: 6 }, (_, i) => {
@@ -39,14 +42,18 @@ function shapeEl(attr, scale, cls) {
 
 const abbrSize = (abbr, attr) => (abbr.length <= 2 ? 23 : abbr.length === 3 ? 18 : 13) * (attr === 'agi' ? 0.88 : 1);
 
+let clipSeq = 0;
+
 /**
  * SVG arma. value: 0–100 DOG% (halka). ring=false ise halka çizilmez.
+ * Kahramanın portresi varsa madalyonda portre, yoksa özellik şekli + kısaltma çizilir.
  */
 export function crestSvg(hero, { value = hero.dogRate, ring = true, cls = '', title = null } = {}) {
   const v = Math.max(0, Math.min(100, value));
+  const img = heroPortraitUrl(hero.id);
   const svg = h('svg', {
     viewBox: '0 0 100 100',
-    class: `hr-crest hr-a-${hero.attr} ${cls}`,
+    class: `hr-crest hr-a-${hero.attr} ${img ? 'has-img' : ''} ${cls}`,
     role: title ? 'img' : null,
     'aria-hidden': title ? null : 'true',
     'aria-label': title,
@@ -59,6 +66,19 @@ export function crestSvg(hero, { value = hero.dogRate, ring = true, cls = '', ti
       'stroke-dasharray': `${v.toFixed(1)} 100`,
       transform: 'rotate(-90 50 50)',
     }) : null,
+  );
+  if (img) {
+    const r = ring ? 38 : 46;
+    const id = `hr-clip-${++clipSeq}`;
+    svg.append(
+      h('defs', null, h('clipPath', { id }, h('circle', { cx: '50', cy: '50', r: String(r) }))),
+      h('circle', { cx: '50', cy: '50', r: String(r + 2.5), class: 'hr-crest-rim' }),
+      // 16:9 portre dairenin ortasından kırpılır; yüz genelde merkezde
+      h('image', { href: img, x: String(50 - r * 16 / 9), y: String(50 - r), width: String(r * 32 / 9), height: String(r * 2), preserveAspectRatio: 'xMidYMid slice', 'clip-path': `url(#${id})`, class: 'hr-crest-img' }),
+    );
+    return svg;
+  }
+  svg.append(
     shapeEl(hero.attr, ring ? 0.86 : 1, 'hr-crest-outer'),
     shapeEl(hero.attr, ring ? 0.72 : 0.84, 'hr-crest-inner'),
     shapeEl(hero.attr, ring ? 0.72 : 0.84, 'hr-crest-tint'),
@@ -117,8 +137,8 @@ function traceShape(g, attr, cx, cy, r) {
   g.closePath();
 }
 
-/** Sikke yüzü: dairesel madalyon, altın kenar, DOG% yayı, özellik şekli, kısaltma ve yüzde. */
-export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { percent = true } = {}) {
+/** Sikke yüzü: dairesel madalyon, altın kenar, DOG% yayı; portre (varsa) ya da özellik şekli + kısaltma; yüzde. */
+export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { percent = true, img = null } = {}) {
   const col = (ATTRS[hero.attr] || ATTRS.uni).color;
   const cx = x + size / 2, cy = y + size / 2;
   const R = size * 0.485;
@@ -159,6 +179,40 @@ export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { per
   g.arc(cx, cy, R * 0.66, 0, Math.PI * 2);
   g.fillStyle = 'rgba(13,11,20,0.82)';
   g.fill();
+  if (img) {
+    // portre: iç madalyona kırpılmış, 16:9 görselin ortası
+    const ir = R * 0.66;
+    g.save();
+    g.beginPath();
+    g.arc(cx, cy, ir, 0, Math.PI * 2);
+    g.clip();
+    const ih = ir * 2, iw = ih * (img.naturalWidth / img.naturalHeight || 16 / 9);
+    g.drawImage(img, cx - iw / 2, cy - ir, iw, ih);
+    if (percent) {
+      const shade = g.createLinearGradient(0, cy, 0, cy + ir);
+      shade.addColorStop(0, 'rgba(13,11,20,0)');
+      shade.addColorStop(1, 'rgba(13,11,20,0.92)');
+      g.fillStyle = shade;
+      g.fillRect(cx - ir, cy, ir * 2, ir);
+    }
+    g.restore();
+    g.lineWidth = size * 0.022;
+    g.strokeStyle = col;
+    g.beginPath();
+    g.arc(cx, cy, ir, 0, Math.PI * 2);
+    g.stroke();
+    if (percent) {
+      g.font = `700 ${Math.round(size * 0.11)}px "JetBrains Mono", ui-monospace, monospace`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.shadowColor = 'rgba(0,0,0,0.9)';
+      g.shadowBlur = size * 0.03;
+      g.fillStyle = '#ffd08a';
+      g.fillText(`%${Math.round(value)}`, cx, cy + R * 0.45);
+    }
+    g.restore();
+    return;
+  }
   // özellik şekli
   traceShape(g, hero.attr, cx, cy - R * 0.02, R * 0.56);
   g.fillStyle = mixHex(col, '#0d0b14', 0.62);
@@ -183,6 +237,22 @@ export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { per
     g.fillText(`%${Math.round(value)}`, cx, cy + R * 0.38);
   }
   g.restore();
+}
+
+/**
+ * Kahraman portrelerini canvas'a çizilecek şekilde yükler.
+ * Yüklenemeyenler atlanır (o sikke prosedürel armayla kalır). Promise<Map<id, HTMLImageElement>>
+ */
+export function loadPortraits(heroes) {
+  return Promise.all(heroes.map((hero) => new Promise((resolve) => {
+    const url = heroPortraitUrl(hero.id);
+    if (!url) return resolve(null);
+    const im = new Image();
+    im.decoding = 'async';
+    im.onload = () => resolve([hero.id, im]);
+    im.onerror = () => resolve(null);
+    im.src = url;
+  }))).then((pairs) => new Map(pairs.filter(Boolean)));
 }
 
 /** Canvas yazı tiplerinin yüklenmesini (en fazla ~1.2 sn) bekler. */

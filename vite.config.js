@@ -10,7 +10,8 @@ export default defineConfig({
     assetsDir: 'assets',
     target: 'es2020',
     cssCodeSplit: false,
-    assetsInlineLimit: (file) => (file.endsWith('.woff2') ? true : undefined),
+    // Kahraman görselleri asla JS'e gömülmez: yalnızca görüntülendiklerinde indirilsinler
+    assetsInlineLimit: (file) => (file.endsWith('.woff2') ? true : file.includes('/assets/heroes/') ? false : undefined),
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {

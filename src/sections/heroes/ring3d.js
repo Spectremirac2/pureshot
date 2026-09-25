@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { h, clamp, prefersReducedMotion } from '../../core/dom.js';
 import { ATTRS, tierOf } from '../../data/heroes.js';
-import { drawCrestCanvas, fontsReady, crestSvg, mixHex } from './crest.js';
+import { drawCrestCanvas, fontsReady, crestSvg, mixHex, loadPortraits } from './crest.js';
 
 const COLS = 16;
 const CELL = 128;
@@ -95,18 +95,20 @@ export function mountRing(host, { heroes, getValue, onPick }) {
   const texture = new THREE.CanvasTexture(atlas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  let portraits = new Map();
   const paintAtlas = () => {
     const g = atlas.getContext('2d');
     g.clearRect(0, 0, atlas.width, atlas.height);
     g.fillStyle = '#0d0b14';
     g.fillRect(0, 0, atlas.width, atlas.height);
     sorted.forEach((hero, i) => {
-      drawCrestCanvas(g, (i % COLS) * CELL, Math.floor(i / COLS) * CELL, CELL, hero, hero.dogRate);
+      drawCrestCanvas(g, (i % COLS) * CELL, Math.floor(i / COLS) * CELL, CELL, hero, hero.dogRate, { img: portraits.get(hero.id) });
     });
     texture.needsUpdate = true;
   };
   paintAtlas();
-  fontsReady().then(() => { if (alive) { paintAtlas(); dirty = true; } });
+  // Sikkeler önce armayla çizilir; portreler ve yazı tipleri gelince atlas yeniden boyanır
+  Promise.all([fontsReady(), loadPortraits(sorted)]).then(([, m]) => { if (alive) { portraits = m; paintAtlas(); dirty = true; } });
 
   // Geometri + malzemeler
   const bodyGeo = new THREE.CylinderGeometry(1, 1, 0.16, 44, 1);

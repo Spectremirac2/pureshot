@@ -4,6 +4,7 @@ import { h, clear, ls } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { HEROES, ATTRS, ROLES, heroById } from '../../data/heroes.js';
 import { crestSvg, setCrestValue, normTr } from './crest.js';
+import { heroPortraitUrl, heroRenderUrl } from '../../core/assets.js';
 import { attachTilt } from '../../components/tilt.js';
 
 const FEATURED = ['spectre', 'techies', 'pudge', 'meepo', 'invoker', 'antimage', 'huskar', 'furion', 'riki', 'wisp', 'sniper', 'tinker', 'faceless_void', 'arc_warden'];
@@ -36,8 +37,11 @@ export function mountWall(host, env) {
     const s = comm.get(hero.id);
     detachTilt();
     clear(feat);
-    const art = h('a', { class: 'hr-feat-art', href: `#kahramanlar--${hero.id}`, 'aria-label': `${hero.name} dosyasını aç` },
-      crestSvg(hero, { value: s ? s.live : hero.dogRate }),
+    const render = heroRenderUrl(hero.id);
+    const art = h('a', { class: `hr-feat-art hr-a-${hero.attr}${render ? ' has-render' : ''}`, href: `#kahramanlar--${hero.id}`, 'aria-label': `${hero.name} dosyasını aç` },
+      render
+        ? h('img', { class: 'hr-render', src: render, alt: '', decoding: 'async' })
+        : crestSvg(hero, { value: s ? s.live : hero.dogRate }),
       s ? h('span', { class: `hr-feat-tier hr-t-${s.tier.id}`, title: s.tier.label }, s.tier.id) : null,
     );
     feat.append(
@@ -190,17 +194,21 @@ export function mountWall(host, env) {
   const haystack = new Map();
   for (const hero of HEROES) {
     haystack.set(hero.id, [hero.name, hero.id, hero.abbr, ATTRS[hero.attr].label, hero.attack === 'Melee' ? 'yakın' : 'menzilli', ...hero.roles, ...hero.roles.map((r) => ROLES[r]), ...hero.tags, hero.archetype].map(normTr).join('|'));
-    const crest = crestSvg(hero);
+    const portrait = heroPortraitUrl(hero.id);
+    const crest = portrait ? null : crestSvg(hero);
     const pct = h('span', { class: 'hr-card-pct mono' });
     const pctLabel = h('span', { class: 'hr-card-pct-label' });
     const tierB = h('span', { class: 'hr-tier-badge' });
     const bar = h('span', { class: 'hr-card-bar-fill' });
     const short = hero.prejudice.replace(/^Topluluk der ki:\s*/, '');
-    const card = h('a', { class: `hr-card hr-a-${hero.attr}`, href: `#kahramanlar--${hero.id}` },
-      h('span', { class: 'hr-card-top' },
-        crest,
-        h('span', { class: 'hr-card-score' }, pct, pctLabel),
-      ),
+    const score = h('span', { class: 'hr-card-score' }, pct, pctLabel);
+    const card = h('a', { class: `hr-card hr-a-${hero.attr}${portrait ? ' has-art' : ''}`, href: `#kahramanlar--${hero.id}` },
+      portrait
+        // Dota'nın kahraman ızgarası gibi: yatay portre, DOG% üstünde
+        ? h('span', { class: 'hr-card-art' },
+          h('img', { src: portrait, alt: '', width: '256', height: '144', loading: 'lazy', decoding: 'async' }),
+          score)
+        : h('span', { class: 'hr-card-top' }, crest, score),
       h('span', { class: 'hr-card-name' }, hero.name),
       h('span', { class: 'hr-card-badges' },
         h('span', { class: `hr-attr-badge hr-a-${hero.attr}` }, ATTRS[hero.attr].short),

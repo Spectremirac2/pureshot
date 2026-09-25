@@ -1,4 +1,4 @@
-// Kahraman detayı (#kahramanlar--<id>): büyük arma, yarım daire DOG'luk göstergesi, oylama,
+// Kahraman detayı (#kahramanlar--<id>): tam boy kahraman görseli (yoksa büyük arma), yarım daire DOG'luk göstergesi, oylama,
 // "Topluluk der ki / Neden? / İmza hareketi / Savunma avukatı", bağlı DOG türü, benzerler, yorumlar.
 
 import { h, clear, prefersReducedMotion, fmtNum } from '../../core/dom.js';
@@ -10,6 +10,7 @@ import { mountComments } from '../../components/comments.js';
 import { attachTilt } from '../../components/tilt.js';
 import { crestSvg } from './crest.js';
 import { K } from './community.js';
+import { heroRenderUrl } from '../../core/assets.js';
 
 const ORDER = HEROES.slice().sort((a, b) => a.name.localeCompare(b.name, 'en'));
 const RANK = new Map(HEROES.slice().sort((a, b) => b.dogRate - a.dogRate || a.name.localeCompare(b.name)).map((x, i) => [x.id, i + 1]));
@@ -96,10 +97,14 @@ export function mountDetail(host, env, hero) {
   );
 
   // ---------------------------------------------------------------- kahraman bandı
-  const crestWrap = h('div', { class: `hr-d-crest hr-a-${hero.attr}` }, crestSvg(hero, { title: `${hero.name} arması` }));
+  const render = heroRenderUrl(hero.id);
+  const crestWrap = render
+    ? h('div', { class: `hr-d-crest hr-d-render hr-a-${hero.attr}` },
+      h('img', { class: 'hr-render', src: render, alt: `${hero.name} (Dota 2 kahraman görseli)`, decoding: 'async' }))
+    : h('div', { class: `hr-d-crest hr-a-${hero.attr}` }, crestSvg(hero, { title: `${hero.name} arması` }));
   const pips = h('span', { class: 'hr-pips', title: `Karmaşıklık ${hero.complexity}/3`, 'aria-label': `Karmaşıklık ${hero.complexity}/3` },
     [1, 2, 3].map((i) => h('span', { class: i <= hero.complexity ? 'on' : '' })));
-  const band = h('section', { class: 'hr-d-band panel raised frame' },
+  const band = h('section', { class: `hr-d-band panel raised frame${render ? ' has-render' : ''}` },
     crestWrap,
     h('div', { class: 'hr-d-id' },
       h('span', { class: 'eyebrow' }, `DOG dosyası · ön yargı sırası ${RANK.get(hero.id)}/${HEROES.length}`),

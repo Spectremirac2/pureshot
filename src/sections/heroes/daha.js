@@ -6,6 +6,7 @@ import { icon } from '../../core/icons.js';
 import { HEROES, ATTRS } from '../../data/heroes.js';
 import { mountLeaderboard } from '../../components/leaderboard.js';
 import { crestSvg } from './crest.js';
+import { heroPortraitUrl } from '../../core/assets.js';
 
 export function mountDaha(host, env) {
   const { ctx } = env;
@@ -59,7 +60,9 @@ export function mountDaha(host, env) {
       'aria-label': `${side === 0 ? 'Sol' : 'Sağ'}: ${hero.name} daha DOG`,
     },
       h('span', { class: 'hr-daha-key kbd', 'aria-hidden': 'true' }, side === 0 ? '←' : '→'),
-      crestSvg(hero, { ring: false }),
+      heroPortraitUrl(hero.id)
+        ? h('span', { class: 'hr-daha-art' }, h('img', { src: heroPortraitUrl(hero.id), alt: '', width: '256', height: '144', decoding: 'async' }))
+        : crestSvg(hero, { ring: false }),
       h('span', { class: 'hr-daha-name' }, hero.name),
       h('span', { class: `hr-attr-badge hr-a-${hero.attr}` }, ATTRS[hero.attr].label),
       h('span', { class: 'hr-daha-quote' }, hero.tags.slice(0, 2).map((t) => '#' + t).join('  ')),

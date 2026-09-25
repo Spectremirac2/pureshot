@@ -331,6 +331,8 @@
 .ch-hero-chip { min-height: 44px; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0.02em; }
 .ch-hero-chip svg { opacity: 0.55; }
 .ch-hero-chip:hover { border-color: var(--ch-c); }
+.ch-hero-chip.has-img { padding-left: 4px; }
+.ch-hero-chip-img { width: 56px; height: 32px; object-fit: cover; flex: none; border-radius: 999px 3px 3px 999px; }
 
 .ch-det-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .ch-det-cmt { padding: var(--sp-5); }

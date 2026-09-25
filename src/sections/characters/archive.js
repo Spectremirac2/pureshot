@@ -7,6 +7,7 @@ import { attachTilt } from '../../components/tilt.js';
 import { mountComments } from '../../components/comments.js';
 import { radarSvg } from './radar.js';
 import { HEROES, heroByName } from '../../data/heroes.js';
+import { heroPortraitUrl } from '../../core/assets.js';
 import { pawsEl, dogIndex, STAT_KEYS, GOOD_STATS, contrastColor, idx2, memeText, readOnlyNote } from './util.js';
 
 const TOTAL = ALL_TYPES.length;
@@ -331,7 +332,10 @@ export function renderDetail(el, env, arch) {
 
   // Tipik kahramanlar: Kahraman DOG Endeksi bölümündeki sayfasına gider (#kahramanlar--<iç ad>)
   const heroChips = arch.heroes.map((name) => {
-    const b = h('button', { class: 'chip ch-hero-chip', type: 'button', title: `${name}: DOG’luk endeksini gör` }, name, icon('arrowRight', { size: 12 }));
+    const img = heroPortraitUrl(heroKey(name));
+    const b = h('button', { class: `chip ch-hero-chip${img ? ' has-img' : ''}`, type: 'button', title: `${name}: DOG’luk endeksini gör` },
+      img ? h('img', { class: 'ch-hero-chip-img', src: img, alt: '', width: '256', height: '144', loading: 'lazy', decoding: 'async' }) : null,
+      name, icon('arrowRight', { size: 12 }));
     b.addEventListener('click', () => {
       ctx.sound.click();
       ctx.go('kahramanlar', heroKey(name));

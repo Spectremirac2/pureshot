@@ -9,7 +9,7 @@
 // Alanlar:
 //   id            Dota iç adı (antimage, nevermore, zuus, furion, wisp…); hash için güvenli
 //   name          oyundaki adı
-//   abbr          prosedürel arma kısaltması (2–4 harf)
+//   abbr          kısaltma (2–4 harf); portre yüklenemezse yedek armada görünür
 //   attr          'str' (Güç) | 'agi' (Çeviklik) | 'int' (Zekâ) | 'uni' (Evrensel)
 //   attack        'Melee' | 'Ranged'
 //   complexity    1–3

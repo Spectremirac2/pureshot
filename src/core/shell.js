@@ -232,7 +232,7 @@ export function mountShell(root) {
         h('span', { class: 'eyebrow' }, 'Resmi olmayan hayran sitesi'),
         h('p', { class: 'small muted' },
           'Bu site hayranlar tarafından eğlence amaçlı yapıldı; CureShotKick ile resmi bir bağlantısı yoktur. ',
-          'Dota 2, Valve Corporation\'ın ticari markasıdır. Sitedeki görseller ve 3D modeller fal.ai ile üretildi; espriler ve analizler mizah amaçlıdır.',
+          'Dota 2, Valve Corporation\'ın ticari markasıdır; kahraman görselleri Valve\'a aittir. Afişler, DOG portreleri ve 3D modeller fal.ai ile üretildi; espriler ve analizler mizah amaçlıdır.',
         ),
       ),
       h('div', { class: 'stack' },

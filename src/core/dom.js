@@ -12,7 +12,7 @@
  * Çocuklar: string/number → text node (güvenli), Node, dizi (iç içe), null/false atlanır.
  */
 export function h(tag, props, ...children) {
-  const el = tag === 'svg' || tag === 'path' || tag === 'circle' || tag === 'g' || tag === 'polygon' || tag === 'line' || tag === 'rect' || tag === 'text' || tag === 'polyline' || tag === 'defs' || tag === 'linearGradient' || tag === 'stop' || tag === 'radialGradient' || tag === 'ellipse'
+  const el = tag === 'svg' || tag === 'path' || tag === 'circle' || tag === 'g' || tag === 'polygon' || tag === 'line' || tag === 'rect' || tag === 'text' || tag === 'polyline' || tag === 'defs' || tag === 'linearGradient' || tag === 'stop' || tag === 'radialGradient' || tag === 'ellipse' || tag === 'image' || tag === 'clipPath'
     ? document.createElementNS('http://www.w3.org/2000/svg', tag)
     : document.createElement(tag);
   if (props) {

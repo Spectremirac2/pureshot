@@ -96,10 +96,11 @@ export const FAQ = [
     icon: 'gallery',
     tag: 'Site',
     tone: 'gold',
-    q: 'Görseller ve 3D modeller nasıl üretildi?',
+    q: 'Görseller ve 3D modeller nereden geliyor?',
     a: [
-      ['Afişler, portreler ve 3D modeller (DOG maskotu, okçu kahraman, Aegis kupası) ', { b: 'fal.ai' }, ' ile üretildi. Valve’a ait görsel ya da logo kullanılmıyor.'],
-      ['Bir görsel ya da model henüz yüklenmemişse sayfa boş kalmaz; yerine kodla çizilmiş (prosedürel) bir yedek gösterilir. Hepsi ', { a: '#galeri', t: 'Galeri & 3D Müze' }, '’de (', { k: 'T' }, ').'],
+      ['Afişler, DOG portreleri ve 3D modeller (DOG maskotu, okçu kahraman, Aegis kupası) ', { b: 'fal.ai' }, ' ile üretildi.'],
+      ['', { a: '#kahramanlar', t: 'Kahraman DOG Endeksi' }, '’ndeki kahraman görselleri ise Dota 2’nin ', { b: 'resmi görselleri' }, '; Valve Corporation’a aittir ve burada ticari olmayan hayran kullanımıyla yer alır.'],
+      ['Bir görsel ya da model henüz yüklenmemişse sayfa boş kalmaz; yerine kodla çizilmiş (prosedürel) bir yedek gösterilir. fal.ai eserlerinin hepsi ', { a: '#galeri', t: 'Galeri & 3D Müze' }, '’de (', { k: 'T' }, ').'],
     ],
   },
   {

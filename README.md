@@ -89,7 +89,8 @@ Ortak sistemler:
 │   │                           #   characters, qa, gallery, heroes) + bölüme özel CSS
 │   ├── data/                   # espriler, DOG türleri, quiz soruları, SSS, kahraman verisi
 │   ├── styles/                 # tokens.css, base.css, components.css, shell.css
-│   └── assets/fal/             # optimize edilmiş fal.ai görselleri (.webp) ve modelleri (.glb)
+│   ├── assets/fal/             # optimize edilmiş fal.ai görselleri (.webp) ve modelleri (.glb)
+│   └── assets/heroes/          # kahraman görselleri (Valve): portraits/ (256×144) ve renders/ (tam boy)
 ├── assets-src/
 │   ├── fal-jobs.json           # fal.ai iş listesi (anahtar → endpoint, request_id, url)
 │   ├── raw/                    # fal.ai'den inen ham dosyalar (git'e girmez)
@@ -97,6 +98,7 @@ Ortak sistemler:
 ├── scripts/
 │   ├── fetch-fal-assets.mjs    # fal.ai varlıklarını assets-src/raw/ altına indirir (npm run fetch:fal)
 │   ├── optimize-assets.mjs     # assets-src/raw/ → src/assets/fal/ (WebP + meshopt GLB)
+│   ├── fetch-hero-images.mjs   # Dota 2 CDN'inden kahraman portre/render'ları → src/assets/heroes/ (npm run fetch:heroes)
 │   ├── build-artifact.mjs      # dist/index.html → dist/artifact.html
 │   ├── artifact-files.mjs      # dist/ içeriğini Artifact dosya eşlemesine çevirir
 │   └── shot.mjs                # Playwright ile ekran görüntüsü
@@ -225,6 +227,8 @@ espriler **yalnızca ziyaretçinin kendi tarayıcısında** saklanır. Herkesin 
 4. `main` dalına gönderin; site `https://<kullanıcı>.github.io/<depo>/` adresinde yayınlanır.
 
 #### Netlify
+
+Depodaki `netlify.toml` statik yayın sürümünü derler (`VITE_API_BASE=none`, yayın klasörü `dist`).
 
 - **Git ile:** *Add new site → Import an existing project* → depoyu seçin.
   Build command: `npm run build` · Publish directory: `dist` · (isteğe bağlı) *Environment variables*: `VITE_API_BASE`.
@@ -428,8 +432,8 @@ FAL_KEY=<anahtar> npm run fetch:fal            # url'si olmayanları request_id'
 
 - Bu site **resmi değildir**; CureShotKick, Kick ya da Valve Corporation ile bir bağı yoktur ve onlar
   tarafından onaylanmamıştır.
-- **Dota 2**, Valve Corporation'ın ticari markasıdır. Sitede Valve'a ait görsel, logo veya oyun dosyası kullanılmaz;
-  kahraman ve eşya adları yalnızca oyuna gönderme amacıyla anılır. Tüm görseller fal.ai ile üretilmiş ya da
-  kodla çizilmiş özgün çalışmalardır.
+- **Dota 2**, Valve Corporation'ın ticari markasıdır. Kahraman DOG Endeksi'ndeki kahraman portreleri ve
+  renderları Dota 2'nin resmi görselleridir; Valve'a aittir ve ticari olmayan hayran kullanımıyla yer alır
+  (`npm run fetch:heroes`). Diğer tüm görseller fal.ai ile üretilmiş ya da kodla çizilmiş özgün çalışmalardır.
 - "DOG DOG DOG" oyunbaz bir laftır; içerik saygılı kalır. Hakaret, nefret söylemi ve kişisel saldırı içeren
   yorumlar silinir. Topluluk esprileri ve analizleri hayran yapımıdır; yayıncının görüşü ya da sözü değildir.

@@ -47,3 +47,20 @@ export function allArt() {
     url,
   }));
 }
+
+// Kahraman görselleri: Valve'ın resmi Dota 2 görselleri (bkz. scripts/fetch-hero-images.mjs).
+//   portre  → 256×144 yatay (kartlar, madalyonlar, 3D sikkeler)
+//   render  → şeffaf zeminli tam boy (kahraman dosyası, öne çıkan dava)
+const heroFiles = (map) => new Map(Object.entries(map).map(([path, url]) => [path.split('/').pop().replace(/\.webp$/i, ''), url]));
+const heroPortraits = heroFiles(import.meta.glob('../assets/heroes/portraits/*.webp', { eager: true, query: '?url', import: 'default' }));
+const heroRenders = heroFiles(import.meta.glob('../assets/heroes/renders/*.webp', { eager: true, query: '?url', import: 'default' }));
+
+/** Kahraman portresi URL'si ya da null (yoksa prosedürel arma kullanılır). */
+export function heroPortraitUrl(id) {
+  return heroPortraits.get(id) || null;
+}
+
+/** Kahramanın tam boy render URL'si ya da null. */
+export function heroRenderUrl(id) {
+  return heroRenders.get(id) || null;
+}

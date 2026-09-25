@@ -9,6 +9,7 @@
     "build": "vite build && node scripts/build-artifact.mjs",
     "preview": "vite preview",
     "fetch:fal": "node scripts/fetch-fal-assets.mjs",
+    "fetch:heroes": "node scripts/fetch-hero-images.mjs",
     "optimize:assets": "node scripts/optimize-assets.mjs",
     "api:dev": "node --disable-warning=ExperimentalWarning server/local/dev.mjs",
     "test:api": "node --disable-warning=ExperimentalWarning --test server/test/worker.test.mjs",
