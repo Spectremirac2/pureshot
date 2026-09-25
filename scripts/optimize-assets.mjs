@@ -5,10 +5,10 @@
 //   GLB: meshopt + WebP doku, en fazla 768×768 (1024'e göre model başına ~%25 daha küçük; müze ve ana sayfa
 //        boyutunda fark görülmüyor). texture-arena: 1024 px, kalite 80 (taş dokusu; 86 → 80 ~%20 daha küçük).
 //
-// Ham kaynaklar (assets-src/raw/) depoda tutulmaz. Yalnızca src/assets/fal/ içindeki mevcut dosyalar varsa
-// aynı ayarlar --yerinde ile uygulanabilir: GLB'ler yeniden sadeleştirilmeden (üçgen sayısı aynı kalır)
-// doku boyutu/kalitesi düşürülür. Sonuç en az %10 küçülmüyorsa dosya olduğu gibi kalır; böylece betik
-// tekrar çalıştırıldığında zaten işlenmiş dosyalar yeniden kodlanıp kalite kaybetmez.
+// Ham kaynaklar (assets-src/raw/) git'e girmez; varsa bu betik depodaki src/assets/fal/ dosyalarını bayt bayt
+// aynı üretir. Ham kaynak yoksa aynı ayarlar mevcut dosyalara --yerinde ile uygulanabilir: GLB'ler yeniden
+// sadeleştirilmeden (üçgen sayısı aynı kalır) doku boyutu/kalitesi düşürülür. Sonuç en az %10 küçülmüyorsa
+// dosya olduğu gibi kalır; böylece zaten işlenmiş dosyalar yeniden kodlanıp kalite kaybetmez.
 //   node scripts/optimize-assets.mjs --yerinde
 import { readdirSync, mkdirSync, statSync, renameSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';

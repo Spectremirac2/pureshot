@@ -107,18 +107,21 @@ export function fmtCountdown(ms) {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
 }
 /**
- * Bugünkü DOGdle durumu: { done, won, guesses }. Önce isteğe bağlı sözleşme (dogdle.js
- * `todayStatus()` dışa aktarırsa), yoksa DOGdle'ın yerel kaydı (csk:dogdle:day = { n, guesses, solved },
- * n = İstanbul günü). Kayıt yoksa ya da başka güne aitse "bugün oynanmadı" sayılır.
+ * Bugünkü DOGdle durumu: { done, won, guesses }. dogdle.js `todayStatus()` dışa aktarır (tercih edilen yol).
+ * Yedek: DOGdle'ın yerel kaydı (csk:dogdle:day = { n, guesses, solved }, n = bulmaca numarası) ancak
+ * modül `puzzleNumber()` verirse karşılaştırılabilir; ikisi de yoksa durum gösterilmez.
  */
 function dailyStatus() {
   const m = MODS[DAILY_ID];
-  if (m && typeof m.todayStatus === 'function') {
+  if (!m) return null;
+  if (typeof m.todayStatus === 'function') {
     try { return m.todayStatus() || null; } catch { return null; }
   }
-  const today = Math.floor((Date.now() + 3 * 3600000) / DAY);
+  if (typeof m.puzzleNumber !== 'function') return null;
+  let n = null;
+  try { n = m.puzzleNumber(); } catch { return null; }
   const d = ls.get('dogdle:day', null);
-  if (!d || typeof d !== 'object' || d.n !== today) return { done: false, guesses: 0 };
+  if (!d || typeof d !== 'object' || d.n !== n) return { done: false, guesses: 0 };
   const guesses = Array.isArray(d.guesses) ? d.guesses.length : 0;
   return d.solved ? { done: true, won: true, guesses } : { done: false, guesses };
 }
@@ -371,6 +374,7 @@ function createSalon(el, ctx) {
           status.textContent = st.done
             ? (st.won === false ? 'Bugünkü tur bitti' : `Bugün çözüldü${st.guesses ? ` · ${st.guesses} tahmin` : ''}`)
             : st.guesses ? `${st.guesses} tahmin yaptın, devam et` : 'Bugün çözülmedi';
+          if (st.streak > 1) status.textContent += ` · ${st.streak} gün seri`;
           a.classList.toggle('is-done', !!st.done);
           ctaText.textContent = st.done ? 'Sonucuna bak' : st.guesses ? 'Devam et' : 'Bugünün kahramanı';
         }

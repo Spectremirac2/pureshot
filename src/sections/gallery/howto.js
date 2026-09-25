@@ -77,7 +77,7 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
     links: h('div', { class: 'gl-pv gl-pv-links' },
       h('div', { class: 'gl-pack' },
         h('div', null, h('span', { class: 'gl-pack-k xsmall' }, 'Görseller'), h('span', { class: 'gl-pack-v' }, 'sharp → WebP'), h('span', { class: 'xsmall dim' }, 'portre başına 65–115 KB')),
-        h('div', null, h('span', { class: 'gl-pack-k xsmall' }, '3D modeller'), h('span', { class: 'gl-pack-v' }, 'glTF-Transform → meshopt'), h('span', { class: 'xsmall dim' }, 'model başına 1,3–1,5 MB → 550–650 KB')),
+        h('div', null, h('span', { class: 'gl-pack-k xsmall' }, '3D modeller'), h('span', { class: 'gl-pack-v' }, 'glTF-Transform → meshopt'), h('span', { class: 'xsmall dim' }, 'model başına 1,3–1,5 MB → 420–470 KB')),
       ),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary sm', type: 'button', onclick: () => onMuseum && onMuseum() }, icon('cube', { size: 16 }), '3D Müze'),

@@ -20,6 +20,9 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const OUT_DIR = join(ROOT, 'src/assets/fonts');
 const CSS_OUT = join(ROOT, 'src/styles/fonts.css');
 const PY = process.env.PYTHON || 'python3';
+// Sabit zaman damgası: aynı girdi → bayt bayt aynı woff2 (aksi hâlde head.modified her çalıştırmada değişir,
+// dosya hash'i ve tarayıcı önbelleği boşuna bozulur). fontTools SOURCE_DATE_EPOCH'u dikkate alır.
+const ENV = { ...process.env, SOURCE_DATE_EPOCH: process.env.SOURCE_DATE_EPOCH || '1767225600' };
 
 // Kullanılan aile + kalınlıklar (tarayıcı turunda document.fonts ile doğrulandı; bkz. docs/OPTIMIZASYON.md).
 // Unbounded: başlıklar (800/900) · Cinzel: lore/etiketler (700) · Barlow: gövde (400–700) · JetBrains Mono: sayılar (500/700)
@@ -106,7 +109,7 @@ try {
       const merged = join(tmp, `${face.pkg}-${w}.ttf`);
       const out = join(OUT_DIR, `${face.pkg}-${w}.woff2`);
       // latin önce: aynı kod noktası iki dosyada varsa latin sürümü kalır
-      execFileSync(PY, ['-m', 'fontTools.merge', ...srcs, `--output-file=${merged}`], { stdio: 'pipe' });
+      execFileSync(PY, ['-m', 'fontTools.merge', ...srcs, `--output-file=${merged}`], { stdio: 'pipe', env: ENV });
       execFileSync(PY, [
         '-m', 'fontTools.subset', merged,
         `--unicodes-file=${unicodesFile}`,
@@ -115,7 +118,7 @@ try {
         '--layout-features-=frac,numr,dnom',
         '--flavor=woff2',
         `--output-file=${out}`,
-      ], { stdio: 'pipe' });
+      ], { stdio: 'pipe', env: ENV });
       const size = statSync(out).size;
       total += size;
       console.log(`  ${relative(ROOT, out)}  ${(size / 1024).toFixed(1)} KB`);

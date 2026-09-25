@@ -1,12 +1,20 @@
 // Rune Refleksi — nehirde rune belirir, hemen kap. 5 tur, ortalama tepki süresi.
+// Tuzak: ikinci turdan itibaren bazen rune yerine bir DOG kafasını çıkarır; ona dokunan "erken" sayılır.
+// Son maçların ortalamaları tarayıcıda (csk:rune:hist) tutulur ve sonuç kartında gösterilir.
+// Belge: docs/oyunlar/rune.md
 
-import { h, pick, rand, fmtNum } from '../../core/dom.js';
+import { h, pick, rand, fmtNum, ls } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
-import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, onOtherControl, tok } from './kit.js';
+import { ARCHETYPES } from '../../data/archetypes.js';
+import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, onOtherControl, tok, faceArt } from './kit.js';
 
 const ROUNDS = 5;
 // Bundan hızlı tepki insan refleksi değil tahmindir (atletizmdeki hatalı çıkış eşiği gibi): erken sayılır.
 const MIN_MS = 100;
+const DECOY_CHANCE = 0.35; // ikinci turdan itibaren, tur başına
+const DECOY_TIME = 0.75; // sn
+const HIST_KEY = 'rune:hist';
+const HIST_MAX = 10;
 
 // Kalıcı güç rune'ları ve oyundaki renk tonları (jetonlarla)
 const RUNES = [
@@ -34,9 +42,9 @@ export const meta = {
   format: (n) => `${fmtNum(n)} ms`,
   scoreText: (n) => fmtNum(n),
   rules: [
-    'Nehre dokun ya da boşluğa bas, sonra izle: 1,5–5 saniye içinde bir rune belirir.',
-    'Belirdiği an dokun ya da boşluğa bas. Tepki süren milisaniyeyle ölçülür.',
+    'Nehre dokun ya da boşluğa bas, sonra izle: 1,5–5 saniye içinde bir rune belirir. Belirdiği an dokun.',
     `Rune’dan önce dokunursan (ya da ${MIN_MS} ms’den hızlıysan, o tahmindir): “Erken tıkladın, DOG!” ve tur yeniden başlar.`,
+    'Tuzak: bazen rune yerine nehirde bir DOG kafası çıkar. Dokunma, bekle; ona dokunan da erken sayılır.',
     '5 geçerli turun ortalaması skorundur. Düşük olan kazanır.',
   ],
   keys: [['Boşluk veya Enter', 'Hazır / rune’u al'], ['Tık / dokun', 'Aynı işi yapar']],
@@ -64,6 +72,7 @@ export function mount(el, ctx, nav) {
     h('span', { class: 'gm-rn-rune-ring' }),
     h('span', { class: 'gm-rn-rune-gem' }, h('span', { class: 'gm-rn-rune-ico' })),
   );
+  const decoyEl = h('div', { class: 'gm-rn-decoy', 'aria-hidden': 'true' });
   const msg = h('p', { class: 'gm-rn-msg' }, 'Hazır mısın?');
   const sub = h('p', { class: 'gm-rn-sub' }, 'Başlamak için dokun ya da boşluğa bas');
   const field = h('div', {
@@ -77,6 +86,7 @@ export function mount(el, ctx, nav) {
     h('span', { class: 'gm-rn-bank bottom', 'aria-hidden': 'true' }),
     h('span', { class: 'gm-rn-spot', 'aria-hidden': 'true' }),
     runeEl,
+    decoyEl,
     h('div', { class: 'gm-rn-text' }, msg, sub),
   );
   const slots = h('ol', { class: 'gm-rn-slots', 'aria-label': 'Tur süreleri' },
@@ -88,6 +98,8 @@ export function mount(el, ctx, nav) {
   let runner = null;
   let closeOverlay = null;
   let waitTask = 0;
+  let decoyTask = 0;
+  let decoyEnd = 0;
   let t0 = 0;
   let rafId = 0;
   let g = null;
@@ -113,7 +125,36 @@ export function mount(el, ctx, nav) {
     runeEl.classList.remove('on');
     setMsg('Bekle…', 'Rune doğmak üzere. Sakın erken dokunma.', 'wait');
     say('Bekle.');
-    waitTask = runner.after(rand(1.5, 5), showRune);
+    const T = rand(1.5, 5);
+    waitTask = runner.after(T, showRune);
+    // Tuzak: ilk turdan sonra, yeterince uzun beklemelerde
+    if (g.times.length >= 1 && T > 2.4 && Math.random() < DECOY_CHANCE) {
+      decoyTask = runner.after(rand(0.8, T - DECOY_TIME - 0.6), showDecoy);
+    }
+  }
+
+  function showDecoy() {
+    if (state !== 'wait') return;
+    const a = pick(ARCHETYPES);
+    decoyEl.replaceChildren(
+      h('span', { class: 'gm-rn-decoy-ring' }),
+      faceArt(a, { zoom: 1.9, pzoom: 1.3, cls: 'gm-rn-decoy-face' }),
+      h('span', { class: 'gm-rn-decoy-tag' }, 'DOG'),
+    );
+    decoyEl.style.setProperty('--dc', a.color);
+    decoyEl.classList.add('on');
+    field.dataset.decoy = 'on';
+    g.decoys++;
+    say('Nehirde bir DOG belirdi. Dokunma.');
+    decoyEnd = runner.after(DECOY_TIME, hideDecoy);
+  }
+  function hideDecoy() {
+    decoyEl.classList.remove('on');
+    delete field.dataset.decoy;
+  }
+  function cancelDecoy() {
+    if (runner) { runner.cancel(decoyTask); runner.cancel(decoyEnd); }
+    hideDecoy();
   }
 
   function showRune() {
@@ -135,6 +176,7 @@ export function mount(el, ctx, nav) {
   }
 
   function early(sub) {
+    cancelDecoy();
     g.early++;
     sEarly.set(g.early);
     sEarly.bump();
@@ -151,6 +193,12 @@ export function mount(el, ctx, nav) {
     if (state === 'wait') {
       runner.cancel(waitTask);
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      if (field.dataset.decoy === 'on') {
+        g.fooled++;
+        early('O rune değildi, DOG’du. Tur sayılmadı; hazır olunca tekrar dokun.');
+        setMsg('DOG’a dokundun!', 'O rune değildi. Tur sayılmadı; hazır olunca tekrar dokun.', 'early');
+        return;
+      }
       early('Tur sayılmadı. Hazır olunca tekrar dokun.');
       return;
     }
@@ -208,6 +256,7 @@ export function mount(el, ctx, nav) {
   function onVis() {
     if (document.hidden && (state === 'wait' || state === 'show')) {
       if (runner) runner.cancel(waitTask);
+      cancelDecoy();
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       toReady();
       setMsg('Tur iptal', 'Sekme değişti. Hazır olunca tekrar dokun.', '');
@@ -219,7 +268,8 @@ export function mount(el, ctx, nav) {
     if (closeOverlay) { closeOverlay(); closeOverlay = null; }
     if (runner) runner.destroy();
     runner = createRunner(null);
-    g = { times: [], early: 0, rune: null };
+    g = { times: [], early: 0, rune: null, decoys: 0, fooled: 0 };
+    cancelDecoy();
     sRound.set(`0/${ROUNDS}`); sLast.set('—'); sAvg.set('—'); sEarly.set('0');
     for (const li of slots.children) { li.className = 'gm-rn-slot'; li.querySelector('.gm-rn-slot-v').textContent = '—'; }
     L.stage.classList.add('playing');
@@ -237,6 +287,7 @@ export function mount(el, ctx, nav) {
     const worst = Math.max(...g.times);
     setMsg(`${avg} ms`, 'Ortalama tepki süren', rate(avg).cls);
     const saved = submitResult(meta, avg);
+    const hist = pushHistory(avg);
     const quip = avg < 220
       ? 'Bottle dolu, rune cepte. Rakip mid hâlâ nehre yürüyor.'
       : avg < 300
@@ -251,9 +302,10 @@ export function mount(el, ctx, nav) {
         stats: [
           ['En hızlı', `${best} ms`],
           ['En yavaş', `${worst} ms`],
-          ['Erken tıklama', fmtNum(g.early)],
+          ['Erken / tuzak', g.decoys ? `${fmtNum(g.early)} · ${g.fooled}/${g.decoys} tuzak` : fmtNum(g.early)],
         ],
         quip,
+        extra: historyNode(hist),
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
@@ -261,6 +313,34 @@ export function mount(el, ctx, nav) {
       runner.destroy();
       runner = null;
     });
+  }
+
+  // ---------------------------------------------------------------- kişisel geçmiş
+  function pushHistory(avg) {
+    let hist = ls.get(HIST_KEY, []);
+    if (!Array.isArray(hist)) hist = [];
+    hist = hist.filter((x) => Number.isFinite(x)).concat(avg).slice(-HIST_MAX);
+    ls.set(HIST_KEY, hist);
+    return hist;
+  }
+  function historyNode(hist) {
+    if (!hist || hist.length < 2) return null;
+    const max = Math.max(...hist, 500);
+    const min = Math.min(...hist);
+    const mean = Math.round(hist.reduce((a, b) => a + b, 0) / hist.length);
+    return h('div', { class: 'gm-rn-hist' },
+      h('div', { class: 'gm-rn-hist-head' },
+        h('span', null, `Son ${hist.length} maçın`),
+        h('span', { class: 'num' }, `ort. ${mean} ms · en iyi ${min} ms`),
+      ),
+      h('div', { class: 'gm-rn-hist-bars', role: 'img', 'aria-label': `Son ${hist.length} maç ortalaması: ${hist.join(', ')} milisaniye` },
+        hist.map((v, i) => h('span', {
+          class: `gm-rn-hist-bar ${rate(v).cls}${i === hist.length - 1 ? ' now' : ''}`,
+          style: { '--h': `${Math.max(8, Math.round((v / max) * 100))}%` },
+          title: `${v} ms`,
+        })),
+      ),
+    );
   }
 
   setMsg('Rune Refleksi', 'Kuralları oku, sonra Başla', '');

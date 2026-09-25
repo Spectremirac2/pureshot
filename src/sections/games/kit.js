@@ -237,10 +237,13 @@ export function bestText(meta) {
   return typeof v === 'number' ? meta.format(v) : '—';
 }
 
-/** HUD'da etiketli sayı kutusu. set(v) ile güncellenir. */
-export function hudStat(label, value = '0', { cls = '', ico } = {}) {
+/**
+ * HUD'da etiketli sayı kutusu. set(v) ile güncellenir.
+ * compact: uzun değerler (ör. 18:32:55) için dar ekranda küçülen yazı.
+ */
+export function hudStat(label, value = '0', { cls = '', ico, compact = false } = {}) {
   const val = h('span', { class: 'gm-stat-val num' }, value);
-  const el = h('div', { class: `gm-stat ${cls}` },
+  const el = h('div', { class: `gm-stat ${cls}${compact ? ' gm-stat-compact' : ''}` },
     h('span', { class: 'gm-stat-label' }, ico ? icon(ico, { size: 14 }) : null, label),
     val,
   );
@@ -337,14 +340,18 @@ export function submitResult(meta, score) {
  * Sonuç kartı. Skor submitResult ile önceden kaydedildiyse `saved` olarak ver;
  * verilmezse burada kaydeder. Rekor ise kutlar.
  * stats: [[etiket, değer]], quip: kısa espri.
- * İsteğe bağlı: practice (true → skor kaydedilmez, "Antrenman" etiketi), extra (Node, düğmelerin üstünde).
+ * İsteğe bağlı: practice (true → skor kaydedilmez, "Antrenman" etiketi), extra (Node, düğmelerin üstünde),
+ * quiet (true → ses ve konfeti yok; ör. geri yüklenen sonuç), retryLabel / retryIcon (tekrar düğmesi).
  */
-export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu', practice = false, extra = null }) {
+export function resultCard(meta, {
+  score, saved, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu',
+  practice = false, extra = null, quiet = false, retryLabel = 'Tekrar oyna', retryIcon = 'refresh',
+}) {
   const { record, prev } = practice
     ? { record: false, prev: (store.me.get().scores || {})[meta.id] }
     : saved || submitResult(meta, score);
   const readOnly = store.shared && !store.canWrite();
-  const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon('refresh', { size: 18 }), 'Tekrar oyna');
+  const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon(retryIcon, { size: 18 }), retryLabel);
   retry.addEventListener('click', () => { sound.click(); onRetry(); });
   const back = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 18 }), 'Oyunlar');
   back.addEventListener('click', () => { sound.click(); onBack(); });
@@ -361,14 +368,16 @@ export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry,
       h('span', { class: 'gm-result-num num' }, meta.scoreText ? meta.scoreText(score) : fmtNum(score)),
       h('span', { class: 'gm-result-unit' }, meta.unit),
     ),
-    stats.length ? h('dl', { class: 'gm-result-stats' }, stats.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))) : null,
+    stats.length ? h('dl', { class: `gm-result-stats n-${stats.length}` }, stats.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))) : null,
     quip ? h('p', { class: 'gm-result-quip' }, quip) : null,
     practice ? h('p', { class: 'xsmall dim gm-result-note' }, 'Antrenman modu: bu skor tabloya ve rekoruna yazılmaz.') : null,
     readOnly && !practice ? h('p', { class: 'xsmall dim gm-result-note' }, 'Salt okunur görüntülüyorsun: rekorun bu cihazda saklanır, salon tablosuna yazılmayabilir.') : null,
     extra,
     h('div', { class: 'row gm-result-actions' }, retry, back),
   );
-  if (record) {
+  if (quiet) {
+    // sessiz: geri yüklenen sonuçta kutlama yok
+  } else if (record) {
     sound.win();
     requestAnimationFrame(() => {
       const r = node.getBoundingClientRect();

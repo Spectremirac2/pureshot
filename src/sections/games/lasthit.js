@@ -1,4 +1,6 @@
 // Last Hit Ustası — yan görünüm koridor, creep dövüşü ve son vuruş zamanlaması (canvas).
+// Can çubuklarında "son vuruş çizgisi" (okun en az hasarı) ve dokunmatikte akıllı hedef seçimi
+// (üst üste binen creep'lerde canı en az olan). Belge: docs/oyunlar/lasthit.md
 
 import { h, pick, rand, randInt, clamp, lerp, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
@@ -41,7 +43,7 @@ export const meta = {
     'Creep’e dokun: okun ~0,35 sn sonra 50–56 hasar vurur. Öldürürsen last hit ve altın.',
     'Canı %50’nin altındaki müttefik creep’i öldür: deny (+12 bonus).',
     'Erken vurursan creep ölmez, geç kalırsan başkası öldürür: ikisi de ıska.',
-    'DOG takım arkadaşın da boş durmuyor: last hit’ini çalabilir. 60 saniye.',
+    'Can çubuğundaki ince çizgi okunun en az hasarı: can onun altına inince vur. DOG takım arkadaşın last hit’ini çalabilir. 60 saniye.',
   ],
   keys: [['Tık / dokun', 'Creep’e vur'], ['← →', 'Hedef seç'], ['Boşluk veya Enter', 'Seçili hedefe vur']],
 };
@@ -118,7 +120,8 @@ export function mount(el, ctx, nav) {
   let seq = 0;
 
   const layout = () => ({
-    rows: [H * 0.6, H * 0.71, H * 0.82],
+    // Sıralar arası açık: can çubukları arkadaki creep'in üstüne binmesin
+    rows: [H * 0.575, H * 0.73, H * 0.885],
     center: Lw * (Lw < 600 ? 0.56 : 0.54),
     hero: { x: Lw < 600 ? 30 : 60, y: H * 0.93 },
     mate: { x: Lw < 600 ? 88 : 132, y: H * 0.94 },
@@ -134,7 +137,7 @@ export function mount(el, ctx, nav) {
       sparks: [],
       nextWave: 0,
       waves: 0,
-      lh: 0, dn: 0, gold: 0, attacks: 0, misses: 0, stolen: 0, early: 0, late: 0,
+      lh: 0, dn: 0, gold: 0, attacks: 0, misses: 0, stolen: 0, early: 0, late: 0, enemyDeaths: 0,
       heroCd: 0,
       heroAnim: 0,
       nextSteal: rand(9, 13),
@@ -177,6 +180,7 @@ export function mount(el, ctx, nav) {
       c.hp = 0;
       c.dead = true;
       c.killer = by;
+      if (st && st.mode === 'play' && c.side === 'enemy') st.enemyDeaths++;
       if (selected === c) selected = null;
       return true;
     }
@@ -338,11 +342,18 @@ export function mount(el, ctx, nav) {
     if (!st || st.mode !== 'play' || !alive(c)) return;
     const lay = layout();
     if (st.heroCd > 0) {
-      floatAt(lay.hero.x + 10, lay.hero.y - 70, 'Bekle', C['text-3'], 12);
+      // Üst üste "Bekle" yazıları birikmesin
+      if (!st.floats.some((f) => f.tag === 'cd' && f.t < 0.6)) {
+        floatAt(lay.hero.x + 10, lay.hero.y - 70, 'Bekle', C['text-3'], 12);
+        st.floats[st.floats.length - 1].tag = 'cd';
+      }
       return;
     }
     if (c.side === 'ally' && c.hp / c.maxHp >= 0.5) {
-      floatAt(c.x, c.y - 84, 'Deny için can %50 altı olmalı', C['text-2'], 12);
+      if (!st.floats.some((f) => f.tag === 'deny' && f.t < 0.8)) {
+        floatAt(c.x, c.y - 84, 'Deny için can %50 altı olmalı', C['text-2'], 12);
+        st.floats[st.floats.length - 1].tag = 'deny';
+      }
       ctx.sound.miss();
       return;
     }
@@ -573,6 +584,12 @@ export function mount(el, ctx, nav) {
       g.fillRect(bx, by, bw * (c.hp / c.maxHp), bh);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       for (let v = 100; v < c.maxHp; v += 100) g.fillRect(bx + bw * (v / c.maxHp), by, 1, bh);
+      // Son vuruş çizgisi: okun en az hasarı (düşman ve deny edilebilir müttefik)
+      if (c.side === 'enemy' || c.hp / c.maxHp < 0.5) {
+        const lx = bx + bw * (HERO_DMG[0] / c.maxHp);
+        g.fillStyle = c.hp <= HERO_DMG[0] ? C['aegis-2'] : 'rgba(255,255,255,0.75)';
+        g.fillRect(lx - 0.75, by - 2, 1.5, bh + 4);
+      }
       if (c.side === 'ally' && c.hp / c.maxHp < 0.5) {
         // Deny edilebilir işareti
         g.fillStyle = hexA(C.radiant, 0.9);
@@ -781,11 +798,31 @@ export function mount(el, ctx, nav) {
     const r = canvas.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * Lw, y: ((e.clientY - r.top) / r.height) * H };
   }
-  function pickCreep(p) {
+  /**
+   * İşaretçinin altındaki creep. smart (dokunmatik): üst üste binen adaylar arasında son vuruşa en
+   * yakın olanı seç — canı az olan düşman ya da deny edilebilir müttefik; parmak tek creep'i seçemez.
+   */
+  function pickCreep(p, smart = false) {
     if (!st) return null;
     const minHalf = 26 / scale; // en az ~52 px dokunma alanı
     let best = null;
     let bd = Infinity;
+    if (smart) {
+      let bestHp = Infinity;
+      for (const c of st.creeps) {
+        if (c.dead) continue;
+        const hw = Math.max(c.T.w * 0.62 * CS, minHalf);
+        const top = c.y - c.T.h * CS - 18;
+        const bottom = c.y + 8;
+        const cy = (top + bottom) / 2;
+        const hh = Math.max((bottom - top) / 2, minHalf);
+        if (Math.abs(p.x - c.x) > hw || Math.abs(p.y - cy) > hh) continue;
+        const valid = c.side === 'enemy' || c.hp / c.maxHp < 0.5;
+        const key = (valid ? 0 : 10000) + c.hp;
+        if (key < bestHp) { bestHp = key; best = c; }
+      }
+      if (best) return best;
+    }
     for (const c of st.creeps) {
       if (c.dead) continue;
       const hw = Math.max(c.T.w * 0.62 * CS, minHalf);
@@ -804,7 +841,7 @@ export function mount(el, ctx, nav) {
     if (!st || st.mode !== 'play') return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
-    const c = pickCreep(toLogical(e));
+    const c = pickCreep(toLogical(e), e.pointerType !== 'mouse');
     if (c) { selected = c; heroAttack(c); }
   }
   function onPointerMove(e) {
@@ -877,6 +914,8 @@ export function mount(el, ctx, nav) {
     selected = null;
     hover = null;
     const acc = st.attacks ? Math.round(((st.lh + st.dn) / st.attacks) * 100) : 0;
+    // Klasik Dota ölçüsü: ölen düşman creep'lerinin kaçı senin son vuruşun
+    const eff = st.enemyDeaths ? Math.round((st.lh / st.enemyDeaths) * 100) : 0;
     // Skoru hemen kaydet: kart gecikmeli açılır, oyuncu o arada ayrılsa da skor kaybolmaz.
     const saved = submitResult(meta, st.gold);
     const quip = st.lh >= 14
@@ -896,7 +935,7 @@ export function mount(el, ctx, nav) {
           ['İsabet', `%${acc}`],
           ['Iska (erken/geç)', `${st.early}/${st.late}`],
           ['Çalınan LH', fmtNum(st.stolen)],
-          ['Toplam saldırı', fmtNum(st.attacks)],
+          ['LH verimi', `%${eff} (${st.lh}/${st.enemyDeaths})`],
         ],
         quip,
         onRetry: start,

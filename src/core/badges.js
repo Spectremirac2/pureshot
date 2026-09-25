@@ -42,10 +42,10 @@ export const THRESHOLDS = {
   arena: 1200, // ≈ ilk dalga: 9 DOG × 100 + 300 dalga bonusu
   arenaEfsane: 6000, // ≈ 3–4 dalga
   dogdleSharp: 2, // tahmin — DÜŞÜK iyi
-  portre: 600, // puan
+  portre: 3000, // puan (10 tur × 100–500, seri çarpanı ×2'ye kadar)
   invoker: 15, // büyü / 60 sn
-  hook: 1500, // puan
-  bingo: 1, // bingo
+  hook: 1500, // puan (düşman 100, uzun kanca +50, seri ×2/×3)
+  bingo: 1, // tamamlanan çizgi
   hayran: 10, // 12 sorudan doğru
   bilgi: 1200, // puan (10 soru × 100 + hız bonusu)
   daha: 10, // "Daha DOG mu?" serisi
@@ -115,7 +115,7 @@ export const BADGES = [
     how: `Last Hit Ustası’nda ${fmtNum(T.lasthit)} altın.`,
     test: atLeast('lasthit', T.lasthit), progress: upTo('lasthit', T.lasthit, unit('altın')) },
   { id: 'hafiza', group: 'oyun', game: 'hafiza', name: 'Hafıza Kralı', icon: 'brain', color: 'var(--arcane)',
-    how: `DOG Hafıza’da ${fmtNum(T.hafiza)} puan (klasik mod).`,
+    how: `DOG Hafıza’da ${fmtNum(T.hafiza)} puan (4×4 masa).`,
     test: atLeast('hafiza', T.hafiza), progress: upTo('hafiza', T.hafiza, unit('puan')) },
   { id: 'refleks', group: 'oyun', game: 'rune', name: 'Refleks Canavarı', icon: 'bolt', color: 'var(--radiant)',
     how: `Rune Refleksi ortalaman ${T.rune} ms ya da altı.`,
@@ -136,7 +136,7 @@ export const BADGES = [
     how: `Pudge Hook’ta ${fmtNum(T.hook)} puan.`,
     test: atLeast('hook', T.hook), progress: upTo('hook', T.hook, unit('puan')) },
   { id: 'bingo', group: 'oyun', game: 'bingo', name: 'Bingo!', icon: 'star', color: 'var(--ember-2)',
-    how: 'DOG Bingo’da bir sıra tamamla.',
+    how: 'DOG Bingo’da bir çizgi tamamla: satır, sütun ya da çapraz.',
     test: atLeast('bingo', T.bingo) },
 
   // --- Quizler
@@ -255,11 +255,13 @@ export function ensureBadgeWatcher() {
 }
 
 // Rozet bildirimi stilleri küçük olduğu için burada: kabuk CSS'ine dokunmadan her sayfada çalışır.
+// Bildirim tıklamaları geçirir (sonuç kartının düğmelerinin üstüne düşebilir).
 let styled = false;
 (function injectStyle() {
   if (styled || typeof document === 'undefined') return;
   styled = true;
-  const css = `.bdg-toast{display:flex;align-items:center;gap:10px;min-width:0}
+  const css = `.toast:has(.bdg-toast){pointer-events:none}
+.bdg-toast{display:flex;align-items:center;gap:10px;min-width:0}
 .bdg-toast-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;color:var(--bc,var(--aegis));background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--bc,var(--aegis)) 30%,transparent),transparent 70%),linear-gradient(160deg,var(--bg-4),var(--bg));border:1px solid color-mix(in srgb,var(--bc,var(--aegis)) 60%,var(--line-2));clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .bdg-toast-text{display:flex;flex-direction:column;gap:1px;min-width:0}
 .bdg-toast-eyebrow{font-family:var(--font-lore);font-weight:700;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--aegis)}

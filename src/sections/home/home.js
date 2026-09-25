@@ -475,12 +475,15 @@ function fmtCountdown(ms) {
   const p = (n) => String(n).padStart(2, '0');
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
 }
-/** DOGdle'ın yerel kaydından bugünkü durum (csk:dogdle:day = { n, guesses, solved }); yoksa oynanmadı. */
+// DOGdle bulmaca numarası: #1 = 25 Eylül 2026 (İstanbul günü). dogdle.js'teki EPOCH ile aynı olmalı;
+// ana sayfa oyun modülünü içe aktarmasın diye burada tekrarlanır.
+const DOGDLE_EPOCH_DAY = Math.floor(Date.UTC(2026, 8, 25) / DAY_MS);
+const dogdleNumber = (now = Date.now()) => Math.max(1, Math.floor((now + 3 * 3600000) / DAY_MS) - DOGDLE_EPOCH_DAY + 1);
+/** DOGdle'ın yerel kaydından bugünkü durum (csk:dogdle:day = { n: bulmaca no, guesses, solved }); yoksa oynanmadı. */
 function dogdleToday() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem('csk:dogdle:day') || 'null'); } catch { d = null; }
-  const today = Math.floor((Date.now() + 3 * 3600000) / DAY_MS);
-  if (!d || typeof d !== 'object' || d.n !== today) return { done: false, guesses: 0 };
+  if (!d || typeof d !== 'object' || d.n !== dogdleNumber()) return { done: false, guesses: 0 };
   const guesses = Array.isArray(d.guesses) ? d.guesses.length : 0;
   return { done: !!d.solved, guesses };
 }

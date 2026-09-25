@@ -1227,6 +1227,43 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
 .gm-rn-field[data-mood='gold'] .gm-rn-msg { color: var(--aegis); }
 .gm-rn-field[data-mood='jade'] .gm-rn-msg { color: var(--radiant); }
 .gm-rn-field[data-mood='wait'] .gm-rn-msg { color: var(--text-2); }
+/* Tuzak: rune yerine DOG kafası */
+.gm-rn-decoy {
+  --dc: var(--dire);
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 104px; height: 104px;
+  transform: translate(-50%, -62%) scale(0.4);
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.gm-rn-decoy.on { visibility: visible; transform: translate(-50%, -62%) scale(1); transition: transform 0.14s var(--ease-snap); }
+.gm-rn-decoy-ring { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--dire); box-shadow: 0 0 24px color-mix(in srgb, var(--dire) 55%, transparent); }
+.gm-rn-decoy-face { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--dc); }
+.gm-rn-decoy-tag {
+  position: absolute;
+  left: 50%; bottom: -12px;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  font-family: var(--font-display); font-weight: 900; font-size: 13px;
+  color: var(--text);
+  background: var(--dire);
+  border: 2px solid var(--text);
+}
+.gm-rn-field[data-decoy='on']::after { opacity: 0.4; }
+
+/* Kişisel geçmiş (sonuç kartı) */
+.gm-rn-hist { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.gm-rn-hist-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.gm-rn-hist-head .num { text-transform: none; letter-spacing: 0; color: var(--text-2); }
+.gm-rn-hist-bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.gm-rn-hist-bar { flex: 1 1 0; max-width: 28px; height: var(--h); min-height: 3px; background: var(--line-2); }
+.gm-rn-hist-bar.gold { background: var(--aegis); }
+.gm-rn-hist-bar.jade { background: var(--radiant); }
+.gm-rn-hist-bar.blood { background: var(--dire); }
+.gm-rn-hist-bar.now { outline: 2px solid var(--text); outline-offset: 1px; }
+
 .gm-rn-slots {
   margin: var(--sp-3) 0 0;
   padding: 0;
@@ -1325,12 +1362,16 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   .gm-wh-tag { font-size: 8px; padding: 0 4px; }
   .gm-rn-spot { width: 120px; height: 52px; }
   .gm-rn-rune { width: 96px; height: 96px; }
+  .gm-rn-decoy { width: 88px; height: 88px; }
   .gm-lh-feed-item { font-size: 11px; }
   .gm-boards-tabs .tab { padding: 10px 10px; font-size: var(--fs-xs); letter-spacing: 0.04em; }
 }
 @media (max-width: 400px) {
   .gm-inv-charge { font-size: 9px; }
-  .gm-result-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Üç istatistik tek satırda kalır; daha fazlası iki sütuna iner */
+  .gm-result-stats:not(.n-3):not(.n-1) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gm-result-stats.n-3 > div { padding: 8px; }
+  .gm-stat-compact .gm-stat-val { font-size: 0.9rem; letter-spacing: -0.02em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
