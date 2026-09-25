@@ -1,4 +1,4 @@
-// 1vDOQUZ Arena 2.0 — kahraman tanımları (yalnızca veri; yetenek mantığı kits.js içinde).
+// 1vDOQUZ Arena 2.0 — kahraman tanımları (yalnızca veri; yetenek mantığı abilities.js içinde).
 // Hepsi Dota arketiplerinden esinlenen özgün karakterlerdir; arayüzde Türkçe lakaplarıyla anılırlar.
 
 export const HERO_IDS = ['okcu', 'balta', 'buz', 'golge'];
