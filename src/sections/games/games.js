@@ -15,6 +15,11 @@ import * as whack from './whack.js';
 import * as lasthit from './lasthit.js';
 import * as memory from './memory.js';
 import * as rune from './rune.js';
+import * as dogdle from './dogdle.js';
+import * as portre from './portre.js';
+import * as invoker from './invoker.js';
+import * as hook from './hook.js';
+import * as bingo from './bingo.js';
 
 const ARENA = {
   id: 'arena',
@@ -31,8 +36,8 @@ const ARENA = {
   format: (n) => `${fmtNum(n)} puan`,
 };
 
-const GAMES = [ARENA, whack.meta, lasthit.meta, memory.meta, rune.meta];
-const MODS = { dogavi: whack, lasthit, hafiza: memory, rune };
+const GAMES = [ARENA, whack.meta, lasthit.meta, memory.meta, rune.meta, dogdle.meta, portre.meta, invoker.meta, hook.meta, bingo.meta];
+const MODS = { dogavi: whack, lasthit, hafiza: memory, rune, dogdle, portre, invoker, hook, bingo };
 const byId = (id) => GAMES.find((g) => g.id === id) || null;
 
 let active = null;
