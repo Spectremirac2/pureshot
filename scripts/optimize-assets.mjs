@@ -20,6 +20,8 @@ const inPlace = process.argv.includes('--yerinde');
 mkdirSync(OUT, { recursive: true });
 
 const GLB_TEXTURE_SIZE = '768';
+// Ekranda küçük görünen birimler (creep'ler, kurye) 512² dokuyla yeterince net; ~%25 daha küçük dosya
+const glbTextureSize = (file) => (/^model-(creep-|courier)/.test(file.split('/').pop()) ? '512' : GLB_TEXTURE_SIZE);
 const rules = [
   { test: /^hero-keyart/, width: 2400, quality: 78 },
   { test: /^poster-/, width: 1600, quality: 80 },
@@ -30,7 +32,7 @@ const rules = [
 const kb = (f) => (statSync(f).size / 1024).toFixed(0) + ' KB';
 
 function optimizeGlb(src, out, extra = []) {
-  execFileSync('npx', ['gltf-transform', 'optimize', src, out, '--compress', 'meshopt', '--texture-compress', 'webp', '--texture-size', GLB_TEXTURE_SIZE, ...extra], { stdio: 'inherit' });
+  execFileSync('npx', ['gltf-transform', 'optimize', src, out, '--compress', 'meshopt', '--texture-compress', 'webp', '--texture-size', glbTextureSize(out), ...extra], { stdio: 'inherit' });
 }
 
 if (inPlace) {
