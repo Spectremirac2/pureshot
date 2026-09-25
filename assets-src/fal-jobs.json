@@ -105,5 +105,113 @@
     "endpoint": "fal-ai/trellis-2",
     "request_id": "01a0d4fc-8584-7123-963e-fb96de360560",
     "url": "https://v3b.fal.media/files/b/0aabc007/b1Ox4SRUv4oLNGuzoLMc2_trellis2_45943a34377f4b1b8b8a1c9ad59b70f0.glb"
+  },
+  "src3d-hero-brute": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-1377-75f3-acee-649cf936ccdf",
+    "url": "https://v3b.fal.media/files/b/0aabe681/4R17QWNo_Tp-AxEfYzirq_YdUTQAYj.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-hero-frost": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-1fa4-7f72-8cdc-3152afdaeb0a",
+    "url": "https://v3b.fal.media/files/b/0aabe681/kb6vvM0YPCfceB3gldnlM_2a9VIXOn.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-hero-shadow": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-2c1a-73f2-9fe1-dd66cd628434",
+    "url": "https://v3b.fal.media/files/b/0aabe681/pMelHT3zCAR0EimEyxwry_gTIWcEwr.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-creep-melee": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-378d-7293-92b2-dbd805dad4fe",
+    "url": "https://v3b.fal.media/files/b/0aabe682/3wYVikjLgIYUBO9tb-UfZ_1sohJi0g.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-creep-ranged": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-424f-76a2-bfca-8f86977015c2",
+    "url": "https://v3b.fal.media/files/b/0aabe682/k3pthp3NDd3SusycBHUZc_VEgIadJX.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-roshan": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-4e90-7b12-b3e4-9c4deafa243e",
+    "url": "https://v3b.fal.media/files/b/0aabe682/fL4cC72hlCR9z6V4RdfNQ_Srs78c6P.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-tower-radiant": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-5a41-7423-be92-b2afe386878a",
+    "url": "https://v3b.fal.media/files/b/0aabe682/YY9IFg9kTTtDgU4Bn1yb6_PdqdULB0.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-tower-dire": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-64e1-7ab3-b145-329967a8a635",
+    "url": "https://v3b.fal.media/files/b/0aabe683/hZulPGD573fAMU8ZECyIq_PiPFVxr0.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-courier": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dadc-6ef1-7623-aeea-69d4d0e25c6e",
+    "url": "https://v3b.fal.media/files/b/0aabe683/XsPIbfbX-570D_Kf6NAni_Bi4PB0KY.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "model-hero-brute": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-ddd9-7040-b831-fc01453f1df6",
+    "url": null,
+    "source": "src3d-hero-brute"
+  },
+  "model-hero-frost": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-e1d0-7930-a10e-0c946d94289d",
+    "url": null,
+    "source": "src3d-hero-frost"
+  },
+  "model-hero-shadow": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-e5bc-7201-856f-e11932c619ae",
+    "url": null,
+    "source": "src3d-hero-shadow"
+  },
+  "model-creep-melee": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-e9f6-7f92-a53d-d62b04cf583c",
+    "url": null,
+    "source": "src3d-creep-melee"
+  },
+  "model-creep-ranged": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-ee1c-74c3-9395-f93c62e81520",
+    "url": null,
+    "source": "src3d-creep-ranged"
+  },
+  "model-roshan": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-f261-7623-90ed-3cfe2bc79dc3",
+    "url": null,
+    "source": "src3d-roshan"
+  },
+  "model-tower-radiant": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-f6df-7ba1-87e5-8a1a2f9152c5",
+    "url": null,
+    "source": "src3d-tower-radiant"
+  },
+  "model-tower-dire": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-fab9-7b62-b0f4-261ead55c3f6",
+    "url": null,
+    "source": "src3d-tower-dire"
+  },
+  "model-courier": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0dadd-fe76-7fc2-ac29-28534e294d6e",
+    "url": null,
+    "source": "src3d-courier"
   }
 }
