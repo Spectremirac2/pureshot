@@ -656,6 +656,8 @@ export function mount(el, ctx, nav) {
     );
   }
 
+  const practiceBadge = () => h('span', { class: 'badge', title: 'Serbest mod skoru tabloya ve seriye yazılmaz' }, 'Antrenman · skor tutulmaz');
+
   function relabel(node, ico, label) {
     const b = node.querySelector('[data-primary]');
     if (b) b.replaceChildren(icon(ico, { size: 18 }), label);
@@ -703,13 +705,16 @@ export function mount(el, ctx, nav) {
         onBack: () => nav && nav.back(),
       };
       if (live) {
-        // Serbest mod skoru kaydetmez: resultCard'a kaydedilmemiş sonuç verilir
-        node = resultCard(meta, { ...opts, saved: { record: false, prev: null } }).node;
-        const badge = node.querySelector('.gm-result-top .badge');
-        if (badge) badge.replaceWith(h('span', { class: 'badge' }, 'Skor tutulmaz'));
+        // Serbest mod skoru kaydetmez: kit'in antrenman kipi (eski kit sürümünde de kaydedilmemiş sonuç verilir)
+        node = resultCard(meta, { ...opts, practice: true, saved: { record: false, prev: null } }).node;
+        const top = node.querySelector('.gm-result-top');
+        if (top) {
+          top.querySelectorAll('.badge').forEach((b) => b.remove());
+          top.appendChild(practiceBadge());
+        }
         relabel(node, 'dice', 'Yeni kahraman');
       } else {
-        node = quietResult({ ...opts, badge: h('span', { class: 'badge' }, 'Skor tutulmaz'), retryLabel: 'Yeni kahraman', retryIcon: 'dice' });
+        node = quietResult({ ...opts, badge: practiceBadge(), retryLabel: 'Yeni kahraman', retryIcon: 'dice' });
       }
       node.insertBefore(answerCard(M.answer, 'Gizli kahraman'), node.children[1]);
     } else {

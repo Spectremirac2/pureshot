@@ -296,8 +296,11 @@ export function showOverlay(stage, node, { cls = '', reveal = false } = {}) {
   return () => ov.remove();
 }
 
-/** Başlangıç kartı: kurallar + Başla. */
-export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
+/**
+ * Başlangıç kartı: kurallar + Başla.
+ * İsteğe bağlı: extra (Node — ör. mod seçici, kuralların altında), rules (meta.rules yerine gösterilecek liste).
+ */
+export function introCard(meta, { onStart, note, startLabel = 'Başla', extra = null, rules = null }) {
   const start = h('button', { class: 'btn primary lg', type: 'button', 'data-primary': '' }, icon('play', { size: 18 }), startLabel);
   start.addEventListener('click', () => { sound.click(); onStart(); });
   const best = (store.me.get().scores || {})[meta.id];
@@ -310,7 +313,8 @@ export function introCard(meta, { onStart, note, startLabel = 'Başla' }) {
         h('h2', { class: 'h2' }, meta.name),
       ),
     ),
-    h('ul', { class: 'gm-rules' }, (meta.rules || []).slice(0, 4).map((r) => h('li', null, r))),
+    h('ul', { class: 'gm-rules' }, (rules || meta.rules || []).slice(0, 4).map((r) => h('li', null, r))),
+    extra,
     note ? h('p', { class: 'xsmall dim' }, note) : null,
     h('div', { class: 'row gm-intro-foot' },
       start,
@@ -333,9 +337,12 @@ export function submitResult(meta, score) {
  * Sonuç kartı. Skor submitResult ile önceden kaydedildiyse `saved` olarak ver;
  * verilmezse burada kaydeder. Rekor ise kutlar.
  * stats: [[etiket, değer]], quip: kısa espri.
+ * İsteğe bağlı: practice (true → skor kaydedilmez, "Antrenman" etiketi), extra (Node, düğmelerin üstünde).
  */
-export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu' }) {
-  const { record, prev } = saved || submitResult(meta, score);
+export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry, onBack, title = 'Maç sonu', practice = false, extra = null }) {
+  const { record, prev } = practice
+    ? { record: false, prev: (store.me.get().scores || {})[meta.id] }
+    : saved || submitResult(meta, score);
   const readOnly = store.shared && !store.canWrite();
   const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon('refresh', { size: 18 }), 'Tekrar oyna');
   retry.addEventListener('click', () => { sound.click(); onRetry(); });
@@ -344,9 +351,11 @@ export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry,
   const node = h('div', { class: 'gm-result stack' },
     h('div', { class: 'row gm-result-top' },
       h('span', { class: 'eyebrow' }, title),
-      record
-        ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), prev == null ? 'İlk skorun' : 'Yeni rekor')
-        : h('span', { class: 'badge' }, 'Rekorun: ', meta.format(prev)),
+      practice
+        ? h('span', { class: 'badge' }, 'Antrenman')
+        : record
+          ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), prev == null ? 'İlk skorun' : 'Yeni rekor')
+          : prev != null ? h('span', { class: 'badge' }, 'Rekorun: ', meta.format(prev)) : null,
     ),
     h('div', { class: 'gm-result-score' },
       h('span', { class: 'gm-result-num num' }, meta.scoreText ? meta.scoreText(score) : fmtNum(score)),
@@ -354,7 +363,9 @@ export function resultCard(meta, { score, saved, stats = [], quip = '', onRetry,
     ),
     stats.length ? h('dl', { class: 'gm-result-stats' }, stats.map(([k, v]) => h('div', null, h('dt', null, k), h('dd', { class: 'num' }, v)))) : null,
     quip ? h('p', { class: 'gm-result-quip' }, quip) : null,
-    readOnly ? h('p', { class: 'xsmall dim gm-result-note' }, 'Salt okunur görüntülüyorsun: rekorun bu cihazda saklanır, salon tablosuna yazılmayabilir.') : null,
+    practice ? h('p', { class: 'xsmall dim gm-result-note' }, 'Antrenman modu: bu skor tabloya ve rekoruna yazılmaz.') : null,
+    readOnly && !practice ? h('p', { class: 'xsmall dim gm-result-note' }, 'Salt okunur görüntülüyorsun: rekorun bu cihazda saklanır, salon tablosuna yazılmayabilir.') : null,
+    extra,
     h('div', { class: 'row gm-result-actions' }, retry, back),
   );
   if (record) {

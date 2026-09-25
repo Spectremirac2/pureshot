@@ -63,7 +63,7 @@ Ortak sistemler:
 
 | Katman | Kullanılan |
 | --- | --- |
-| Derleme | [Vite 6](https://vite.dev) — tek `app.js` + tek `app.css` paketi, fontlar CSS'e gömülü |
+| Derleme | [Vite 6](https://vite.dev) — statik yayın: bölüm başına JS/CSS parçaları, hash'li adlar, ayrı alt küme fontlar; Artifact: tek `app.js` + tek `app.css` (fontlar gömülü) |
 | Arayüz | Vanilla JavaScript (ES modülleri, framework yok), elle yazılmış tasarım sistemi (`src/styles/`) |
 | 3D | [three.js](https://threejs.org) 0.170 (GLTFLoader + MeshoptDecoder) |
 | Yazı tipleri | `@fontsource` ile paketlenen Unbounded, Cinzel, Barlow, JetBrains Mono (dış CDN yok) |
@@ -78,8 +78,9 @@ Ortak sistemler:
 ```
 .
 ├── index.html                  # giriş sayfası (Vite)
-├── vite.config.js              # tek paket çıktısı, base: './'
+├── vite.config.js              # iki derleme kipi: statik (bölünmüş, hash'li) ve artifact (tek paket), base: './'
 ├── package.json
+├── public/                     # favicon.svg, apple-touch-icon, manifest simgeleri, og.jpg (build:share üretir)
 ├── src/
 │   ├── main.js                 # kabuğu başlatır
 │   ├── core/                   # çekirdek: dom, store (veri katmanı), platform, fx, sound, icons,
@@ -88,18 +89,23 @@ Ortak sistemler:
 │   ├── sections/               # her bölüm kendi klasöründe (home, jokes, games, quizzes,
 │   │                           #   characters, qa, gallery, heroes) + bölüme özel CSS
 │   ├── data/                   # espriler, DOG türleri, quiz soruları, SSS, kahraman verisi
-│   ├── styles/                 # tokens.css, base.css, components.css, shell.css
+│   ├── styles/                 # tokens.css, base.css, components.css, shell.css, fonts.css (build:fonts üretir)
 │   ├── assets/fal/             # optimize edilmiş fal.ai görselleri (.webp) ve modelleri (.glb)
-│   └── assets/heroes/          # kahraman görselleri (Valve): portraits/ (256×144) ve renders/ (tam boy)
+│   ├── assets/fonts/           # alt küme woff2 fontlar (aile + kalınlık başına tek dosya)
+│   └── assets/heroes/          # kahraman görselleri (Valve): portraits/ (256×144), renders/ (tam boy),
+│                               #   atlas/ (3D halka için tek portre atlası)
 ├── assets-src/
 │   ├── fal-jobs.json           # fal.ai iş listesi (anahtar → endpoint, request_id, url)
 │   ├── raw/                    # fal.ai'den inen ham dosyalar (git'e girmez)
 │   └── *.json                  # kahraman listesi kaynak verileri
 ├── scripts/
 │   ├── fetch-fal-assets.mjs    # fal.ai varlıklarını assets-src/raw/ altına indirir (npm run fetch:fal)
-│   ├── optimize-assets.mjs     # assets-src/raw/ → src/assets/fal/ (WebP + meshopt GLB)
+│   ├── optimize-assets.mjs     # assets-src/raw/ → src/assets/fal/ (WebP + meshopt GLB, doku 768)
+│   ├── subset-fonts.mjs        # @fontsource → src/assets/fonts/ alt küme + src/styles/fonts.css (npm run build:fonts)
+│   ├── build-hero-atlas.mjs    # portreler → src/assets/heroes/atlas/ tek WebP atlas (npm run build:atlas)
+│   ├── build-share-images.mjs  # public/ simgeleri ve og.jpg paylaşım görseli (npm run build:share)
 │   ├── fetch-hero-images.mjs   # Dota 2 CDN'inden kahraman portre/render'ları → src/assets/heroes/ (npm run fetch:heroes)
-│   ├── build-artifact.mjs      # dist/index.html → dist/artifact.html
+│   ├── build-artifact.mjs      # dist/index.html → dist/artifact.html (npm run build)
 │   ├── artifact-files.mjs      # dist/ içeriğini Artifact dosya eşlemesine çevirir
 │   └── shot.mjs                # Playwright ile ekran görüntüsü
 └── server/                     # isteğe bağlı paylaşılan veri API'si
@@ -138,22 +144,47 @@ FULL=1 node scripts/shot.mjs "http://localhost:5173/#ana" tam-sayfa.png 1440 900
 
 ## Derleme
 
+İki derleme kipi vardır (bkz. `vite.config.js`; ayrıntılar ve ölçümler: [docs/OPTIMIZASYON.md](docs/OPTIMIZASYON.md)):
+
 ```bash
-npm run build        # vite build + scripts/build-artifact.mjs
-npm run preview      # dist/ klasörünü yerelde sunar
+npm run build:static   # statik yayın (Netlify, GitHub Pages, Cloudflare Pages…) = vite build
+npm run build          # claude.ai Artifact: vite build --mode artifact + scripts/build-artifact.mjs
+npm run preview        # dist/ klasörünü yerelde sunar (/assets/* için Netlify'deki önbellek başlığıyla)
 ```
 
-Çıktı:
+**Statik kip** (`build:static`) — ziyaretçi yalnızca açtığı bölümün kodunu indirir:
 
 | Dosya | Açıklama |
 | --- | --- |
-| `dist/index.html` | Statik barındırma için giriş sayfası |
+| `dist/index.html` | Giriş sayfası; iki fontu önceden yükler, paylaşım (Open Graph) etiketlerini taşır |
+| `dist/assets/index-[hash].js`, `index-[hash].css` | Kabuk (HUD, yetenek çubuğu, yönlendirme) ve ortak stiller |
+| `dist/assets/<bölüm>-[hash].js/.css` | Bölüm parçaları (`src/core/routes.js` içindeki dinamik `import()`'lar) |
+| `dist/assets/three-[hash].js` | three.js; yalnızca 3D sahne açıldığında iner |
+| `dist/assets/<aile>-<kalınlık>-[hash].woff2` | Alt küme fontlar, yalnızca kullanıldıklarında istenir |
+| `dist/assets/*.webp`, `*.glb` | Görseller, kahraman portre atlası, modeller |
+| `dist/og.jpg`, `favicon.svg`, `manifest.webmanifest`… | `public/` klasöründen gelen paylaşım görseli ve simgeler |
+
+Adları hash'li olduğu için `/assets/*` dosyaları bir yıl `immutable` önbelleklenebilir (`netlify.toml`).
+
+**Artifact kipi** (`build`) — claude.ai Artifact ortamı ayrı font dosyalarını ve kod parçalarını güvenilir biçimde
+sunamadığı için eskisi gibi tek paket üretilir:
+
+| Dosya | Açıklama |
+| --- | --- |
 | `dist/assets/app.js`, `dist/assets/app.css` | Tek JS ve tek CSS paketi (fontlar CSS içinde) |
-| `dist/assets/*.webp`, `*.glb` | fal.ai görselleri ve modelleri (varsa) |
-| `dist/artifact.html` | claude.ai Artifact yayını için yalnızca içerikten oluşan sürüm |
+| `dist/assets/*.webp`, `*.glb`, `*.glb.json` | Görseller ve modeller (Artifact `.glb` sunmadığı için base64 JSON kopyaları da) |
+| `dist/artifact.html` | Artifact yayını için yalnızca içerikten oluşan sürüm |
 
 `base: './'` sayesinde `dist/` herhangi bir alt klasörde (ör. `kullanici.github.io/depo/`) çalışır.
 Yönlendirme hash tabanlıdır (`#oyunlar--arena`); sunucuda yeniden yazma kuralı gerekmez.
+
+Üretilmiş varlıklar depoda durur; kaynakları değiştiğinde yeniden üretin:
+
+```bash
+npm run build:fonts    # yeni bir ASCII dışı karakter/simge eklendiğinde (Python: pip install --user fonttools brotli)
+npm run build:atlas    # kahraman portreleri değiştiğinde ya da kahraman eklendiğinde
+npm run build:share    # og.jpg ve simgeler (og.jpg için Playwright Chromium gerekir)
+```
 
 ## Veri modları
 
@@ -184,10 +215,12 @@ değiştirir; ham kimliği yalnızca sahibi görür.
 
 ### A) Herhangi bir statik barındırma
 
-Site tamamen statiktir; `npm run build` sonrası `dist/` klasörünü yüklemek yeterlidir. Bu modda yorumlar ve
+Site tamamen statiktir; `npm run build:static` sonrası `dist/` klasörünü yüklemek yeterlidir. Bu modda yorumlar ve
 espriler **yalnızca ziyaretçinin kendi tarayıcısında** saklanır. Herkesin aynı yorumları görmesi için
 [B](#b-paylaşılan-yorumlar-cloudflare-worker--d1) seçeneğindeki API'yi ekleyin ve derlemeyi
-`VITE_API_BASE=https://…/api npm run build` ile yapın.
+`VITE_API_BASE=https://…/api npm run build:static` ile yapın.
+Hash'li `/assets/*` dosyalarına uzun önbellek başlığı vermek (`Cache-Control: public, max-age=31536000, immutable`)
+tekrar ziyaretlerde bütün doğrulama isteklerini ortadan kaldırır; Netlify için bu ayar `netlify.toml` içinde hazırdır.
 
 #### GitHub Pages
 
@@ -215,7 +248,7 @@ espriler **yalnızca ziyaretçinin kendi tarayıcısında** saklanır. Herkesin 
          - uses: actions/setup-node@v4
            with: { node-version: 22, cache: npm }
          - run: npm ci
-         - run: npm run build
+         - run: npm run build:static
            env:
              VITE_API_BASE: ${{ vars.VITE_API_BASE }}   # isteğe bağlı: Settings → Variables
          - uses: actions/upload-pages-artifact@v3
@@ -228,19 +261,20 @@ espriler **yalnızca ziyaretçinin kendi tarayıcısında** saklanır. Herkesin 
 
 #### Netlify
 
-Depodaki `netlify.toml` statik yayın sürümünü derler (`VITE_API_BASE=none`, yayın klasörü `dist`).
+Depodaki `netlify.toml` statik yayın sürümünü derler (`npm run build:static`, `VITE_API_BASE=none`, yayın klasörü
+`dist`) ve `/assets/*` için bir yıllık `immutable` önbellek başlığını ekler.
 
 - **Git ile:** *Add new site → Import an existing project* → depoyu seçin.
-  Build command: `npm run build` · Publish directory: `dist` · (isteğe bağlı) *Environment variables*: `VITE_API_BASE`.
-- **Elle:** `npm run build` sonrası `dist/` klasörünü <https://app.netlify.com/drop> sayfasına sürükleyin
+  Build command: `npm run build:static` · Publish directory: `dist` · (isteğe bağlı) *Environment variables*: `VITE_API_BASE`.
+- **Elle:** `npm run build:static` sonrası `dist/` klasörünü <https://app.netlify.com/drop> sayfasına sürükleyin
   ya da `npx netlify-cli deploy --prod --dir dist`.
 
 #### Cloudflare Pages
 
 - **Git ile:** *Workers & Pages → Create → Pages → Connect to Git* → depoyu seçin.
-  Framework preset: *None* (ya da *Vite*) · Build command: `npm run build` · Build output directory: `dist` ·
+  Framework preset: *None* (ya da *Vite*) · Build command: `npm run build:static` · Build output directory: `dist` ·
   Ortam değişkenleri: `NODE_VERSION=22`, isteğe bağlı `VITE_API_BASE`.
-- **Elle:** `npm run build && npx wrangler pages deploy dist --project-name dogdogdog`.
+- **Elle:** `npm run build:static && npx wrangler pages deploy dist --project-name dogdogdog`.
 
 ### B) Paylaşılan yorumlar: Cloudflare Worker + D1
 
@@ -363,9 +397,10 @@ kotaları için Cloudflare belgelerine bakın. Site her abonelik için 10 saniye
 
 ### C) claude.ai Artifact önizlemesi
 
-`npm run build` ayrıca `dist/artifact.html` üretir: Artifact yayını sayfayı kendi `<html>` iskeletine sardığı için
-yalnızca başlık, stil, betik ve gövde içeriğinden oluşur. Destek dosyalarının (`assets/app.js`, `assets/app.css`,
-görseller, modeller) eşlemesi için `node scripts/artifact-files.mjs` kullanılır.
+`npm run build` (`vite build --mode artifact`) tek paket derler ve ayrıca `dist/artifact.html` üretir: Artifact
+yayını sayfayı kendi `<html>` iskeletine sardığı için yalnızca başlık, stil, betik ve gövde içeriğinden oluşur.
+Destek dosyalarının (`assets/app.js`, `assets/app.css`, görseller, modeller) eşlemesi için
+`node scripts/artifact-files.mjs` kullanılır; `public/` kaynaklı paylaşım görseli ve simgeler bu eşlemeye girmez.
 
 Bu ortamda:
 
@@ -423,8 +458,9 @@ FAL_KEY=<anahtar> npm run fetch:fal            # url'si olmayanları request_id'
 `sharp` ve `@gltf-transform/cli` geliştirme bağımlılığı olarak kuruludur (`npm install`).
 
 - Görseller WebP'ye çevrilir: ana görsel en fazla 2400 px, posterler 1600 px, portreler 768 px, doku 1024 px genişlik.
-- GLB'ler `gltf-transform optimize --compress meshopt --texture-compress webp --texture-size 1024` ile sıkıştırılır
-  (three.js yükleyicisi `MeshoptDecoder` ile hazırdır: `src/core/models.js`).
+- GLB'ler `gltf-transform optimize --compress meshopt --texture-compress webp --texture-size 768` ile sıkıştırılır
+  (three.js yükleyicisi `MeshoptDecoder` ile hazırdır: `src/core/models.js`). Ham dosyalar yoksa
+  `node scripts/optimize-assets.mjs --yerinde` aynı ayarları mevcut `src/assets/fal/` dosyalarına uygular.
 - Çıktı `src/assets/fal/<anahtar>.<webp|glb>`; `src/core/assets.js` bunları derlemede kendiliğinden bulur.
   Bir dosya yoksa bileşenler prosedürel (canvas/three.js) yedeğe geçer, yani site varlıklar olmadan da çalışır.
 

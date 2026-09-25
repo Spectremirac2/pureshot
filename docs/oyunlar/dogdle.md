@@ -84,7 +84,7 @@ https://cureshot-dog.netlify.app/#oyunlar--dogdle
 
 - Sekmeden her an açılır. Rastgele kahraman (bugünün günlük cevabı asla sorulmaz), sınırsız tahmin,
   aynı ipuçları. **Pes et** yalnızca burada var: cevap, DOG dosyasıyla gösterilir.
-- Skora, seriye ve istatistiğe hiç dokunmaz (sonuç kartında “Skor tutulmaz”). Durumu ayrıca saklanır.
+- Skora, seriye ve istatistiğe hiç dokunmaz (sonuç kartında “Antrenman · skor tutulmaz”). Durumu ayrıca saklanır.
 
 ## Kontroller
 
@@ -146,7 +146,7 @@ Playwright (dev sunucusu, HMR engelli), masaüstü 1440×900 ve mobil 390×844 (
   ipucu kilitleri (3’te kilitli, 4’te açılır, kendiliğinden açılmaz), sözde cevabın adı yok; 7’de bulanık
   portre; doğru tahmin → skor 8, `scores.dogdle = 8`, istatistik, paylaşım metni (başlık, 8 emoji satırı,
   ipucu, imza, adres, cevap yok); pano; yenilemede 8 satır, animasyonsuz, aynı paylaşım; serbest mod
-  (cevap ≠ günlük, pes et, yeni kahraman, kazanma “Skor tutulmaz”, skor/istatistik değişmez); istatistik
+  (cevap ≠ günlük, pes et, yeni kahraman, kazanma “Antrenman · skor tutulmaz”, skor/istatistik değişmez); istatistik
   sekmesi; Q tuşu bölüm değiştirmez. Her iki görünümde **geçti**, konsol hatası 0, yatay taşma 0.
 - `test-days.mjs` (sahte saat): 23:58:30’da geri sayım, #1 çözüm, gece yarısı #2’ye geçiş + bildirim,
   seri 2, iki gün atlayınca seri 0, `todayStatus()`. **Geçti.**

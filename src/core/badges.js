@@ -25,8 +25,8 @@ export const SALON_GAMES = [
   { id: 'rune', name: 'Rune Refleksi', short: 'Rune', icon: 'bolt', color: 'var(--radiant)' },
   { id: 'dogdle', name: 'DOGdle', short: 'DOGdle', icon: 'eye', color: 'var(--aegis-2)', kind: 'Günlük tahmin', isNew: true },
   { id: 'portre', name: 'Portre Avı', short: 'Portre', icon: 'target', color: 'var(--radiant)', kind: 'Göz · Refleks', isNew: true },
-  { id: 'invoker', name: 'Invoker Kombo', short: 'Invoker', icon: 'sparkle', color: 'var(--arcane)', kind: 'Parmak · Refleks', isNew: true },
-  { id: 'hook', name: 'Pudge Hook', short: 'Hook', icon: 'bone', color: 'var(--dire)', kind: 'Nişan · Beceri', isNew: true },
+  { id: 'invoker', name: 'Invoker Kombo', short: 'Invoker', icon: 'orbs', color: 'var(--arcane)', kind: 'Parmak · Refleks', isNew: true },
+  { id: 'hook', name: 'Pudge Hook', short: 'Hook', icon: 'hook', color: 'var(--dire)', kind: 'Nişan · Beceri', isNew: true },
   { id: 'bingo', name: 'DOG Bingo', short: 'Bingo', icon: 'star', color: 'var(--ember)', kind: 'Yayın · Etkileşim', isNew: true },
 ];
 export const SALON_IDS = SALON_GAMES.map((g) => g.id);
@@ -129,10 +129,10 @@ export const BADGES = [
   { id: 'portre', group: 'oyun', game: 'portre', name: 'Portre Uzmanı', icon: 'target', color: 'var(--radiant)',
     how: `Portre Avı’nda ${fmtNum(T.portre)} puan.`,
     test: atLeast('portre', T.portre), progress: upTo('portre', T.portre, unit('puan')) },
-  { id: 'invoker', group: 'oyun', game: 'invoker', name: 'Invoker Çırağı', icon: 'sparkle', color: 'var(--arcane)',
+  { id: 'invoker', group: 'oyun', game: 'invoker', name: 'Invoker Çırağı', icon: 'orbs', color: 'var(--arcane)',
     how: `Invoker Kombo’da 60 saniyede ${T.invoker} büyü.`,
     test: atLeast('invoker', T.invoker), progress: upTo('invoker', T.invoker, unit('büyü')) },
-  { id: 'kanca', group: 'oyun', game: 'hook', name: 'Kanca Ustası', icon: 'bone', color: 'var(--dire)',
+  { id: 'kanca', group: 'oyun', game: 'hook', name: 'Kanca Ustası', icon: 'hook', color: 'var(--dire)',
     how: `Pudge Hook’ta ${fmtNum(T.hook)} puan.`,
     test: atLeast('hook', T.hook), progress: upTo('hook', T.hook, unit('puan')) },
   { id: 'bingo', group: 'oyun', game: 'bingo', name: 'Bingo!', icon: 'star', color: 'var(--ember-2)',

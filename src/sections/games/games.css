@@ -967,6 +967,7 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
    ===================================================================== */
 .gm-stage-hafiza { display: flex; flex-direction: column; gap: var(--sp-3); }
 .gm-mm-grid {
+  --cols: 4;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(6px, 1.4vw, 12px);
@@ -974,6 +975,35 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   max-width: min(600px, max(300px, calc(100svh - 380px)));
   margin-inline: auto;
 }
+/* Zor masa (5×4): geniş ekranda 5 sütun, dar ekranda 4 sütun × 5 satır */
+.gm-mm-grid.wide { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(5px, 1vw, 10px); max-width: min(720px, max(320px, calc((100svh - 380px) * 1.25))); }
+@media (max-width: 560px) { .gm-mm-grid.wide { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gm-mm-hero { background-size: cover; background-position: center 30%; background-repeat: no-repeat; background-color: var(--bg-3); }
+.gm-mm-grid.wide + .gm-mm-caption { max-width: min(720px, max(320px, calc((100svh - 380px) * 1.25))); }
+
+/* Mod seçici (giriş/sonuç kartı) */
+.gm-mm-modes { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 2px; border-top: 1px dashed var(--line-2); }
+.gm-mm-mode { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 8px; }
+.gm-mm-mode-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.gm-mm-mode-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.gm-mm-opt {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 6px 10px;
+  text-align: left;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.gm-mm-opt:hover { border-color: var(--aegis); color: var(--text); }
+.gm-mm-opt[aria-checked='true'] { color: var(--text); border-color: var(--gc, var(--arcane)); background: color-mix(in srgb, var(--gc, var(--arcane)) 14%, var(--bg-2)); }
+.gm-mm-opt svg { flex: none; color: var(--gc, var(--arcane)); }
+.gm-mm-opt-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.gm-mm-opt-t b { font-size: var(--fs-sm); }
+.gm-mm-opt-t small { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 400px) { .gm-mm-mode { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
 .gm-mm-card {
   position: relative;
   aspect-ratio: 1;
@@ -1030,6 +1060,8 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
   box-shadow: inset 0 0 0 2px var(--mc, var(--aegis));
 }
 .gm-mm-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gm-mm-grid.wide .gm-mm-name { font-size: clamp(8px, 1.3vw, 10px); padding: 2px 3px; }
+.gm-mm-grid.wide .gm-mm-crest { width: 50%; }
 .gm-mm-name {
   position: absolute;
   left: 0; right: 0; bottom: 0;

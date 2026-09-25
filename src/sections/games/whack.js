@@ -82,6 +82,7 @@ export function mount(el, ctx, nav) {
   let closeOverlay = null;
   let hotkeysOff = false;
   let g = null; // tur durumu
+  let lastPointer = -1e9; // son işaretçi basışı (dokunuş sonrası sahte click'i ayıklamak için)
 
   function wide() {
     return (L.stage.clientWidth || window.innerWidth) >= 640;
@@ -118,11 +119,15 @@ export function mount(el, ctx, nav) {
       btn.addEventListener('pointerdown', (e) => {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
         e.preventDefault();
+        lastPointer = performance.now();
         whack(i, e.clientX, e.clientY);
       });
-      // Klavye ile (Enter/Boşluk) etkinleştirme: detail === 0
+      // Klavye ile (Enter/Boşluk) etkinleştirme: detail === 0. Dokunmatikte tarayıcı dokunuştan sonra
+      // detail 0'lı bir click de üretebilir; işaretçi kaynaklı ya da az önce işlenmiş bir basışsa yok say
+      // (yoksa boş çukura tek dokunuş iki ıska sayılır).
       btn.addEventListener('click', (e) => {
         if (e.detail !== 0) return;
+        if (e.pointerType || performance.now() - lastPointer < 600) return;
         const rc = btn.getBoundingClientRect();
         whack(i, rc.left + rc.width / 2, rc.top + rc.height / 3);
       });
