@@ -60,11 +60,13 @@ export const meta = {
   ],
 };
 
-const INTRO_RULES = [
-  'Sayı = komşu sekiz hücredeki mayın sayısı. İlk tıklama her zaman güvenli.',
-  'Sentry ward (bayrak): sağ tık, uzun bas ya da Bayrak modu. Açık sayıya tıklamak akor yapar.',
-  'Mayına basarsan zincirleme patlama ve DOG DOG DOG. Tüm güvenli hücreleri aç.',
-  'Skor tablosuna yalnızca Orta (16×16, 40 mayın) süresi yazılır; diğerleri yerel rekor.',
+const introRules = (touch) => [
+  'Sayı = komşu sekiz hücredeki mayın. İlk açılış her zaman güvenli ve bir alan açar.',
+  touch
+    ? 'Uzun bas ya da Bayrak modu: Sentry ward (bayrak) koy. Açık sayıya dokun: akor.'
+    : 'Sağ tık ya da Bayrak modu: Sentry ward (bayrak) koy. Açık sayıya tık: akor.',
+  'Mayına basan patlar: DOG DOG DOG. Tüm güvenli hücreleri açan kazanır.',
+  'Skor tablosuna ve “En iyin”e yalnızca Orta süresi yazılır; Çaylak ve Immortal rekoru bu cihazda.',
 ];
 
 // ------------------------------------------------------------------ özgün çizimler (SVG)
@@ -601,7 +603,6 @@ export function mount(el, ctx, nav) {
     const safe = G.n - d.mines;
     const pct = Math.floor((G.opened / safe) * 100);
     const correct = Array.from(G.flag).reduce((a, f, j) => a + (f && G.mine[j] ? 1 : 0), 0);
-    const wrong = G.flags - correct;
     const st = ls.get(STATS_KEY, {}) || {};
     const s = st[d.id] || { p: 1, w: 0 };
     const quip = pct >= 85 ? 'Bitiş çizgisinde mayın… Techies kahkahayı bastı. DOG DOG DOG.'
@@ -614,7 +615,7 @@ export function mount(el, ctx, nav) {
     const stats = [
       ['Süre', `${fmtSec(G.time)} sn`],
       ['Açılan', `${fmtNum(G.opened)}/${fmtNum(safe)}`],
-      ['Doğru Sentry', wrong > 0 ? `${correct} · ${wrong} yanlış` : fmtNum(correct)],
+      ['Doğru Sentry', G.flags ? `${correct}/${G.flags}` : '—'],
     ];
     const node = h('div', { class: 'gm-result stack gm-mn-loss' },
       h('div', { class: 'row gm-result-top' },
@@ -682,7 +683,7 @@ export function mount(el, ctx, nav) {
     const dirs = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     if (dirs[k]) {
       e.preventDefault();
-      if (!kb) { kb = true; board.classList.add('kb'); }
+      if (!kb) { kb = true; board.classList.add('kb'); board.classList.remove('pfocus'); }
       const [dr, dc] = dirs[k];
       const r = clamp(Math.floor(G.cur / G.cols) + dr, 0, G.rows - 1);
       const c = clamp((G.cur % G.cols) + dc, 0, G.cols - 1);
@@ -711,7 +712,15 @@ export function mount(el, ctx, nav) {
     if (want && !hotOff) { ctx.hotkeys(false); hotOff = true; }
     else if (!want && hotOff) { ctx.hotkeys(true); hotOff = false; }
   }
-  board.addEventListener('focus', () => { boardFocused = true; syncHotkeys(); });
+  // Odak halkası yalnızca klavyeyle gelindiğinde (Tab / Enter ile Başla); fareyle ya da dokunarak değil
+  let lastKeyAt = -1e9;
+  const onAnyKey = () => { lastKeyAt = performance.now(); };
+  window.addEventListener('keydown', onAnyKey, true);
+  board.addEventListener('focus', () => {
+    boardFocused = true;
+    board.classList.toggle('pfocus', performance.now() - lastKeyAt > 400);
+    syncHotkeys();
+  });
   board.addEventListener('blur', () => { boardFocused = false; syncHotkeys(); });
 
   // ---------------------------------------------------------------- işaretçi (fare + dokunmatik)
@@ -869,14 +878,14 @@ export function mount(el, ctx, nav) {
   newGame();
   const introNode = introCard(meta, {
     onStart: start,
-    rules: INTRO_RULES,
+    rules: introRules(coarse),
     extra: h('div', { class: 'gm-mn-cardpick' }, h('span', { class: 'label' }, 'Zorluk'), diffPicker(false)),
-    note: '“En iyin” Orta (sıralı) süreni gösterir. Kısayollar tahta odaktayken ve oyun sürerken kapalı.',
   });
   closeOverlay = showOverlay(L.stage, introNode);
 
   return () => {
     window.removeEventListener('keydown', onKey);
+    window.removeEventListener('keydown', onAnyKey, true);
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', clearPress);

@@ -278,7 +278,7 @@ export const MR_EVENTS = [
     text: 'Bir izleyici destek olup yazdı: “1vDOQUZ görmek istiyorum!”',
     choices: [
       { label: 'Teşekkür et, söz ver', fx: { m: 12, hype: 0.15, e: 4 }, text: 'Söz verildi. Chat’te sabırsız bir bekleyiş.' },
-      { label: 'Onun adına maç at', fx: { m: 8, mmr: 0, fame: 0.02, t: -3 }, text: 'Maç ona ithaf edildi. Destekçi mutlu.' },
+      { label: 'Onun adına maç at', fx: { m: 8, fame: 0.02, t: -3 }, text: 'Maç ona ithaf edildi. Destekçi mutlu.' },
     ],
   },
   {
@@ -417,15 +417,15 @@ export const MR_CHAT = {
  * s: { done, hours, peak, wins, losses, dogs, teas, chats, breaks, quadOk, quadFail, mmr (değişim), bestStreak }
  */
 export const MR_TITLES = [
-  { name: '1vDOQUZ Efsanesi', desc: 'Birden fazla 1vDOQUZ. Chat bunu yıllarca anlatacak.', when: (s) => s.quadOk >= 2 },
-  { name: 'Kick Fenomeni', desc: 'Zirve izleyici göğü deldi.', when: (s) => s.done && s.peak >= 4500 },
-  { name: 'DOG Mıknatısı', desc: 'Takım arkadaşları DOG’ladı, chat bayıldı.', when: (s) => s.dogs >= 7 },
+  { name: '1vDOQUZ Efsanesi', desc: 'Dört ve üzeri 1vDOQUZ. Chat bunu yıllarca anlatacak.', when: (s) => s.quadOk >= 4 },
+  { name: 'Kick Fenomeni', desc: 'Zirve izleyici göğü deldi.', when: (s) => s.done && s.peak >= 7000 },
+  { name: 'DOG Mıknatısı', desc: 'Takım arkadaşları DOG’ladı, chat bayıldı.', when: (s) => s.dogs >= 14 },
   { name: 'MMR Makinesi', desc: 'Galibiyetler art arda geldi.', when: (s) => s.done && s.wins >= s.losses + 5 },
-  { name: 'Çay Ocağı Sahibi', desc: 'Bu yayın çayla döndü.', when: (s) => s.teas >= 10 },
+  { name: 'Çay Ocağı Sahibi', desc: 'Bu yayın çayla döndü.', when: (s) => s.teas >= 12 },
+  { name: 'Chat’in Dostu', desc: 'Her soruya bir cevap.', when: (s) => s.chats >= 20 },
   { name: 'Molasız Maratoncu', desc: 'Yirmi dört saat, sıfır mola.', when: (s) => s.done && s.breaks === 0 },
-  { name: 'Chat’in Dostu', desc: 'Her soruya bir cevap.', when: (s) => s.chats >= 16 },
   { name: 'Maraton Yayıncısı', desc: '24 saat tamam. Ve bu, en kısası.', when: (s) => s.done },
-  { name: 'Gece Kuşu', desc: 'Gecenin en zor saatlerini aştın, sabahı göremedin.', when: (s) => s.hours >= 16 },
+  { name: 'Gece Kuşu', desc: 'Gecenin en zor saatlerini aştın, finali göremedin.', when: (s) => s.hours >= 16 },
   { name: 'Yarım Maratoncu', desc: 'Yarı yolu geçtin. 24 saat seni bekliyor.', when: (s) => s.hours >= 10 },
   { name: 'Isınma Turu', desc: 'Her maraton bir çayla başlar.', when: () => true },
 ];

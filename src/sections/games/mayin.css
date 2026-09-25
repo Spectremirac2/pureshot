@@ -150,7 +150,9 @@
   -webkit-tap-highlight-color: transparent;
 }
 .gm-mn-row { display: contents; }
-.gm-mn-board:focus-visible { box-shadow: 0 0 0 2px var(--aegis-2); }
+.gm-mn-board:focus-visible:not(.pfocus) { box-shadow: 0 0 0 2px var(--aegis-2); }
+/* Sayfa başlığı zaten görünür: başlangıç kartında tekrar etme */
+.gm-play-mayin .gm-intro-top { display: none; }
 
 .gm-mn-c {
   position: relative;
@@ -278,8 +280,14 @@
   .gm-mn-tools { width: 100%; justify-content: space-between; }
   .gm-mn-mode { min-height: 44px; padding: 6px 14px; }
   .gm-mn-zoom { min-height: 44px; }
-  .gm-mn-diffs:not(.sm) { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .gm-mn-diff:not(.sm) { min-height: 50px; padding: 6px 8px; }
+  /* Kart seçicisi: üç sütun, ikon yok, kısa metin */
+  .gm-mn-diffs:not(.sm) { gap: 4px; }
+  .gm-mn-diff:not(.sm) { min-height: 58px; padding: 6px 6px; justify-content: center; text-align: center; }
+  .gm-mn-diff:not(.sm) .gm-mn-diff-ico { display: none; }
+  .gm-mn-diff:not(.sm) .gm-mn-diff-txt { align-items: center; font-size: 10.5px; }
+  .gm-mn-diff:not(.sm) .gm-mn-diff-txt strong { flex-direction: column; gap: 2px; }
+  .gm-mn-diff:not(.sm) .gm-mn-rank { font-size: 8px; padding: 0 4px; }
+  .gm-mn-diff-best { font-size: 10px; }
   .gm-mn-face { width: 48px; }
   .gm-mn-facesvg { width: 38px; height: 38px; }
   .gm-play-mayin .gm-stat-label svg { display: none; }

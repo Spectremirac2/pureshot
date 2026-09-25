@@ -46,7 +46,7 @@ export const meta = {
   unit: 'metre',
   higherIsBetter: true,
   format: (n) => `${fmtNum(n)} metre`,
-  charge: (n) => `${n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',') + 'B' : Math.round(n)}m`,
+  charge: (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}km` : `${Math.round(n)}m`),
   rules: [
     'Dokun, tıkla ya da Boşluk / ↑: kurye kanat çırpar. Bırakınca yerçekimi aşağı çeker.',
     'Kulelerin arasındaki boşluktan geç. Kuleye çarpmak ya da nehre düşmek kuryeyi öldürür.',
