@@ -9,6 +9,7 @@ import './styles/components.css';
 
 import { mountShell } from './core/shell.js';
 import { ensureBadgeWatcher } from './core/badges.js';
+import { ensureQuestWatcher } from './core/quests.js';
 
 const root = document.getElementById('app') || (() => {
   const el = document.createElement('div');
@@ -20,3 +21,5 @@ const root = document.getElementById('app') || (() => {
 mountShell(root);
 // Rozet izleyicisi: hangi bölümden girilirse girilsin yeni kazanılan rozetleri bildirir
 ensureBadgeWatcher();
+// Günlük görev izleyicisi: görev ilerlemesi ve tamamlanma bildirimleri her bölümde çalışsın
+ensureQuestWatcher();

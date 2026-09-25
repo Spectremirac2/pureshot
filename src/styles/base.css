@@ -231,7 +231,6 @@ p { margin: 0; }
 @media (pointer: coarse) {
   .btn.sm { min-height: 44px; }
   .btn.sm.icon { width: 44px; }
-  .chip { min-height: 44px; }
 }
 
 /* ---------- Çipler, rozetler, tuşlar ---------- */
@@ -254,6 +253,10 @@ p { margin: 0; }
 }
 .chip:hover { border-color: var(--aegis); color: var(--text); }
 .chip[aria-pressed='true'], .chip.active { background: rgba(255, 106, 43, 0.14); border-color: var(--ember); color: var(--text); }
+/* Dokunmatikte tıklanabilir çipler en az 44 px (kural .chip tanımından sonra gelmeli ki geçerli olsun) */
+@media (pointer: coarse) {
+  button.chip, a.chip { min-height: 44px; }
+}
 .chip svg { width: 14px; height: 14px; }
 
 .badge {
