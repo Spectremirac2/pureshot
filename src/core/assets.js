@@ -65,9 +65,10 @@ export function heroRenderUrl(id) {
   return heroRenders.get(id) || null;
 }
 
-// Yetenek ikonları: Valve'ın resmi Dota 2 görselleri, 128 px WebP (bkz. scripts/fetch-ability-icons.mjs).
-//   src/assets/abilities/<kahraman>/<kahraman>_<yetenek>.webp → anahtar: 'invoker_cold_snap', 'pudge_meat_hook'…
-const abilityIcons = heroFiles(import.meta.glob('../assets/abilities/**/*.webp', { eager: true, query: '?url', import: 'default' }));
+// Oyun yetenek ikonları: Valve'ın resmi Dota 2 görselleri, 128 px WebP (bkz. scripts/fetch-ability-icons.mjs).
+//   src/assets/abilities/{invoker,pudge}/<kahraman>_<yetenek>.webp → anahtar: 'invoker_cold_snap', 'pudge_meat_hook'…
+// Glob bilerek yalnızca bu iki klasörü kapsar: abilities/heroes/ altındaki ~540 quiz ikonu ana pakete eklenmesin.
+const abilityIcons = heroFiles(import.meta.glob(['../assets/abilities/invoker/*.webp', '../assets/abilities/pudge/*.webp'], { eager: true, query: '?url', import: 'default' }));
 
 /** Yetenek ikonu URL'si ya da null (yoksa oyun kendi çizdiği yedeği kullanır). */
 export function abilityIconUrl(key) {

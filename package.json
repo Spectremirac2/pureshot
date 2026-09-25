@@ -6,11 +6,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/build-artifact.mjs",
+    "build": "vite build --mode artifact && node scripts/build-artifact.mjs",
+    "build:static": "vite build",
     "preview": "vite preview",
     "fetch:fal": "node scripts/fetch-fal-assets.mjs",
     "fetch:heroes": "node scripts/fetch-hero-images.mjs",
     "optimize:assets": "node scripts/optimize-assets.mjs",
+    "build:fonts": "node scripts/subset-fonts.mjs",
+    "build:atlas": "node scripts/build-hero-atlas.mjs",
+    "build:share": "node scripts/build-share-images.mjs",
     "api:dev": "node --disable-warning=ExperimentalWarning server/local/dev.mjs",
     "test:api": "node --disable-warning=ExperimentalWarning --test server/test/worker.test.mjs",
     "deploy:worker": "npm run build && cd server && npx wrangler deploy"

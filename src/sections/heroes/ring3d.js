@@ -1,5 +1,6 @@
 // Başlıktaki 3D "sikke halkası": 127 kahraman sikkesi, kat kat dönen halkalar.
 // En yüksek DOG'luklular en üst halkada ve daha büyük. Tek doku atlası + 2 InstancedMesh (gövde + yüz).
+// Portreler tek istekli portre atlasından (src/assets/heroes/atlas, npm run build:atlas) çizilir.
 // Sürükle: döndür/eğ · Sikkeye tıkla: kahraman dosyası (raycaster). Görünmezken durur;
 // prefersReducedMotion'da kendiliğinden dönmez. WebGL yoksa 2D yedek armalar.
 
@@ -107,7 +108,7 @@ export function mountRing(host, { heroes, getValue, onPick }) {
     texture.needsUpdate = true;
   };
   paintAtlas();
-  // Sikkeler önce armayla çizilir; portreler ve yazı tipleri gelince atlas yeniden boyanır
+  // Sikkeler önce armayla çizilir; portre atlası ve yazı tipleri gelince doku yeniden boyanır
   Promise.all([fontsReady(), loadPortraits(sorted)]).then(([, m]) => { if (alive) { portraits = m; paintAtlas(); dirty = true; } });
 
   // Geometri + malzemeler

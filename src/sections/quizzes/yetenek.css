@@ -1,0 +1,148 @@
+/* =====================================================================
+   Yetenek Avı (.yt-*) — yetenek yuvası çerçeveleri, portreli kahraman şıkları,
+   DOG% madalyonlu açıklama. Ortak soru kartı stilleri quizzes.css'ten (.qz-*).
+   ===================================================================== */
+
+.yt {
+  /* Madalyon (crestSvg) renkleri: Kahraman DOG Endeksi ile aynı özellik renkleri */
+  --hr-str: var(--dire);
+  --hr-agi: var(--radiant);
+  --hr-int: #4ea8ff;
+  --hr-uni: #b18cff;
+}
+
+/* ---------------------------------------------------------------- yetenek yuvası */
+.yt-ab {
+  position: relative;
+  display: grid; place-items: center;
+  flex: none;
+  width: 56px; aspect-ratio: 1;
+  background: linear-gradient(160deg, var(--bg-4), var(--bg));
+  border: 1px solid var(--line-2);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 70%, transparent), 0 6px 16px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.yt-ab img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.yt-ab::after {
+  /* Dota yetenek yuvası parlaması */
+  content: '';
+  position: absolute; inset: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 -14px 18px -12px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.yt-ab.ult { border-color: color-mix(in srgb, var(--aegis) 80%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 70%, transparent), 0 0 18px color-mix(in srgb, var(--aegis) 30%, transparent); }
+.yt-ab-none { color: var(--text-3); }
+.yt-ab-ghost { background: linear-gradient(90deg, var(--bg-3), var(--bg-4), var(--bg-3)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.yt-ab-lg { width: clamp(84px, 14vw, 104px); }
+.yt-ab-sm { width: 34px; box-shadow: none; }
+
+.yt-strip {
+  display: flex; gap: 8px; flex-wrap: nowrap;
+  overflow: hidden;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  mask-image: linear-gradient(90deg, #000 80%, transparent);
+}
+.yt-strip .yt-ab { width: clamp(40px, 7vw, 56px); animation: qz-rise 0.45s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.yt-strip .yt-ab-ghost { animation: shimmer 1.4s linear infinite; }
+.yt-status:empty { display: none; }
+.yt-status.yt-err { color: #ff7a8b; }
+.yt-credit { margin: 0; }
+
+/* ---------------------------------------------------------------- soru kartı */
+.yt-ability { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 24px); min-width: 0; }
+.yt-ability .yt-ab-lg {
+  border-width: 2px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 26px color-mix(in srgb, var(--arcane) 22%, transparent);
+}
+.yt-ability .yt-ab-lg.ult { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 30px color-mix(in srgb, var(--aegis) 35%, transparent); }
+.yt-ability-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.yt-tags { gap: 6px; }
+.yt-name { font-size: clamp(1.4rem, 1rem + 1.8vw, 2.3rem); overflow-wrap: anywhere; }
+.yt-ask { font-size: var(--fs-md); }
+.yt-attr { color: var(--ac); }
+
+/* Kahraman şıkları */
+.yt-opt { padding-left: 10px; gap: 10px; }
+.yt-opt-img {
+  display: block; flex: none;
+  width: 64px; height: 36px;
+  object-fit: cover;
+  border-radius: 2px;
+  background: var(--bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ac, var(--line-2)) 55%, transparent);
+  transition: filter 0.2s, opacity 0.2s;
+}
+.yt-opt-crest { display: grid; place-items: center; }
+.yt-opt-crest .hr-crest { width: 32px; }
+.yt-opt:hover:not(:disabled) .yt-opt-img { box-shadow: 0 0 0 1px var(--ac, var(--aegis)); }
+.yt-opt.is-dim .yt-opt-img { filter: grayscale(0.8); }
+
+/* ---------------------------------------------------------------- açıklama */
+.yt-hero { display: flex; gap: var(--sp-4); align-items: flex-start; min-width: 0; }
+.yt-crest { flex: none; width: 76px; }
+.yt-hero-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.yt-hero-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.yt-hero-name { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-lg); line-height: 1.15; }
+.yt-dog { color: var(--tc, var(--ember)); background: color-mix(in srgb, var(--tc, var(--ember)) 15%, transparent); }
+.yt-quote {
+  margin: 0;
+  color: var(--text-2);
+  font-style: italic;
+  line-height: 1.5;
+  max-width: 68ch;
+  border-left: 2px solid color-mix(in srgb, var(--ember) 55%, transparent);
+  padding-left: 10px;
+}
+
+/* Madalyon (Kahraman bölümü CSS'i burada yüklü değil; yalnız gereken kısım) */
+.yt .hr-a-str { --hr-c: var(--hr-str); }
+.yt .hr-a-agi { --hr-c: var(--hr-agi); }
+.yt .hr-a-int { --hr-c: var(--hr-int); }
+.yt .hr-a-uni { --hr-c: var(--hr-uni); }
+.yt .hr-crest { display: block; width: 100%; height: auto; overflow: visible; }
+.yt .hr-crest-track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 5; }
+.yt .hr-crest-ring { fill: none; stroke: var(--ember); stroke-width: 5; stroke-linecap: round; }
+.yt .hr-crest-rim { fill: var(--hr-c); }
+.yt .hr-crest-outer { fill: var(--hr-c); }
+.yt .hr-crest-inner { fill: var(--bg-2); }
+.yt .hr-crest-tint { fill: var(--hr-c); opacity: 0.18; }
+.yt .hr-crest-text { font-family: var(--font-display); font-weight: 900; fill: var(--text); letter-spacing: -0.02em; }
+
+/* ---------------------------------------------------------------- yetenek defteri */
+.yt-key .yt-key-row { grid-template-columns: 24px 34px minmax(0, 1fr) auto; align-items: center; }
+
+/* ---------------------------------------------------------------- quiz merkezi
+   quizzes.css dört kart için yazıldı; beşinci kart (Yetenek Avı) tüm genişliği kaplar
+   ve envanter yuvaları beşe bölünür. */
+.qz-inv-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (min-width: 901px) {
+  .qz-grid > .qz-card:nth-child(5) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas: 'top costs' 'blurb foot';
+    align-items: center;
+    gap: var(--sp-3) var(--sp-6);
+  }
+  .qz-grid > .qz-card:nth-child(5) > .qz-card-top { grid-area: top; }
+  .qz-grid > .qz-card:nth-child(5) > .qz-card-blurb { grid-area: blurb; }
+  .qz-grid > .qz-card:nth-child(5) > .qz-costs { grid-area: costs; align-self: end; padding-top: 0; border-top: 0; }
+  .qz-grid > .qz-card:nth-child(5) > .qz-card-foot { grid-area: foot; }
+}
+
+/* ---------------------------------------------------------------- duyarlı */
+@media (max-width: 640px) {
+  .yt-ability { gap: 14px; }
+  .yt-name { font-size: 1.45rem; }
+  .yt-ask { font-size: var(--fs-sm); }
+  .yt-opt-img { width: 56px; height: 32px; }
+  .yt-crest { width: 60px; }
+  .yt-hero { gap: var(--sp-3); }
+  .yt-hero-name { font-size: var(--fs-md); }
+  .yt-quote { font-size: var(--fs-sm); }
+  .yt-strip .yt-ab:nth-child(n + 6) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .yt-strip .yt-ab, .yt-ab-ghost { animation: none; }
+}

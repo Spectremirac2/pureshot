@@ -1,8 +1,9 @@
 # Netlify: yayında açılacak statik kopya (https://cureshot-dog.netlify.app).
 # VITE_API_BASE=none → sunucu yok; yorumlar, espriler ve skorlar yalnızca ziyaretçinin tarayıcısında kalır.
+# build:static → bölünmüş JS/CSS parçaları, hash'li dosya adları, ayrı woff2 fontlar (bkz. vite.config.js).
 
 [build]
-  command = "npm ci && npx vite build"
+  command = "npm ci && npm run build:static"
   publish = "dist"
 
 [build.environment]
@@ -21,3 +22,10 @@
   for = "/*.glb"
   [headers.values]
     Content-Type = "model/gltf-binary"
+
+# /assets/* altındaki her dosyanın adında içerik hash'i var: içerik değişirse ad da değişir.
+# Bu yüzden tarayıcı bu dosyaları bir yıl boyunca doğrulama isteği atmadan önbellekten kullanabilir.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

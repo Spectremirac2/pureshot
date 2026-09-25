@@ -13,6 +13,10 @@ import * as jokeData from '../../data/jokes.js';
 import { mountComments } from '../../components/comments.js';
 import { portraitEl } from '../../components/portrait.js';
 import { attachTilt } from '../../components/tilt.js';
+import { SALON_GAMES, BADGES, earnedSet, badgeProgress, badgeHref, ensureBadgeWatcher } from '../../core/badges.js';
+
+// Rozet bildirimleri: tekil küresel izleyici (Oyun Salonu da aynı çağrıyı yapar; ikincisi etkisiz)
+ensureBadgeWatcher();
 
 const KICK_URL = 'https://kick.com/cureshotkick';
 let roLikeNoted = false;
@@ -50,6 +54,7 @@ export default {
       buildLive(cleanups, reduced),
       buildDictionary(),
       buildPortals(ctx, cleanups),
+      buildSalon(ctx, cleanups),
       buildJoke(ctx, cleanups),
       buildArchive(ctx),
       buildGuestbook(cleanups),
@@ -460,6 +465,175 @@ function buildPortals(ctx, cleanups) {
   );
 }
 
+// ====================================================================== Oyun Salonu'nda yeni
+// Hafif vitrin: oyun modüllerini içe aktarmaz (ana sayfa paketi küçük kalsın); liste core/badges.js'teki
+// SALON_GAMES kataloğundan gelir. Günlük sayaç İstanbul (UTC+3) gece yarısına sayar.
+const DAY_MS = 86400000;
+const msToIstanbulMidnight = (now = Date.now()) => DAY_MS - ((((now + 3 * 3600000) % DAY_MS) + DAY_MS) % DAY_MS);
+function fmtCountdown(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
+}
+/** DOGdle'ın yerel kaydından bugünkü durum (csk:dogdle:day = { n, guesses, solved }); yoksa oynanmadı. */
+function dogdleToday() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem('csk:dogdle:day') || 'null'); } catch { d = null; }
+  const today = Math.floor((Date.now() + 3 * 3600000) / DAY_MS);
+  if (!d || typeof d !== 'object' || d.n !== today) return { done: false, guesses: 0 };
+  const guesses = Array.isArray(d.guesses) ? d.guesses.length : 0;
+  return { done: !!d.solved, guesses };
+}
+
+function buildSalon(ctx, cleanups) {
+  const games = SALON_GAMES.filter((g) => g.isNew);
+  const daily = games.find((g) => g.id === 'dogdle');
+
+  // --- Günün meydan okuması
+  let dailyCard = null;
+  if (daily) {
+    const clock = h('span', { class: 'hm-daily-clock num', 'aria-hidden': 'true' }, fmtCountdown(msToIstanbulMidnight()));
+    const clockSr = h('span', { class: 'sr-only' });
+    const status = h('span', { class: 'hm-daily-status' });
+    const ctaText = h('span', null, 'Bugünün kahramanını bul');
+    const cta = h('a', { class: 'btn gold hm-daily-cta', href: '#oyunlar--dogdle' }, icon('eye', { size: 18 }), ctaText, icon('arrowRight', { size: 16 }));
+    const bestVal = h('b', { class: 'num' });
+    const best = h('span', { class: 'hm-daily-best small' }, 'Rekorun: ', bestVal);
+    const paintBest = (me) => {
+      const v = me && me.scores ? me.scores.dogdle : null;
+      best.hidden = typeof v !== 'number';
+      bestVal.textContent = typeof v === 'number' ? `${fmtNum(v)} tahmin` : '';
+    };
+    paintBest(store.me.get());
+    cleanups.push(store.me.subscribe(paintBest));
+    cta.addEventListener('click', () => ctx.sound.click());
+    dailyCard = h('article', { class: 'hm-daily frame', 'aria-labelledby': 'hm-daily-h' },
+      h('div', { class: 'hm-daily-top' },
+        h('span', { class: 'hm-daily-crest', 'aria-hidden': 'true' }, icon(daily.icon, { size: 30, stroke: 1.9 })),
+        h('div', { class: 'hm-daily-titles' },
+          h('span', { class: 'eyebrow' }, 'Günün meydan okuması'),
+          h('h3', { class: 'hm-daily-title', id: 'hm-daily-h' }, daily.name),
+        ),
+      ),
+      h('p', { class: 'hm-daily-text' }, 'Her gün gizli bir Dota 2 kahramanı. Özellikleri karşılaştır, en az tahminle bul; herkes aynı kahramanı arıyor.'),
+      // Süs: örnek bir tahmin satırı (yeşil aynı, sarı yakın, kırmızı farklı)
+      h('div', { class: 'hm-daily-demo', 'aria-hidden': 'true' },
+        [['Özellik', 'g'], ['Saldırı', 'r'], ['Karmaşıklık', 'y'], ['Roller', 'y'], ['DOG%', 'r'], ['Tür', 'g']].map(([t, c], i) =>
+          h('span', { class: `hm-daily-cell c-${c}`, style: { '--i': i } }, h('span', null, t)))),
+      h('div', { class: 'hm-daily-timer' },
+        h('span', { class: 'hm-daily-label' }, icon('hourglass', { size: 14 }), 'Yeni kahramana'),
+        clock, clockSr,
+        status,
+      ),
+      h('div', { class: 'hm-daily-foot' }, cta, best),
+    );
+    let lastMin = -1;
+    const tick = () => {
+      if (document.hidden) return;
+      const ms = msToIstanbulMidnight();
+      clock.textContent = fmtCountdown(ms);
+      const min = Math.floor(ms / 60000);
+      if (min === lastMin) return;
+      lastMin = min;
+      clockSr.textContent = `${Math.floor(min / 60)} saat ${min % 60} dakika`;
+      const st = dogdleToday();
+      status.className = `hm-daily-status ${st.done ? 'done' : 'todo'}`;
+      status.textContent = st.done ? `Bugün çözüldü · ${st.guesses} tahmin` : st.guesses ? `${st.guesses} tahmin · devam et` : 'Bugün çözülmedi';
+      ctaText.textContent = st.done ? 'Sonucuna bak' : st.guesses ? 'Kaldığın yerden devam et' : 'Bugünün kahramanını bul';
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    cleanups.push(() => clearInterval(iv));
+  }
+
+  // --- Yeni oyunlar şeridi
+  const played = new Map();
+  const list = h('ul', { class: 'hm-new-list', 'aria-label': 'Salona yeni gelen oyunlar' },
+    games.map((g) => {
+      const state = h('span', { class: 'hm-new-state' });
+      played.set(g.id, state);
+      const a = h('a', { class: 'hm-new', href: `#oyunlar--${g.id}`, style: { '--gc': g.color } },
+        h('span', { class: 'hm-new-ico', 'aria-hidden': 'true' }, icon(g.icon, { size: 22 })),
+        h('span', { class: 'hm-new-text' },
+          h('span', { class: 'hm-new-name' }, g.name, h('span', { class: 'hm-new-tag' }, 'Yeni')),
+          h('span', { class: 'hm-new-kind' }, g.kind || ''),
+        ),
+        state,
+        h('span', { class: 'hm-new-go', 'aria-hidden': 'true' }, icon('arrowRight', { size: 16 })),
+      );
+      a.addEventListener('click', () => ctx.sound.click());
+      return h('li', null, a);
+    }),
+  );
+
+  // --- Rozetler (kompakt)
+  const count = h('b', { class: 'num' });
+  const meter = h('span', { class: 'hm-bdg-meter', 'aria-hidden': 'true' }, h('span'));
+  const icons = h('span', { class: 'hm-bdg-icons', 'aria-hidden': 'true' });
+  const next = h('p', { class: 'hm-bdg-next small' });
+  const badges = h('a', { class: 'hm-bdg', href: '#oyunlar--rozetler', 'aria-label': 'Rozetlerin' },
+    h('span', { class: 'hm-bdg-head' },
+      h('span', { class: 'eyebrow' }, 'Rozetlerin'),
+      h('span', { class: 'hm-bdg-count' }, count, h('span', null, `/${BADGES.length}`)),
+    ),
+    meter,
+    icons,
+    next,
+    h('span', { class: 'hm-bdg-go' }, 'Tüm rozetler', icon('arrowRight', { size: 14 })),
+  );
+  badges.addEventListener('click', () => ctx.sound.click());
+
+  let lastKey = '';
+  const paint = (me) => {
+    const scores = (me && me.scores) || {};
+    for (const [id, el] of played) {
+      const has = typeof scores[id] === 'number';
+      el.textContent = has ? 'Oynadın' : '';
+      el.classList.toggle('on', has);
+    }
+    const got = earnedSet(me);
+    const key = [...got].join(',') + '|' + JSON.stringify(scores) + '|' + (me.dog || 0);
+    if (key === lastKey) return;
+    lastKey = key;
+    count.textContent = String(got.size);
+    meter.firstChild.style.transform = `scaleX(${got.size / BADGES.length})`;
+    const earned = BADGES.filter((b) => got.has(b.id));
+    const shown = earned.slice(-7);
+    icons.replaceChildren(
+      ...shown.map((b) => h('span', { class: 'hm-bdg-ico on', style: { '--bc': b.color }, title: b.name }, icon(b.icon, { size: 18, stroke: 2 }))),
+      ...Array.from({ length: Math.max(0, 7 - shown.length) }, () => h('span', { class: 'hm-bdg-ico' }, icon('lock', { size: 14 }))),
+    );
+    // Sıradaki hedef: ilerlemesi en yüksek kilitli rozet (yoksa listedeki ilk kilitli)
+    const locked = BADGES.filter((b) => !got.has(b.id));
+    let best = null;
+    let bestPct = -1;
+    for (const b of locked) {
+      const p = badgeProgress(b, me);
+      const pct = p && p.pct != null ? p.pct : 0;
+      if (pct > bestPct) { best = b; bestPct = pct; }
+    }
+    if (best) {
+      next.replaceChildren(h('span', { class: 'hm-bdg-next-lbl' }, 'Sıradaki: '), h('b', null, best.name), ' — ', best.how);
+      badges.href = got.size ? '#oyunlar--rozetler' : badgeHref(best);
+    } else {
+      next.textContent = 'Hepsini topladın. Salonun gerçek 1vDOQUZ’u sensin.';
+    }
+  };
+  paint(store.me.get());
+  cleanups.push(store.me.subscribe(paint));
+
+  const toSalon = h('a', { class: 'btn ghost', href: '#oyunlar' }, icon('gamepad', { size: 18 }), 'Oyun Salonu', icon('arrowRight', { size: 16 }));
+  toSalon.addEventListener('click', () => ctx.sound.click());
+
+  return h('section', { class: 'hm-sec hm-salon', 'aria-labelledby': 'hm-salon-h' },
+    withId(head('03', 'Oyun Salonu’nda yeni', `Salona ${games.length === 5 ? 'beş' : games.length} yeni oyun geldi`, 'Günlük kahraman bulmacası, Invoker kombosu, Pudge kancası, portre avı ve yayın bingosu. Rekorların rozet kazandırır.', h('div', { class: 'hm-head-actions' }, toSalon)), 'hm-salon-h'),
+    h('div', { class: 'hm-salon-grid' },
+      dailyCard,
+      h('div', { class: 'hm-salon-side' }, list, badges),
+    ),
+  );
+}
+
 // ====================================================================== Günün esprisi
 function catLabel(cat) {
   const cats = jokeData.JOKE_CATEGORIES || [];
@@ -649,7 +823,7 @@ function buildArchive(ctx) {
   toAll.addEventListener('click', () => { ctx.sound.click(); ctx.go('karakterler'); });
 
   return h('section', { class: 'hm-sec', 'aria-labelledby': 'hm-arch-h' },
-    withId(head('03', 'DOG Arşivi', 'Pub’ların yaban hayatı', `Arşivde ${ARCHETYPES.length} tür kayıtlı; bugün vitrinde beşi var. Hepsi hayran yapımı mizah.`, h('div', { class: 'hm-head-actions' }, toQuiz, toAll)), 'hm-arch-h'),
+    withId(head('04', 'DOG Arşivi', 'Pub’ların yaban hayatı', `Arşivde ${ARCHETYPES.length} tür kayıtlı; bugün vitrinde beşi var. Hepsi hayran yapımı mizah.`, h('div', { class: 'hm-head-actions' }, toQuiz, toAll)), 'hm-arch-h'),
     h('div', { class: 'hm-archs' }, cards, quiz),
   );
 }
@@ -664,7 +838,7 @@ function buildGuestbook(cleanups) {
   }));
   return h('section', { class: 'hm-sec hm-gb', 'aria-labelledby': 'hm-gb-h' },
     h('div', { class: 'hm-gb-intro' },
-      withId(head('04', 'Ziyaretçi defteri', 'Üsse imzanı at'), 'hm-gb-h'),
+      withId(head('05', 'Ziyaretçi defteri', 'Üsse imzanı at'), 'hm-gb-h'),
       h('p', { class: 'muted' }, 'Hangi saatte katıldın, kaçıncı saatte uyudun, en son hangi DOG anına şahit oldun? Kısa bir not bırak.'),
       h('ul', { class: 'hm-gb-rules' },
         h('li', null, icon('check', { size: 16 }), 'DOG serbest, hakaret yasak.'),

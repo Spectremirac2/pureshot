@@ -1,4 +1,5 @@
-// Quizler bölümü (#quizler). Merkez: 4 quiz kartı. Alt sayfalar: hangidog, bilgi, dogmu, hayran.
+// Quizler bölümü (#quizler). Merkez: 5 quiz kartı. Alt sayfalar: hangidog, bilgi, dogmu, hayran, yetenek.
+// Yetenek Avı (yetenek.js) verisini quiz açılınca tembel yükler (bkz. docs/oyunlar/yetenek.md).
 // Kart → ctx.setSub(id) + yerinde çizim; hash ile gelen değişiklikler onSub(sub) ile.
 
 import './quizzes.css';
@@ -16,12 +17,14 @@ import { mountHangiDog } from './hangidog.js';
 import { mountBilgi } from './bilgi.js';
 import { mountDogMu } from './dogmu.js';
 import { mountHayran } from './hayran.js';
+import { mountYetenek } from './yetenek.js';
 
 const VIEWS = {
   hangidog: mountHangiDog,
   bilgi: mountBilgi,
   dogmu: mountDogMu,
   hayran: mountHayran,
+  yetenek: mountYetenek,
 };
 
 let api = null;
@@ -52,11 +55,17 @@ function lastResult(id, me, last) {
     if (me.scores && me.scores.hayran != null) return h('span', { class: 'qz-last-val' }, 'En iyi: ', h('b', { class: 'num' }, `${me.scores.hayran}/12`));
     return null;
   }
+  if (id === 'yetenek') {
+    if (l) return h('span', { class: 'qz-last-val' }, h('b', { class: 'num' }, fmtNum(l.score)), ' puan · ', h('b', { class: 'num' }, `${l.correct}/10`), ' · ', l.title);
+    if (me.scores && me.scores.yetenek != null) return h('span', { class: 'qz-last-val' }, 'En iyi: ', h('b', { class: 'num' }, fmtNum(me.scores.yetenek)), ' puan');
+    return null;
+  }
   return null;
 }
 
 function solved(id, me, last) {
   if (id === 'hangidog') return !!(me.picks && me.picks.hangidog);
+  // bilgi, dogmu, hayran, yetenek: bu cihazdaki son sonuç ya da kayıtlı skor
   return !!(last[id] || (me.scores && me.scores[id] != null));
 }
 
@@ -154,10 +163,10 @@ function renderHub(root, open) {
     h('div', { class: 'section-head' },
       h('span', { class: 'eyebrow' }, 'E · Quizler'),
       h('h1', { class: 'h1 qz-hub-title' }, 'Kaç ', h('em', null, 'DOG'), ' ettiğini', h('br'), 'kanıtla.'),
-      h('p', { class: 'lead' }, 'Dört quiz, sıfır ward. Kişilik testi, süreli Dota bilgisi, DOG radarı ve gerçek hayran sınavı. Sonuçların profilinde kalır; topluluğa karşı kıyaslanır.'),
+      h('p', { class: 'lead' }, 'Beş quiz, sıfır ward. Kişilik testi, süreli Dota bilgisi, DOG radarı, gerçek hayran sınavı ve yetenek avı. Sonuçların profilinde kalır; topluluğa karşı kıyaslanır.'),
     ),
     h('aside', { class: 'qz-inv panel tight', 'aria-label': 'Quiz karnen' },
-      h('span', { class: 'qz-inv-head' }, h('span', { class: 'eyebrow' }, 'Envanter'), h('span', { class: 'small muted' }, invCount, '/4 quiz çözüldü')),
+      h('span', { class: 'qz-inv-head' }, h('span', { class: 'eyebrow' }, 'Envanter'), h('span', { class: 'small muted' }, invCount, `/${QUIZZES.length} quiz çözüldü`)),
       h('span', { class: 'qz-inv-slots' }, invSlots),
       pulse,
     ),
@@ -165,16 +174,16 @@ function renderHub(root, open) {
 
   const grid = h('div', { class: 'qz-grid' }, cards);
   const tip = h('p', { class: 'qz-hub-tip xsmall dim' },
-    'İpucu: ', h('span', { class: 'kbd' }, '1'), '–', h('span', { class: 'kbd' }, '4'),
+    'İpucu: ', h('span', { class: 'kbd' }, '1'), '–', h('span', { class: 'kbd' }, String(QUIZZES.length)),
     ' ile quizi aç, sorularda aynı tuşlarla cevapla, ', h('span', { class: 'kbd' }, 'Enter'), ' ile ilerle. DOG kartlarında ',
     h('span', { class: 'kbd' }, '←'), ' ', h('span', { class: 'kbd' }, '→'), ' ya da kaydır.');
 
   const view = h('div', { class: 'qz-hub' }, head, grid, tip);
   root.appendChild(view);
 
-  // 1–4: kartlardaki yuva numarasıyla quizi aç
+  // 1–5: kartlardaki yuva numarasıyla quizi aç
   scope.on(window, 'keydown', (e) => {
-    if (!keyOk(e) || !/^[1-4]$/.test(e.key)) return;
+    if (!keyOk(e) || !/^[1-9]$/.test(e.key)) return;
     const q = QUIZZES[Number(e.key) - 1];
     if (!q) return;
     e.preventDefault();

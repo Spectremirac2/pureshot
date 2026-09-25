@@ -1,5 +1,6 @@
 // DOG Avı — köstebek vurmaca. Koridor çukurlarından çıkan DOG'ları report et,
-// altın parlayan 1vDOQUZ müttefikine dokunma.
+// altın parlayan 1vDOQUZ müttefikine dokunma. Ara sıra çıkan rune'lar güç verir:
+// Çift Hasar (×2 puan) ve Aegis (bir sonraki hatada seri korunur). Belge: docs/oyunlar/dogavi.md
 
 import { h, clear, pick, rand, clamp, lerp, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
@@ -9,6 +10,13 @@ import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, 
 const DURATION = 45;
 const STREAK = 5;
 const ALLY_PENALTY = 30;
+const DD_TIME = 8;
+const MAX_RUNES = 3;
+// Güç rune'ları (çukurdan çıkar, kısa süre kalır; kaçarsa ceza yok)
+const POWERS = {
+  dd: { id: 'dd', name: 'Çift Hasar', short: '×2', ico: 'swords', color: 'var(--arcane)' },
+  aegis: { id: 'aegis', name: 'Aegis', short: 'Aegis', ico: 'shield', color: 'var(--aegis)' },
+};
 
 export const meta = {
   id: 'dogavi',
@@ -28,6 +36,7 @@ export const meta = {
     'Çukurdan çıkan DOG’a dokun: REPORT! Seri büyüdükçe puan artar.',
     `${STREAK}’li seride DOG DOG DOG bonusu. Kaçan DOG ya da boş çukur seriyi bozar.`,
     `Altın parlayan 1vDOQUZ senin carry’n: ona vurursan −${ALLY_PENALTY} puan.`,
+    `Rune çıkarsa kap: Çift Hasar ${DD_TIME} sn ×2 puan, Aegis bir sonraki hatada serini korur.`,
     'Smurf Köpeği hızlı kaçar ama 2 kat puan verir. 45 saniye, hız giderek artar.',
   ],
   keys: [['1 … 9', 'Dar ekranda 3×3 çukurlar'], ['1–4 / Q–R / A–F', 'Geniş ekranda 4×3 çukurlar']],
@@ -54,6 +63,10 @@ export function mount(el, ctx, nav) {
   const comboPips = h('span', { class: 'gm-wh-pips', 'aria-hidden': 'true' }, Array.from({ length: STREAK }, () => h('i')));
   const sCombo = hudStat('Seri', '×0', { ico: 'flame', cls: 'gm-stat-combo' });
   sCombo.el.appendChild(comboPips);
+  // Etkin güçler: Çift Hasar geri sayımı + Aegis kalkanı
+  const buffDD = h('span', { class: 'gm-wh-buff dd', hidden: true, title: 'Çift Hasar: ×2 puan' }, icon('swords', { size: 12, stroke: 2.2 }), h('span', { class: 'num' }, ''));
+  const buffAegis = h('span', { class: 'gm-wh-buff aegis', hidden: true, title: 'Aegis: bir sonraki hatada seri korunur' }, icon('shield', { size: 12, stroke: 2.2 }));
+  sCombo.el.appendChild(h('span', { class: 'gm-wh-buffs', 'aria-hidden': 'true' }, buffDD, buffAegis));
   const timeBar = h('span', { class: 'gm-timebar', 'aria-hidden': 'true' }, h('span'));
   sTime.el.appendChild(timeBar);
   L.hud.append(sTime.el, sScore.el, sCombo.el);
@@ -134,6 +147,15 @@ export function mount(el, ctx, nav) {
       );
       if (arch.id === 'smurf') hole.mole.classList.add('fast');
       hole.btn.setAttribute('aria-label', `Çukur ${keys[hole.i]}: ${arch.name}`);
+    } else if (kind === 'rune') {
+      hole.mole.classList.add('rune');
+      hole.mole.style.setProperty('--mc', arch.color);
+      hole.mole.append(
+        h('span', { class: 'gm-wh-gem' }, h('span', { class: 'gm-wh-gem-core' }, icon(arch.ico, { size: 30, stroke: 2.2 }))),
+        h('span', { class: 'gm-wh-tag rune' }, arch.name),
+        h('span', { class: 'gm-wh-report' }, arch.short),
+      );
+      hole.btn.setAttribute('aria-label', `Çukur ${keys[hole.i]}: ${arch.name} rune’u, al`);
     } else {
       hole.mole.classList.add('ally');
       hole.mole.append(
@@ -174,6 +196,20 @@ export function mount(el, ctx, nav) {
     sCombo.el.classList.toggle('hot', n >= STREAK);
   }
 
+  /** Hata: seri sıfırlanır — Aegis varsa bir kez korur. */
+  function breakCombo(x, y) {
+    if (!g.combo) return;
+    if (g.shield) {
+      g.shield = false;
+      g.saved++;
+      buffAegis.hidden = true;
+      if (x != null) ctx.fx.floatText('AEGIS', x, y - 30, { color: tok('--aegis-2'), size: 18 });
+      say('Aegis serini korudu.');
+      return;
+    }
+    setCombo(0);
+  }
+
   function addScore(delta) {
     g.score = Math.max(0, g.score + delta);
     sScore.set(fmtNum(g.score));
@@ -188,13 +224,14 @@ export function mount(el, ctx, nav) {
     if (hole.kind === 'dog' && !hole.hit) {
       hole.hit = true;
       g.hits++;
-      const mult = hole.arch.id === 'smurf' ? 2 : 1;
+      const dd = runner.time < g.ddUntil;
+      const mult = (hole.arch.id === 'smurf' ? 2 : 1) * (dd ? 2 : 1);
       const pts = (10 + 2 * Math.min(g.combo, 10)) * mult;
       setCombo(g.combo + 1);
       addScore(pts);
       hole.mole.classList.add('hit');
       ctx.sound.bark(rand(0.8, 1.45));
-      ctx.fx.floatText(`+${pts}`, x, y - 10, { color: tok('--ember-2'), size: 24 });
+      ctx.fx.floatText(`+${pts}`, x, y - 10, { color: dd ? tok('--arcane') : tok('--ember-2'), size: dd ? 28 : 24 });
       if (g.combo % STREAK === 0) {
         const bonus = 25 * (g.combo / STREAK);
         addScore(bonus);
@@ -203,9 +240,26 @@ export function mount(el, ctx, nav) {
         ctx.fx.floatText(`SERİ +${bonus}`, x, y - 40, { color: tok('--aegis'), size: 20 });
       }
       lower(hole, 0.22);
+    } else if (hole.kind === 'rune' && !hole.hit) {
+      hole.hit = true;
+      g.runes++;
+      const r = hole.arch;
+      if (r.id === 'dd') {
+        g.ddUntil = runner.time + DD_TIME;
+        ctx.fx.stamp('ÇİFT HASAR', { variant: '' });
+        say(`Çift Hasar: ${DD_TIME} saniye boyunca iki kat puan.`);
+      } else {
+        g.shield = true;
+        buffAegis.hidden = false;
+        ctx.fx.floatText('AEGIS!', x, y - 10, { color: tok('--aegis'), size: 24 });
+        say('Aegis aldın: bir sonraki hatada serin korunur.');
+      }
+      hole.mole.classList.add('hit');
+      ctx.sound.coin();
+      lower(hole, 0.2);
     } else if (hole.kind === 'ally') {
       g.allyHits++;
-      setCombo(0);
+      if (g.shield) breakCombo(x, y); else setCombo(0);
       addScore(-ALLY_PENALTY);
       hole.mole.classList.add('hit');
       ctx.sound.bad();
@@ -215,7 +269,7 @@ export function mount(el, ctx, nav) {
       lower(hole, 0.3);
     } else {
       g.empty++;
-      if (g.combo) setCombo(0);
+      breakCombo(x, y);
       ctx.sound.miss();
       hole.btn.classList.remove('whiff');
       void hole.btn.offsetWidth;
@@ -237,12 +291,19 @@ export function mount(el, ctx, nav) {
       ctx.sound.tick();
     }
 
-    // Kaçan DOG'lar
+    // Güç göstergeleri
+    const ddLeft = Math.max(0, g.ddUntil - t);
+    buffDD.hidden = ddLeft <= 0;
+    if (ddLeft > 0) buffDD.lastChild.textContent = String(Math.ceil(ddLeft));
+    L.stage.classList.toggle('gm-wh-dd', ddLeft > 0);
+
+    // Kaçan DOG'lar (rune ve 1vDOQUZ kaçarsa ceza yok)
     for (const hole of holes) {
-      if ((hole.kind === 'dog' || hole.kind === 'ally') && !hole.hit && t >= hole.until) {
+      if ((hole.kind === 'dog' || hole.kind === 'ally' || hole.kind === 'rune') && !hole.hit && t >= hole.until) {
         if (hole.kind === 'dog') {
           g.escaped++;
-          if (g.combo) setCombo(0);
+          const rc = hole.btn.getBoundingClientRect();
+          breakCombo(rc.left + rc.width / 2, rc.top + rc.height / 3);
           hole.mole.classList.add('escape');
         }
         lower(hole);
@@ -263,7 +324,14 @@ export function mount(el, ctx, nav) {
           g.lastHole = hole.i;
           const allyChance = lerp(0.1, 0.2, k);
           const up = lerp(1.25, 0.66, k) * rand(0.82, 1.18);
-          if (Math.random() < allyChance && g.spawns > 2) {
+          const runeReady = g.runesOut < MAX_RUNES && t - g.lastRune > 9 && g.spawns > 6 && left > 4;
+          if (runeReady && Math.random() < 0.16) {
+            g.runesOut++;
+            g.lastRune = t;
+            // Aegis zaten varsa Çift Hasar; yoksa rastgele
+            const r = g.shield ? POWERS.dd : Math.random() < 0.55 ? POWERS.dd : POWERS.aegis;
+            setHole(hole, 'rune', r, lerp(1.35, 1.0, k));
+          } else if (Math.random() < allyChance && g.spawns > 2) {
             setHole(hole, 'ally', null, up * 1.25);
           } else {
             const arch = pick(ARCHETYPES);
@@ -296,7 +364,10 @@ export function mount(el, ctx, nav) {
     g = {
       start: 0, score: 0, combo: 0, maxCombo: 0, hits: 0, clicks: 0, empty: 0,
       allyHits: 0, escaped: 0, bonus: 0, spawnIn: 0.6, spawns: 0, lastHole: -1, lastTick: 99,
+      runes: 0, runesOut: 0, lastRune: 0, ddUntil: 0, shield: false, saved: 0,
     };
+    buffDD.hidden = true;
+    buffAegis.hidden = true;
     setCombo(0);
     sScore.set('0');
     state = 'play';
@@ -311,10 +382,12 @@ export function mount(el, ctx, nav) {
 
   function end() {
     state = 'end';
-    L.stage.classList.remove('playing');
+    L.stage.classList.remove('playing', 'gm-wh-dd');
     for (const hole of holes) if (hole.kind) lower(hole);
+    buffDD.hidden = true;
+    buffAegis.hidden = true;
     if (hotkeysOff) { ctx.hotkeys(true); hotkeysOff = false; }
-    const acc = g.clicks ? Math.round((g.hits / g.clicks) * 100) : 0;
+    const acc = g.clicks ? Math.round(((g.hits + g.runes) / g.clicks) * 100) : 0;
     const s = g.score;
     // Skoru hemen kaydet: kart gecikmeli açılır, oyuncu o arada ayrılsa da skor kaybolmaz.
     const saved = submitResult(meta, s);
@@ -333,8 +406,8 @@ export function mount(el, ctx, nav) {
           ['Report edilen', fmtNum(g.hits)],
           ['İsabet', `%${acc}`],
           ['En uzun seri', `×${g.maxCombo}`],
-          ['Carry’ne vurdun', fmtNum(g.allyHits)],
-          ['Kaçan DOG', fmtNum(g.escaped)],
+          ['Carry / kaçan', `${fmtNum(g.allyHits)} / ${fmtNum(g.escaped)}`],
+          ['Rune', g.saved ? `${fmtNum(g.runes)} · Aegis ${g.saved}` : fmtNum(g.runes)],
           ['Seri bonusu', `+${fmtNum(g.bonus)}`],
         ],
         quip,

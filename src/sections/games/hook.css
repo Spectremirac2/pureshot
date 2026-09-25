@@ -1,0 +1,54 @@
+/* =====================================================================
+   Pudge Hook (gm-hk-)
+   ===================================================================== */
+
+.gm-hk-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  clip-path: var(--clip);
+}
+.gm-hk-canvas {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Oyun sürerken sahada kaydırma/yakınlaştırma yok: her dokunuş bir kanca */
+.gm-hk-wrap.playing .gm-hk-canvas { touch-action: none; }
+.gm-hk-canvas:focus-visible { outline: 2px solid var(--aegis-2); outline-offset: -3px; }
+
+/* HUD: Meat Hook bekleme slotu */
+.gm-hk-cd {
+  position: relative;
+  flex: none;
+  width: 52px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--dire);
+  background: linear-gradient(160deg, var(--bg-4), var(--bg));
+  border: 1px solid color-mix(in srgb, var(--dire) 45%, var(--line-2));
+}
+.gm-hk-cd img { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); object-fit: cover; }
+.gm-hk-cd-sweep {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(rgba(0, 0, 0, 0.72) var(--cd, 0%), transparent 0);
+}
+.gm-hk-cd.ready { border-color: var(--aegis); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aegis) 60%, transparent), 0 0 14px color-mix(in srgb, var(--aegis) 30%, transparent); }
+
+/* HUD: seri noktaları (3. ve 6. adım ×2 / ×3) */
+.gm-hk-pips { display: flex; gap: 3px; margin-top: 3px; }
+.gm-hk-pips i { flex: 1; height: 4px; background: var(--bg-4); }
+.gm-hk-pips i.step { background: color-mix(in srgb, var(--ember) 16%, var(--bg-4)); }
+.gm-hk-pips i.on { background: var(--grad-ember); box-shadow: 0 0 6px color-mix(in srgb, var(--ember) 60%, transparent); }
+.gm-stat-combo.hot .gm-stat-val { color: var(--ember); }
+
+@media (max-width: 620px) {
+  .gm-hk-cd { width: 44px; }
+}

@@ -2,11 +2,16 @@
 // portre yoksa prosedürel yedek çizilir (özellik şekli + rengi ve kısaltma).
 //   crestSvg(hero, { value, size, cls })  → <svg> (kartlar, detay, tier listesi)
 //   drawCrestCanvas(g, x, y, size, hero, value, { img }) → doku atlası hücresi (3D sikkeler)
-//   loadPortraits(heroes) → Map<id, HTMLImageElement> (canvas'a çizmek için)
+//   loadPortraits(heroes) → Map<id, portre> (canvas'a çizmek için; önce tek istekli portre atlası)
 
 import { h } from '../../core/dom.js';
 import { ATTRS } from '../../data/heroes.js';
 import { heroPortraitUrl } from '../../core/assets.js';
+
+// Portre atlası (scripts/build-hero-atlas.mjs): her portrenin orta karesi tek WebP'de; 127 istek yerine 1.
+// Dosya yoksa (atlas üretilmemişse) boş kalır ve portreler tek tek yüklenir.
+const ATLAS_URL = Object.values(import.meta.glob('../../assets/heroes/atlas/portraits.webp', { eager: true, query: '?url', import: 'default' }))[0] || null;
+const ATLAS_INDEX = Object.values(import.meta.glob('../../assets/heroes/atlas/portraits.json', { eager: true, import: 'default' }))[0] || null;
 
 // Özellik şekilleri (viewBox 0 0 100 100, merkez 50,50)
 const hexPts = (r, rot = -90) => Array.from({ length: 6 }, (_, i) => {
@@ -137,7 +142,10 @@ function traceShape(g, attr, cx, cy, r) {
   g.closePath();
 }
 
-/** Sikke yüzü: dairesel madalyon, altın kenar, DOG% yayı; portre (varsa) ya da özellik şekli + kısaltma; yüzde. */
+/**
+ * Sikke yüzü: dairesel madalyon, altın kenar, DOG% yayı; portre (varsa) ya da özellik şekli + kısaltma; yüzde.
+ * img: HTMLImageElement (16:9 portre) ya da atlas hücresi { sheet, sx, sy, size } (portrenin orta karesi).
+ */
 export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { percent = true, img = null } = {}) {
   const col = (ATTRS[hero.attr] || ATTRS.uni).color;
   const cx = x + size / 2, cy = y + size / 2;
@@ -186,8 +194,13 @@ export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { per
     g.beginPath();
     g.arc(cx, cy, ir, 0, Math.PI * 2);
     g.clip();
-    const ih = ir * 2, iw = ih * (img.naturalWidth / img.naturalHeight || 16 / 9);
-    g.drawImage(img, cx - iw / 2, cy - ir, iw, ih);
+    if (img.sheet) {
+      // atlas hücresi zaten orta kare: madalyonu tam kaplar
+      g.drawImage(img.sheet, img.sx, img.sy, img.size, img.size, cx - ir, cy - ir, ir * 2, ir * 2);
+    } else {
+      const ih = ir * 2, iw = ih * (img.naturalWidth / img.naturalHeight || 16 / 9);
+      g.drawImage(img, cx - iw / 2, cy - ir, iw, ih);
+    }
     if (percent) {
       const shade = g.createLinearGradient(0, cy, 0, cy + ir);
       shade.addColorStop(0, 'rgba(13,11,20,0)');
@@ -239,20 +252,42 @@ export function drawCrestCanvas(g, x, y, size, hero, value = hero.dogRate, { per
   g.restore();
 }
 
-/**
- * Kahraman portrelerini canvas'a çizilecek şekilde yükler.
- * Yüklenemeyenler atlanır (o sikke prosedürel armayla kalır). Promise<Map<id, HTMLImageElement>>
- */
-export function loadPortraits(heroes) {
-  return Promise.all(heroes.map((hero) => new Promise((resolve) => {
-    const url = heroPortraitUrl(hero.id);
-    if (!url) return resolve(null);
+function loadImage(url) {
+  return new Promise((resolve) => {
     const im = new Image();
     im.decoding = 'async';
-    im.onload = () => resolve([hero.id, im]);
+    im.onload = () => resolve(im);
     im.onerror = () => resolve(null);
     im.src = url;
-  }))).then((pairs) => new Map(pairs.filter(Boolean)));
+  });
+}
+
+/**
+ * Kahraman portrelerini canvas'a çizilecek şekilde yükler. Önce tek istekli atlas denenir; atlasta olmayan
+ * kahramanlar (ya da atlas yüklenemezse hepsi) tek tek portre dosyalarından gelir. Yüklenemeyenler atlanır
+ * (o sikke prosedürel armayla kalır). Promise<Map<id, HTMLImageElement | { sheet, sx, sy, size }>>
+ */
+export async function loadPortraits(heroes) {
+  const out = new Map();
+  let rest = heroes;
+  const sheet = ATLAS_URL && ATLAS_INDEX ? await loadImage(ATLAS_URL) : null;
+  if (sheet) {
+    const { cell, cols, ids } = ATLAS_INDEX;
+    const at = new Map(ids.map((id, i) => [id, i]));
+    rest = heroes.filter((hero) => {
+      const i = at.get(hero.id);
+      if (i === undefined) return true;
+      out.set(hero.id, { sheet, sx: (i % cols) * cell, sy: Math.floor(i / cols) * cell, size: cell });
+      return false;
+    });
+  }
+  const singles = await Promise.all(rest.map(async (hero) => {
+    const url = heroPortraitUrl(hero.id);
+    const im = url ? await loadImage(url) : null;
+    return im ? [hero.id, im] : null;
+  }));
+  for (const pair of singles) if (pair) out.set(pair[0], pair[1]);
+  return out;
 }
 
 /** Canvas yazı tiplerinin yüklenmesini (en fazla ~1.2 sn) bekler. */

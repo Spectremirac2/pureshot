@@ -50,6 +50,22 @@ const P = {
   question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.5"/><circle cx="12" cy="17" r=".9"/>',
   thumbUp: '<path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9h5a2 2 0 012 2.3l-1.2 7A2 2 0 0117.3 20H7"/>',
   swords: '<path d="M4 4l9 9M20 4l-9 9"/><path d="M14 17l3 3M10 17l-3 3M16 15l4 4M8 15l-4 4"/><path d="M4 4h4M4 4v4M20 4h-4M20 4v4"/>',
+  // Invoker Kombo: yörüngede üç küre
+  orbs: '<circle cx="12" cy="6.5" r="3"/><circle cx="6.5" cy="16" r="3"/><circle cx="17.5" cy="16" r="3"/><path d="M14.9 7.2a6.3 6.3 0 013.4 5.9M15.4 18.1a6.3 6.3 0 01-6.8 0M5.7 13.1a6.3 6.3 0 013.4-5.9"/>',
+  // Pudge Hook: halkalı et kancası
+  hook: '<circle cx="14" cy="3.8" r="1.8"/><path d="M14 5.6V14a4.5 4.5 0 01-9 0v-3.5l2.4 2.2"/>',
+  // Oyun Salonu / rozetler
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/>',
+  medal: '<path d="M8 3l4 6 4-6"/><path d="M5.5 3H10M14 3h4.5"/><circle cx="12" cy="15" r="6"/><path d="M12 12l.9 1.9 2.1.3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.4 2.1-.3z"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h3v3H8z"/>',
+  grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
+  // DOGdle / Portre Avı: arama, paylaşım, ipucu
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>',
+  share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
+  bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 00-3.7 10.7c.8.7 1.2 1.4 1.2 2.3h5c0-.9.4-1.6 1.2-2.3A6 6 0 0012 3z"/>',
+  flag: '<path d="M5.5 21V3.5"/><path d="M5.5 4h12l-2.5 4.25L17.5 12.5h-12"/>',
+  // Yetenek Avı quizi: yetenek yuvası + kıvılcım
+  spell: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 7l1.4 3.6L17 12l-3.6 1.4L12 17l-1.4-3.6L7 12l3.6-1.4z"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

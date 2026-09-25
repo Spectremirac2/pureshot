@@ -50,6 +50,16 @@ export const QUIZZES = [
     unit: 'soru',
     blurb: 'DOG DOG DOG ne zaman söylenir? DOQUZ’daki Q nereden geliyor? Kanıtla.',
   },
+  {
+    id: 'yetenek',
+    name: 'Yetenek Avı',
+    kind: 'Süreli yarışma',
+    icon: 'spell',
+    minutes: 3,
+    count: 10,
+    unit: 'yetenek',
+    blurb: 'İkon ve ad elinde, dört kahraman karşında. Bu yetenek kimin? Her soruya 20 saniye; şıkların hepsi aynı özellikten.',
+  },
 ];
 
 // ------------------------------------------------------------------ 1) Hangi DOG'sun?
