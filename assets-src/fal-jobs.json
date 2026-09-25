@@ -283,7 +283,7 @@
   "model-hero-treant": {
     "endpoint": "fal-ai/trellis-2",
     "request_id": "01a0daed-3e97-7191-a4ac-a2e93c6956a9",
-    "url": null,
+    "url": "https://v3b.fal.media/files/b/0aabe6f4/7k_Z4fSmoB0AIbKXyc9jk_trellis2_81cdf151a66b47daa34e85e07905b969.glb",
     "source": "src3d-hero-treant"
   }
 }
