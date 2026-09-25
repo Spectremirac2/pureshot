@@ -110,3 +110,16 @@ Playwright (masaüstü 1440×900, mobil 390×844 dokunmatik), yerel dev sunucusu
 - Hareket azaltma açıkken hatasız; yatay taşma yok; konsol hatası 0; derleme başarılı.
 - Bulunan ve düzeltilen: sitenin genel `.empty` sınıfı küre slotuna çarpıp satır yüksekliğini oynatıyordu
   (durum sınıfları `is-*` yapıldı); dokunmanın `detail 0` tıklaması küreyi iki kez sayıyordu.
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Saat “Başla”ya basıldığı an başlıyordu: fareyle başlatıp elini klavyeye götüren oyuncu ~1 sn kaybediyordu. | **3-2-1 geri sayımı** (3 × 0,42 sn, bip sesleri, sonda “Invoke!”). Saat ve kronometre ancak “Invoke!” ile başlar; geri sayımda Q W E R yok sayılır. Hareket azaltmada animasyonsuz. |
+| Hedef bitince bir sonraki büyü sürpriz geliyordu; uzman oyuncunun küreleri önceden dizmesine imkân yoktu. | **Sıradaki büyü** hedef kartının altında (ikon + ad; Tarifler açıksa küre noktaları). Zaman saldırısında torba hep bir adım önden doldurulur (art arda aynı büyü yine gelmez); yarışta son hedefte “Son büyü!”. Geri sayımda ilk hedef “Sıradaki” olarak görünür. |
+| Seri sesi her büyüde aynıydı. | Seri ≥ 2’de her 5’lik göstergede yükselen nota (`sound.streak`); 5 ve 10’un katlarındaki kutlamalar aynı. |
+| Rekor kovalarken oyun içi işaret yoktu. | Zaman saldırısında eski rekor geçilince HUD’dan “REKOR!” + fanfar. Sonuç kartında rekor notu (yarışta düşük süre iyi). Yanlış büyüde dokunmatikte kısa titreşim. |
+
+Skor (60 sn’de çağrılan hedef büyü) ve yarışın yerel rekoru değişmedi. Test (`final.mjs invoker d|m`): geri sayımda
+Q yok sayıldı, geri sayımdaki “Sıradaki” ilk hedef oldu; 60 sn boyunca her başarıda “Sıradaki” = yeni hedef; bir yanlış
+büyü; sonuç = çağrılan büyü = `scores.invoker`; oyun içinde Z kapalı, çıkınca Q çalışır.

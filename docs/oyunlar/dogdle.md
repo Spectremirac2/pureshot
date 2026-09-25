@@ -151,3 +151,12 @@ Playwright (dev sunucusu, HMR engelli), masaüstü 1440×900 ve mobil 390×844 (
 - `test-days.mjs` (sahte saat): 23:58:30’da geri sayım, #1 çözüm, gece yarısı #2’ye geçiş + bildirim,
   seri 2, iki gün atlayınca seri 0, `todayStatus()`. **Geçti.**
 - `test-rm.mjs`: hareket azaltmada animasyon yok ve kazanma anında; odak dışındayken harfler aramaya yazılır.
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| 390 px tahtada kahraman sütunu yalnızca kısaltma gösteriyordu (“LNA”, “TMB”, “JUG”); portre küçükken tahmin geçmişini okumak zordu. | Dar tahtada **tek kelimelik adlar olduğu gibi** (≤ 10 harf: Lina, Axe, Juggernaut, Timbersaw, Anti-Mage), çok kelimeli adlar topluluğun bildiği kısaltmayla (CM, QOP, SF). 9–10 harfli adlar bir punto küçük. Masaüstünde tam ad değişmedi. |
+
+Diğer akışlar (ipuçları, seri, paylaşım, serbest mod) oynanarak denendi; sorun bulunmadı. Test (`final.mjs dogdle d|m`):
+3 yanlış + doğru tahmin → `scores.dogdle = 4`, dar ad etiketleri (“Disruptor, CM, Juggernaut, Pudge”), çıkınca Q çalışır.

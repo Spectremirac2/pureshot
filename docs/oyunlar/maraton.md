@@ -142,3 +142,16 @@ Kategori: **Yayın** (`meta.cat = 'yayin'`). `core/badges.js` için öneri:
 | Kick Fenomeni | `scores.maraton ≥ 7000` | En iyi ~%10 |
 
 (Mevcut “24 Saat Ruhu” rozeti DOG düğmesiyle ilgili; `maraton` eşik anahtarı orada kullanılıyor, çakışmasın.)
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Yayın “Zzz…” damgasıyla bitiyordu ama **neden** bittiği sonuç kartında yazmıyordu; oyuncu enerjinin sıfırlandığını çoğu zaman sonradan anlıyordu. | Sonuç kartında **“Yayın neden bitti?”** kutusu: “Enerji 0’a düştü: 13:47’de uyuya kaldın.”, özet (çay · mola · maç · lobide geçen süre) ve tek somut öğüt (hiç çay yoksa çay, mola yoksa mola, uzun lobi beklemesi, çok chat cevabı ya da genel enerji eşiği). Lobide geçen süre simülasyonda `stats.idleH` olarak sayılır (yalnızca gösterim). |
+| Bitişten önceki uyarı yalnızca HUD saatinin kızarmasıydı. | **Enerji kritik (< 22):** durum satırı kırmızı “Enerji kritik! Çay (2) ya da mola (4)” der, çay ve (uygunsa) mola düğmeleri nabız atar, bir kez uyarı sesi + chat satırı + ekran okuyucu duyurusu (enerji 36’nın üstüne çıkınca yeniden kurulur). Maç at düğmesinin nabzı bu sırada molaya yol verir. |
+| Sonuçta rekorla kıyas yoktu. | Rekor notu (fark ya da kıl payı). |
+
+Olay çeşitliliği: 35 olayın her biri oyunda en fazla bir kez gelir, oyun başına ~15 kart; oynarken tekrar/tek düzelik
+gözlenmedi, dengeye dokunulmadı. Simülasyon, skor (zirve × saat/24) ve unvanlar değişmedi. Test (`final.mjs maraton d|m`):
+enerji 18’e çekilince uyarı (durum satırı + çay düğmesi nabzı); ×14 hızla tam 24 saat → skor = `scores.maraton`;
+enerji 2’ye çekilince erken bitiş ve neden kutusu; oyun içinde Z kapalı; ortada çıkınca Q çalışır, `__maraton` silinir.

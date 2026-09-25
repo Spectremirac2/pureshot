@@ -75,3 +75,20 @@ Tüm dalgalar tamamlandı ve entegre edildi.
 
 Altyapı (entegrasyon, ajanlardan önce): `src/core/history.js` (her `submitScore` denemesini tarih ile kaydeder),
 gizli `#profil` rotası (yetenek çubuğunda slotu yok), dört yeni oyun için iskelet kayıtları.
+
+## 2. Tur sonucu (25 Eylül 2026)
+
+- **İlk giriş turu** (masaüstünde 12, mobilde 11 adım): yetenek çubuğunun her slotu ve HUD; R adımı “ulti” vurgulu;
+  `?` yardım paneli, ad çipi menüsü, altbilgideki “Rehber” sütunu ve `#tur` bağlantısıyla tekrar açılır.
+  Ayrıntı: [REHBER.md](REHBER.md).
+- **Profil / Fan Kartı** (`#profil`): avatar kahraman, seviye ve rütbe, 14 oyun + 5 quiz rekoru, rozetler,
+  paylaşılabilir kart görseli, veri dışa/içe aktarma. **Günlük görevler**: her gün 3 görev (23 şablonluk havuz).
+  Ayrıntı: [PROFIL.md](PROFIL.md).
+- **4 yeni oyun** (toplam 14): Uçan Kurye, Techies Mayın Tarlası, Eşya 2048, 24 Saat Maraton.
+- **Rozetler** 23 → 31. **Skor tabloları** statik yayında kişisel “Rekor defterin” (son denemeler, gelişim çizgisi).
+- **9 oyunun eleştirel cilası**: Portre Avı spam kilidi ve “null” hatası, Invoker geri sayım ve sıradaki büyü,
+  Hook isabet duraklaması ve “Kıl payı!”, Kurye okunur ölümler ve rekor çizgisi, Mayın mobil bayrak ipucu,
+  Eşya koleksiyonu, Maraton “yayın neden bitti” kutusu, Bingo “1 kala” vurgusu, DOGdle mobil kahraman adları.
+  Ortak `juice.js`: rekor notu, oyun içi “REKOR!” anı, titreşim.
+- **Test**: 19 bölüm/alt sayfa, 14 oyun, 5 quiz ve tur; masaüstü (1440) + mobil (390): konsol hatası 0,
+  4xx 0, yatay taşma yok; her ajanın oynanış botları (`docs/oyunlar/*.md` → Test notları).

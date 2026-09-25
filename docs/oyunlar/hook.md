@@ -84,3 +84,18 @@ kanca hızı) test botunun hedefin önüne atmasını sağlar; üretim derlemesi
 - Pudge ve sahne alt çubuğun üstünde; yatay taşma yok; konsol hatası 0.
 - Boşluk kancayı atar ve sayfayı kaydırmaz; oyunda Q gezinmez; “Oyunlar”a dönünce kısayollar açık.
 - Hareket azaltma açıkken mobilde dokunarak atış hatasız.
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Nişan çizgisi soluktu (%55 opak, ince); hareketli hedeflerin arasında kaybolabiliyordu. Hangi birimin yolda olduğu anlaşılmıyordu. | Hazırken **parlak altın çizgi + yumuşak parıltı**. Çizginin şu an kestiği **ilk birim** halkayla işaretlenir: düşmansa kızıl, creep’se gri, dostsa yeşil halka ve “DOST!” uyarısı. (Kanca yola çıkınca hedef yürümüş olacaktır; öne atma becerisi aynen gerekir.) |
+| İsabet anı hafifti; uzun kanca ile normal kanca aynı hissettiriyordu. | **Vuruş duraklaması:** düşman isabetinde dünya 0,06 sn (uzun kancada 0,1 sn) donar, hedefte genişleyen halka; uzun kancada ek gümbürtü (`sound.thud`). Donma sırasında tur saati ve bekleme de durur (oyuncunun oynayamadığı süre turdan yemez). Hareket azaltmada donma yok. |
+| Seri ilerlerken ses hep aynıydı. | Seri ≥ 2’de yükselen seri notası (`sound.streak`). |
+| Kanca düşmanın burnunun dibinden geçip ıskalayınca “Iska” ile sıradan ıska aynıydı. | **Kıl payı:** kanca bir düşman kahramanın 14 birim yakınından geçip boş dönerse o hedefin üstünde “Kıl payı!” ve ıslık sesi (ceza aynı: seri biter). |
+| Dokunmatikte parmak hedefi örtüyor, nereye atıldığı görünmüyordu. | Dokunulan noktada kısa altın halka (nişan noktası). |
+| Rekor kovalamak için oyun içinde işaret yoktu. | Tur sırasında eski rekor geçilince Pudge’un üstünde **“REKOR!”** + fanfar (`sound.record`), bir kez. Sonuç kartında rekor notu (fark ya da “Kıl payı! Rekoruna N puan kaldı”). |
+| — | Dokunmatikte isabet/dost için kısa titreşim (ses kapalıyken yok). |
+
+Puanlama ve skor anlamı değişmedi. Test: `hook-test.mjs` (60 sn tam tur, öngörülü bot, iki görünüm; skor = kayıt) ve
+`final.mjs hook d|m` (oyun içinde Z kapalı, oyun ortasında çıkınca Q çalışır, `__hookDebug` silinir) **geçti**.

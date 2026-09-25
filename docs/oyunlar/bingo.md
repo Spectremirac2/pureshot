@@ -87,3 +87,15 @@ Masaüstü 1440×900 ve mobil 390×844 (`isMobile`, `hasTouch`) — konsol hatas
 - Geçersiz kod hatası; `k7m2qx` → onay → `K7M2QX` kartı; ikinci tarayıcı bağlamında aynı kod aynı kartı
   veriyor; kategori dağılımı 4-5-5-5-5.
 - Yeni kart onayı; yayın modu (kenar sütun gizli, taşma yok, `Esc` kapatır); tam kart → 12/12.
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| HUD “BINGO’ya 1 hücre” diyordu ama **hangi** hücre olduğunu göstermiyordu; yayın izlerken beklenen an kaçıyordu. | **“1 kala” hücreleri:** tamamlanmamış bir çizgiyi tek başına bitirecek her işaretsiz hücre altın çerçeveyle hafifçe nabız atar ve köşesinde “1 KALA” etiketi taşır (hareket azaltmada nabız yok; ekran okuyucu etiketinde “BINGO için tek hücre”). Yayın modunda izleyiciler de görür. |
+| Mobilde işaretleme yalnızca sesle onaylanıyordu. | **Dokunsal geri bildirim:** işaretlemede kısa titreşim, BINGO’da çift, tam kartta uzun desen (yalnızca dokunmatik + destekleyen tarayıcı; ses kapalıyken titreşim de yok). |
+| 390 px’te mürekkep damgası küçük hücrenin yazısını örtüyordu. | Dar kartta damga küçüldü, işaretli yazı kalınlaştı. |
+| Mobilde yayın modu dört satırlık araç çubuğuyla açılıyor, kartın alt satırları alt çubuğun arkasında kalıyordu. | Dar ekranda yayın modunda yalnızca “Yayın modu” (çıkış) ve “Tam ekran” düğmeleri görünür; kart tamamen ekrana sığar. |
+
+Kart kodu, deste, skor (çizgi) değişmedi. Test (`final.mjs bingo d|m`): 4 işaretten sonra 5. hücre “1 kala”; işaretle →
+BINGO, `scores.bingo = 1`; yayın modu (taşma yok) ve Esc; çıkınca Q çalışır. İki görünümde **geçti**.

@@ -115,3 +115,17 @@ Kategori: **Zihin**. Skor yalnızca kazanılan Orta tahtasının süresidir (dü
 |---|---|
 | Mayın Temizleyici | `mayin` skoru var (bir Orta tahtası kazanıldı) |
 | Sentry Ustası | `mayin ≤ 90` sn |
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Mobilde uzun basma (Sentry) yalnızca başlangıç kartında ve tahtanın **altındaki** ipucu satırında yazıyordu; 390 px’te o satır ekranın dışında kalıyor, oyuncu bayrak koymayı keşfedemiyordu. | **İlk kez ipucu:** dokunmatikte ilk açılıştan 0,7 sn sonra alt çubuğun üstünde sabit bir kart: “Mayın mı sandın? Hücreye **uzun bas**: Sentry dikilir… ya da **Bayrak** moduna geç.” + “Anladım” (44 px). İlk Sentry dikilince kendiliğinden kapanır ve öğrenildi sayılır; en çok iki kez gösterilir (`csk:mayin-coach`). Sabit konumlu olduğu için tahtayı kaydırmaz (yanlış dokunuş olmaz). Bayrak modundaysan hiç çıkmaz. |
+| “Yakınlaştır” her tahtada kapalı başlıyordu; 16×16’yı mobilde büyük oynayan her seferinde yeniden açıyordu. | Yakınlaştırma tercihi hatırlanır (`csk:mayin-zoom`). |
+| Kayıpta “kıl payı” hissi yoktu. | Az kalmışken (≤ 5 güvenli hücre) kayıp sözü: “Kıl payı! Yalnızca N güvenli hücre kalmıştı…”. |
+| Kazanmada rekorla kıyas yalnızca rozetteydi. | Rekor notu (düşük süre iyi): fark ya da “Kıl payı! Rekoruna N sn kaldı”. Mayına basınca ve Sentry dikince dokunmatikte kısa titreşim. |
+
+Kurallar, 3BV/verim ve skor (yalnızca Orta süresi) değişmedi. Test (`final.mjs mayin d|m`): Çaylak ilk açılış → ipucu
+yalnızca mobilde; mobilde uzun basma (CDP dokunma) Sentry dikti ve ipucunu kapattı, masaüstünde sağ tık; çözücüyle Çaylak
+(yerel rekor) ve Orta (`scores.mayin` = süre) kazanıldı; kayıp kartı; oyun içinde Z kapalı; ortada çıkınca Q çalışır,
+`__mayinDebug` ve ipucu kartı temizlenir. İki görünümde **geçti**.

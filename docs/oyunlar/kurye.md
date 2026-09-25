@@ -115,3 +115,17 @@ Kategori: **Refleks**. Eşikler metre (skor = metre + şişe bonusu):
 |---|---|
 | Bottle Teslimatı | `kurye ≥ 300` |
 | Efsane Kurye | `kurye ≥ 1000` |
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Ölüm anı okunmuyordu: kurye kuleye değdiği kare takla atıp nehre düşüyordu; neye, nereden çarptığı belli değildi. | **Ölüm donması** (0,16 sn): kurye çarptığı yerde kalır, sahne titrer. **Çarpma noktasında** beyaz-kızıl yıldız + halka, **çarpılan kule parçası** (üst/alt) kızarır. Hareket azaltmada donma yok, işaretler sabit. |
+| “Kuleye çarptı” genel bir cümleydi, bir sonraki denemeye öğüt vermiyordu. | Neden + öğüt: “Üst kuleye çarptı · daha seyrek dokun”, “Alt kuleye çarptı · biraz erken dokun”, “Nehre düştü · düşerken daha sık dokun”. Sonuç sözleri de bu nedeni kullanır. |
+| Rekor kovalamanın uçuş içinde hiçbir işareti yoktu. | **Rekor kapısı:** eski rekorun bu uçuştaki yeri kesikli altın çizgi + “REKOR 1.234” olarak dünyada yaklaşır (şişe bonusu kapıyı yaklaştırır). Geçilince “YENİ REKOR!”, altın kıvılcım, fanfar; HUD’daki Rekor kutusu altına döner. Sonuç kartında rekor notu. |
+| Kıl payı geçişte “iyi” sesi çalıyordu. | Ayrı kıl payı ıslığı (`sound.nearMiss`). Ölümde dokunmatikte kısa titreşim. |
+
+Fizik, zorluk eğrisi ve skor (metre + şişe) değişmedi. `__kuryeDebug()` (yalnızca geliştirme) artık `cause`, `part`,
+`best`, `recordAt` da döndürür. Test (`final.mjs kurye d|m`): 1. uçuş (bot ~120 m’de bırakılır) → neden işaretli, skor kaydı;
+2. uçuşta rekor kapısı görünür ve “YENİ REKOR” tetiklenir, sonra sürekli çırpılarak kuleye çarpılır → parça üst/alt,
+rekor kaydı, sonuç kartında rekor notu; oyun içinde Z kapalı, çıkınca Q çalışır ve kanca silinir.

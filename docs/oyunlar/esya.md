@@ -121,3 +121,16 @@ Kategori: **Zihin** (`meta.cat = 'zihin'`). `core/badges.js` için öneri:
 |---|---|---|
 | BKB Bastın | `scores.esya ≥ 2500` | ≈ BKB/Aghanim kademesi; basit köşe stratejisiyle ulaşılır |
 | Divine Rapier | `picks['esya:tier'] ≥ 11` (ya da `scores.esya ≥ 20000`) | Rapier = 2048; klasik 2048’de bu kareye ~20 bin puanla varılır |
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+| Bulgu | Değişiklik |
+|---|---|
+| Uzun vadede bir hedef yoktu: her oyun zincire sıfırdan bakılıyordu; ilk kez Blink ya da BKB yapmak diğer birleştirmelerden farksızdı. | **Koleksiyon:** bu cihazda şimdiye kadar yapılan en yüksek eşya `csk:esya:codex` içinde tutulur (başlangıçta profildeki `picks['esya:tier']` ile birleştirilir). Zincir panelinin başında “Koleksiyon 6/12” (Cheese bulunursa “+ Cheese”); hiç yapılmamış eşyalar bulanık, gri ve “?” işaretli. |
+| — | **İlk kez yapılan eşya kutlaması:** “YENİ EŞYA!” uçan yazısı, mesaj satırında “İlk kez: Blink Dagger! Koleksiyona girdi.”, zincir satırında 2,6 sn “YENİ” rozeti; 6. kademeden itibaren eşyanın adı + fanfar, 7. kademeden itibaren küçük konfeti; dokunmatikte titreşim. Daha önce yapılmış eşyada eski (küçük) kutlama sürer. |
+| Sonuçta rekorla kıyas yoktu. | Sonuç kartında rekor notu (fark ya da “Kıl payı! Rekoruna N puan kaldı”). |
+
+Kayıtlı (bu özellikten önceki) bir tahtaya “Devam et” denirse tahtadaki en iyi eşya koleksiyona sessizce girer.
+Kurallar ve puan değişmedi. Test (`final.mjs esya d|m`): koleksiyon 2/12 ile başlar; masaüstünde oklar, mobilde CDP
+kaydırmaları + dev kancası ile oyun sonuna kadar; ilk kez yapılan eşyada “YENİ” rozeti, `csk:esya:codex` ≥ 5; skor =
+`scores.esya`; oyun içinde Z kapalı; ortada çıkınca Q çalışır, `__esya` silinir. İki görünümde **geçti**.
