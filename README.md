@@ -38,13 +38,18 @@ Gezinme, Dota'nın yetenek çubuğunu taklit eder: ekranın altındaki slotlara 
 | --- | --- | --- | --- |
 | `H` | **Üs** | `#ana` | Kahraman alanı ve "1 vs 9" 3D dioraması, canlı DOG sayacı, meme sözlüğü, günün esprisi, ziyaretçi defteri |
 | `Q` | **Espri Duvarı** | `#espriler` | Topluluk esprileri: yaz, DOG'la (beğen), yorumla |
-| `W` | **Mini Oyunlar** | `#oyunlar` | 10 oyun: DOGdle (günlük kahraman tahmini), Portre Avı, Invoker Kombo, Pudge Hook, DOG Bingo, DOG Avı, DOG Hafıza, Last Hit, Rune Refleksi ve Arena — skor tabloları ve rozetler |
+| `W` | **Mini Oyunlar** | `#oyunlar` | 14 oyun: DOGdle (günlük kahraman tahmini), Portre Avı, Invoker Kombo, Pudge Hook, DOG Bingo, Uçan Kurye, Techies Mayın Tarlası, Eşya 2048, 24 Saat Maraton, DOG Avı, DOG Hafıza, Last Hit, Rune Refleksi ve Arena — kişisel rekor defteri ve rozetler |
 | `R` | **1vDOQUZ Arena** | `#arena` (`#oyunlar--arena`) | three.js ile 3D arena: dokuz DOG'a karşı tek başına ("ultimate" slotu) |
 | `E` | **Quizler** | `#quizler` | Hangi DOG'sun?, Dota 2 Bilgi Yarışması, DOG mu Değil mi?, Gerçek Hayran Testi, Yetenek Avı (539 yetenek) |
 | `D` | **Karakter Analizleri** | `#karakterler` | DOG Arşivi (oyuncu türleri), kahraman potansiyeli, türleri karşılaştırma, kendi analizin |
 | `F` | **Soru-Cevap** | `#soru-cevap` | Topluluk soruları ve cevapları (kabul edilen cevap), SSS, DOG Kâhini (yerel, yapay zekâ yok) |
 | `T` | **Galeri & 3D Müze** | `#galeri` | fal.ai ile üretilmiş görseller ve 3D modeller (DOG maskotu, okçu kahraman, Aegis) |
 | `Z` | **Kahraman DOG Endeksi** | `#kahramanlar` | 127 Dota 2 kahramanı (resmi portre ve tam boy görseller), hayran yapımı "DOG potansiyeli", ziyaretçi oylaması, tier listesi, Daha DOG mu?, çark |
+
+Ek sayfalar ve sistemler:
+
+- **İlk giriş turu** — yetenek çubuğunu ve HUD’u adım adım anlatır; `?` ile yardım ve kısayollar, ad çipi menüsünden tekrar.
+- **Profil** (`#profil`) — Fan Kartı, seviye, rekorlar, rozetler, paylaşılabilir kart; her gün 3 **günlük görev**.
 
 Ortak sistemler:
 
@@ -71,6 +76,8 @@ Ortak sistemler:
 | [docs/OYUNLAR.md](docs/OYUNLAR.md) | Tüm oyun ve quizlerin özeti; ayrıntılar `docs/oyunlar/` altında |
 | [docs/OPTIMIZASYON.md](docs/OPTIMIZASYON.md) | Performans çalışması: önce/sonra ölçümleri, betikler |
 | [docs/MIMARI.md](docs/MIMARI.md) | Mimari: bölüm sözleşmesi, veri katmanı, oyun kiti, varlık hatları, derleme modları |
+| [docs/REHBER.md](docs/REHBER.md) | İlk giriş turu ve yardım paneli |
+| [docs/PROFIL.md](docs/PROFIL.md) | Profil, XP/seviye, günlük görevler |
 
 ## Teknoloji yığını
 

@@ -12,6 +12,10 @@ index.html ─► src/main.js ─► core/shell.js (HUD, yetenek çubuğu, hash 
                                    ├─ core/store.js       veri katmanı (Artifact db · REST API · localStorage)
                                    ├─ core/fx.js          toast, modal, damga, konfeti
                                    ├─ core/sound.js       WebAudio efektleri (dosya yok)
+                                   ├─ core/tour.js        ilk giriş turu, yardım paneli (?)
+                                   ├─ core/history.js     deneme geçmişi (her submitScore)
+                                   ├─ core/badges.js      rozetler (skorlardan türetilir)
+                                   ├─ core/quests.js      günlük görevler, XP ve seviye
                                    ├─ core/assets.js      fal.ai görselleri/modeller, kahraman portreleri, yetenek ikonları
                                    └─ sections/<bölüm>/   her bölüm kendi JS + CSS'i (dinamik import)
 ```
@@ -35,6 +39,16 @@ export default {
 `ctx = { section, sub, store, sound, fx, go(section, sub), setSub(sub, { push }), hotkeys(bool) }`.
 Kısayol tuşları yazı alanlarında, açık modalda ve `ctx.hotkeys(false)` çağrıldığında devre dışıdır — klavye
 kullanan oyunlar oynarken kısayolları kapatır, çıkışta açar.
+
+## Rehber, profil, görevler
+
+- **İlk giriş turu** (`core/tour.js`): ilk ziyarette HUD ve yetenek çubuğunu adım adım tanıtır; `?` yardım
+  paneli, ad çipi menüsü ve `#tur` / `#yardim` bağlantılarıyla tekrar açılır. Ayrıntı: [REHBER.md](REHBER.md).
+- **Profil** (`#profil`, çubukta slotu olmayan gizli rota): Fan Kartı, rekorlar, rozetler, görevler.
+  Ayrıntı: [PROFIL.md](PROFIL.md).
+- **Deneme geçmişi** (`core/history.js`): `store.me.submitScore` her çağrıldığında deneme tarihiyle kaydedilir;
+  günlük görevler, profil grafikleri ve statik moddaki kişisel skor tabloları bunu okur.
+- `main.js` açılışta rozet ve görev izleyicilerini kurar; bildirimler hangi bölümde olunursa olunsun çıkar.
 
 ## Veri katmanı (`core/store.js`)
 
@@ -73,6 +87,7 @@ bu skorlardan türetilir. Oyun tasarımları: [OYUNLAR.md](OYUNLAR.md).
 | 3D halka portre atlası | kahraman portreleri | `npm run build:atlas` | `src/assets/heroes/atlas/` |
 | Yetenek adları ve ikonları | dota2.com datafeed + CDN | `npm run fetch:abilities` | `src/data/abilities.js`, `src/assets/abilities/heroes/` |
 | Invoker/Pudge oyun ikonları | Dota 2 CDN | `npm run fetch:game-icons` | `src/assets/abilities/{invoker,pudge}/` |
+| Eşya ikonları (Eşya 2048) | Dota 2 CDN | `npm run fetch:items` | `src/assets/items/` |
 | Alt küme fontlar | `@fontsource` woff2 | `npm run build:fonts` (fonttools gerekir) | `src/assets/fonts/`, `src/styles/fonts.css` |
 | Paylaşım görseli, ikonlar | keyart + site fontları | `npm run build:share` | `public/` |
 
