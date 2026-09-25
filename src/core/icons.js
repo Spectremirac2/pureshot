@@ -66,6 +66,26 @@ const P = {
   flag: '<path d="M5.5 21V3.5"/><path d="M5.5 4h12l-2.5 4.25L17.5 12.5h-12"/>',
   // Yetenek Avı quizi: yetenek yuvası + kıvılcım
   spell: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 7l1.4 3.6L17 12l-3.6 1.4L12 17l-1.4-3.6L7 12l3.6-1.4z"/>',
+  // Rehber: tur (pusula), yardım paneli (klavye), ad değiştirme (kalem)
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/><circle cx="12" cy="12" r=".8"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="1.5"/><path d="M6 9.5h1M9.5 9.5h1M13 9.5h1M16.5 9.5h1M6 12.5h1M9.5 12.5h1M13 12.5h1M16.5 12.5h1M8 15.5h8"/>',
+  pen: '<path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 013 3L8 18.5z"/><path d="M13.5 7l3 3"/><path d="M4 20h5"/>',
+  // Profil / Fan Kartı: indir, yükle, görsel
+  download: '<path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 19.5h16"/>',
+  upload: '<path d="M12 16V5M7 10l5-5 5 5"/><path d="M4 19.5h16"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17.5l5-4.5 3.5 3 3-2.5 4.5 4"/>',
+  // Uçan Kurye: kanatlı kurye, şişe (Bottle), Tango; Techies Mayın Tarlası: mayın, kazma
+  courier: '<path d="M4.5 13.2c0-1.9 1.6-3 3.6-3h6c1.5 0 2.6-.8 3.2-2.1l.5-1.1 3 1.4-.9 2.3-2.2-.1c-.4 2.5-1.9 4.3-4.4 4.3H8.1c-2 0-3.6-.9-3.6-1.7z"/><path d="M17.8 7l-.7-3.3M19.3 7.6l1-3"/><path d="M8 15.2v4.3M13.8 15.2v4.3"/><path d="M11.5 10.2C10.8 6.8 8.2 4.4 4.2 3.8c.4 3 2.2 5.4 5 6.4"/><path d="M4.5 12.5L2.8 14"/>',
+  bottle: '<path d="M10 2.8h4"/><path d="M10.6 2.8v4.6a6.6 6.6 0 102.8 0V2.8"/><path d="M6.2 14.5c2.4-1 5-.9 7.6.2 1.3.5 2.7.6 4 .1"/>',
+  tango: '<path d="M12 21.5v-8.2"/><path d="M12 13.3C8 13.8 5.2 11.5 4.6 7.2c4.1-.4 6.9 1.8 7.4 6.1z"/><path d="M12 13.3c4 .5 6.8-1.8 7.4-6.1-4.1-.4-6.9 1.8-7.4 6.1z"/><path d="M12 10.2c-1.8-2-2-4.8-.1-7.4 1.9 2.6 1.9 5.4.1 7.4z"/>',
+  mine: '<circle cx="12" cy="13.5" r="6.5"/><circle cx="12" cy="13.5" r="2.2"/><path d="M12 7V4.5M5.5 13.5H3M21 13.5h-2.5M7.4 8.9L5.6 7.1M16.6 8.9l1.8-1.8M7.4 18.1l-1.8 1.8M16.6 18.1l1.8 1.8"/><path d="M12 4.5c.6-1.2 1.8-1.8 3-1.4"/>',
+  pick: '<path d="M4 20.5L15 9.5"/><path d="M8.6 4.3c4.6.2 10.2 5.3 11 11.1"/><path d="M13.2 7.1l3.7 3.7"/>',
+  // Eşya 2048 / 24 Saat Maraton: ince kılıç, geri al, ince belli çay bardağı, güneş, ay
+  rapier: '<path d="M20.5 3.5L9.2 14.8"/><path d="M6.4 12.3l5.3 5.3"/><path d="M8.3 15.7l-3.6 3.6"/><circle cx="4.1" cy="19.9" r="1.2"/><path d="M20.5 3.5l-3.8 1.3M20.5 3.5l-1.3 3.8"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/>',
+  tea: '<path d="M8 8.5h8c0 2.8-1.6 3.9-1.6 5.8s1.5 3.4 1.2 6.2H8.4c-.3-2.8 1.2-4.3 1.2-6.2S8 11.3 8 8.5z"/><path d="M5.5 20.5h13"/><path d="M10.5 3.2c.8.8.8 1.8 0 2.6M13.5 3.2c.8.8.8 1.8 0 2.6"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

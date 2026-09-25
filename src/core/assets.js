@@ -74,3 +74,14 @@ const abilityIcons = heroFiles(import.meta.glob(['../assets/abilities/invoker/*.
 export function abilityIconUrl(key) {
   return abilityIcons.get(key) || null;
 }
+
+// Eşya ikonları: Valve'ın resmi Dota 2 eşya görselleri, 128 px WebP (bkz. scripts/fetch-item-icons.mjs).
+//   src/assets/items/<eşya>.webp → anahtar: 'branches', 'black_king_bar', 'rapier', 'aegis'…
+// Kullananlar: Eşya 2048 (birleştirme zinciri), 24 Saat Maraton (olay kartları).
+// `?no-inline`: küçük dosyalar da JS'e gömülmez; yalnızca görüntülendiklerinde iner.
+const itemIcons = heroFiles(import.meta.glob('../assets/items/*.webp', { eager: true, query: '?url&no-inline', import: 'default' }));
+
+/** Eşya ikonu URL'si ya da null (yoksa oyun kendi çizdiği yedeği kullanır). */
+export function itemIconUrl(key) {
+  return itemIcons.get(key) || null;
+}

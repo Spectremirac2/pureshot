@@ -1,4 +1,5 @@
 // Uygulama kabuğu: üst HUD (skor şeridi), alt yetenek çubuğu (gezinme), bölüm yükleyici ve alt bilgi.
+// İlk giriş turu, "?" yardım paneli ve ad menüsü: core/tour.js (bkz. docs/REHBER.md). Sürprizler: core/easter.js.
 
 import { h, clear, fmtNum, fmtClock, cleanText } from './dom.js';
 import { icon } from './icons.js';
@@ -6,6 +7,14 @@ import { ROUTES, parseHash, hashFor } from './routes.js';
 import { store, agg } from './store.js';
 import { sound } from './sound.js';
 import { fx } from './fx.js';
+import { startTour, openHelp, isTourOpen, initOnboarding, TOUR_EVENT, HELP_EVENT } from './tour.js';
+import { initEaster } from './easter.js';
+
+// Başka modüller turu/yardımı içe aktarmadan da açabilsin: document.dispatchEvent(new CustomEvent('csk:tour'))
+export { startTour, openHelp, isTourOpen };
+
+/** #tur / #yardim adresleri bölüm değil, eylemdir (SSS ve paylaşılan bağlantılar için). */
+const ACTION_HASHES = { '#tur': 'tour', '#yardim': 'help' };
 
 let hotkeysOn = true;
 let current = { section: null, sub: null, mod: null, cleanup: null };
@@ -139,24 +148,126 @@ export function pressDog(originEl) {
   }
 }
 
+// ------------------------------------------------------------------ Ad çipi menüsü
+/**
+ * HUD'daki ad çipi bir menü düğmesidir: Profilim (#profil), Adını değiştir, Yardım, Turu başlat.
+ * WAI-ARIA menü düğmesi kalıbı: Enter/Boşluk/↓ açar ve ilk öğeye odaklanır, ↑ son öğeye; menüde ↑ ↓ Home End,
+ * Esc kapatıp çipe döner, Tab kapatır. Dışarı tıklama ve sayfa değişimi menüyü kapatır.
+ */
+function buildNickMenu() {
+  const nickOf = () => store.me.get().nick || 'Anonim';
+  const nickText = h('span', null, nickOf());
+  const nickBtn = h('button', {
+    class: 'chip hud-nick', type: 'button', title: 'Profil menüsü',
+    'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'hud-menu', 'aria-label': `Profil menüsü: ${nickOf()}`,
+  }, icon('user', { size: 14 }), nickText);
+  const headNick = h('strong', { class: 'hud-menu-nick' }, nickOf());
+  const menu = h('div', { class: 'hud-menu', id: 'hud-menu', role: 'menu', 'aria-label': 'Profil menüsü', hidden: true });
+  const wrap = h('div', { class: 'hud-nick-wrap' }, nickBtn, menu);
+  let open = false;
+
+  const item = (tag, props, ic, label, sub, action) => {
+    const el = h(tag, { class: 'hud-menu-item', role: 'menuitem', tabindex: '-1', ...props },
+      h('span', { class: 'hud-menu-icon', 'aria-hidden': 'true' }, icon(ic, { size: 18 })),
+      h('span', { class: 'hud-menu-text' }, h('span', null, label), sub ? h('span', { class: 'hud-menu-sub' }, sub) : null),
+    );
+    el.addEventListener('click', (e) => {
+      if (tag !== 'a') e.preventDefault();
+      closeMenu(true);
+      action();
+    });
+    return el;
+  };
+  const items = [
+    item('a', { href: '#profil' }, 'user', 'Profilim', 'Fan kartı, rekorlar, rozetler', () => sound.click()),
+    item('button', { type: 'button' }, 'pen', 'Adını değiştir', null, () => openNickEditor()),
+    item('button', { type: 'button' }, 'keyboard', 'Yardım ve kısayollar', null, () => openHelp()),
+    item('button', { type: 'button' }, 'compass', 'Turu başlat', null, () => startTour()),
+  ];
+  menu.append(
+    h('div', { class: 'hud-menu-head', role: 'presentation' }, h('span', { class: 'hud-menu-label' }, 'Oyuncu kartı'), headNick),
+    items[0], items[1],
+    h('div', { class: 'hud-menu-sep', role: 'separator' }),
+    items[2], items[3],
+  );
+
+  const focusItem = (n) => items[(n + items.length) % items.length].focus({ preventScroll: true });
+  const onDocDown = (e) => { if (!wrap.contains(e.target)) closeMenu(false); };
+  function openMenu(n = 0) {
+    if (open) { focusItem(n); return; }
+    open = true;
+    headNick.textContent = nickOf();
+    menu.hidden = false;
+    nickBtn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', onDocDown, true);
+    sound.click();
+    focusItem(n);
+  }
+  function closeMenu(focusBtn) {
+    if (!open) return;
+    open = false;
+    menu.hidden = true;
+    nickBtn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', onDocDown, true);
+    if (focusBtn) nickBtn.focus({ preventScroll: true });
+  }
+
+  nickBtn.addEventListener('click', () => (open ? closeMenu(true) : openMenu(0)));
+  nickBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      openMenu(e.key === 'ArrowUp' ? items.length - 1 : 0);
+    }
+  });
+  menu.addEventListener('keydown', (e) => {
+    const at = items.indexOf(document.activeElement);
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); focusItem(at + 1); break;
+      case 'ArrowUp': e.preventDefault(); focusItem(at < 0 ? items.length - 1 : at - 1); break;
+      case 'Home': e.preventDefault(); focusItem(0); break;
+      case 'End': e.preventDefault(); focusItem(items.length - 1); break;
+      case 'Escape': e.preventDefault(); e.stopPropagation(); closeMenu(true); break;
+      case 'Tab': closeMenu(true); break;
+      default:
+    }
+  });
+  window.addEventListener('hashchange', () => closeMenu(false));
+  store.me.subscribe((d) => {
+    const n = d.nick || 'Anonim';
+    nickText.textContent = n;
+    headNick.textContent = n;
+    nickBtn.setAttribute('aria-label', `Profil menüsü: ${n}`);
+  });
+  return { wrap, closeMenu };
+}
+
 // ------------------------------------------------------------------ Kabuk
 export function mountShell(root) {
   const start = Date.now();
 
+  // #tur / #yardim ile açıldıysa bölümü Üs'e çevir, eylemi tur modülüne bırak
+  const bootAction = ACTION_HASHES[location.hash] || null;
+  if (bootAction) history.replaceState(null, '', '#ana');
+
   // Üst HUD
   dogCountEl = h('span', { class: 'num hud-dog-count' }, '0');
   const clockEl = h('span', { class: 'num' }, '00:00:00');
-  const soundBtn = h('button', { class: 'btn ghost sm icon', type: 'button', 'aria-label': 'Sesi aç/kapat', title: 'Ses' });
+  const soundBtn = h('button', { class: 'btn ghost sm icon hud-sound', type: 'button', 'aria-label': 'Sesi aç/kapat', title: 'Ses' });
   const renderSound = () => {
     clear(soundBtn).appendChild(icon(sound.enabled ? 'sound' : 'mute', { size: 18 }));
     soundBtn.setAttribute('aria-pressed', String(sound.enabled));
   };
   renderSound();
   soundBtn.addEventListener('click', () => { sound.setEnabled(!sound.enabled); renderSound(); if (sound.enabled) sound.click(); });
+  sound.onChange(renderSound);
 
-  const nickBtn = h('button', { class: 'chip hud-nick', type: 'button', title: 'Takma adını değiştir', 'aria-label': 'Takma adını değiştir' }, icon('user', { size: 14 }), h('span', null, store.me.get().nick));
-  nickBtn.addEventListener('click', openNickEditor);
-  store.me.subscribe((d) => { nickBtn.lastChild.textContent = d.nick || 'Anonim'; });
+  const helpBtn = h('button', {
+    class: 'btn ghost sm icon hud-help', type: 'button',
+    'aria-label': 'Yardım ve kısayollar', 'aria-keyshortcuts': '?', title: 'Yardım ve kısayollar (?)',
+  }, icon('question', { size: 18 }));
+  helpBtn.addEventListener('click', () => { sound.click(); openHelp(); });
+
+  const nickMenu = buildNickMenu();
 
   const dogBtn = h('button', { class: 'hud-dog', type: 'button', title: 'DOG! (her tık topluluk sayacına eklenir)' },
     icon('paw', { size: 18 }),
@@ -183,8 +294,9 @@ export function mountShell(root) {
     ),
     h('div', { class: 'hud-right' },
       h('a', { class: 'badge live hud-kick', lang: 'en', href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer' }, 'Kick'),
-      nickBtn,
+      nickMenu.wrap,
       soundBtn,
+      helpBtn,
     ),
   );
 
@@ -203,6 +315,7 @@ export function mountShell(root) {
       class: `ability${r.ultimate ? ' ult' : ''}`,
       href: '#' + r.id,
       title: `${r.label} (${r.key})`,
+      'aria-keyshortcuts': r.key,
       dataset: { route: r.id },
     },
       h('span', { class: 'ability-key', 'aria-hidden': 'true' }, r.key),
@@ -239,7 +352,15 @@ export function mountShell(root) {
       h('div', { class: 'stack' },
         h('span', { class: 'eyebrow' }, 'Yayın'),
         h('a', { href: 'https://kick.com/cureshotkick', target: '_blank', rel: 'noopener noreferrer', class: 'small' }, 'kick.com/cureshotkick'),
-        h('p', { class: 'xsmall dim' }, 'Kısayollar: Q W E R D F T Z · Üs için H'),
+        h('p', { class: 'xsmall dim' }, 'En kısa yayın 24 saat. Suyunu al, ward’ını koy.'),
+      ),
+      h('div', { class: 'stack' },
+        h('span', { class: 'eyebrow' }, 'Rehber'),
+        h('div', { class: 'row footer-guide' },
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { sound.click(); startTour(); } }, icon('compass', { size: 16 }), 'Turu yeniden başlat'),
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { sound.click(); openHelp(); } }, icon('keyboard', { size: 16 }), 'Kısayollar'),
+        ),
+        h('p', { class: 'xsmall dim' }, 'Kısayollar: Q W E R D F T Z · Üs için H · Yardım için ?'),
       ),
     ),
   );
@@ -254,14 +375,24 @@ export function mountShell(root) {
   syncBarH();
   try { new ResizeObserver(syncBarH).observe(slots); } catch { window.addEventListener('resize', syncBarH); }
 
-  // Klavye kısayolları
+  // Sürprizler (Konami, "dogdogdog"): kısayol işleyicisinden beslenir
+  const easter = initEaster({ onDog: () => pressDog(dogBtn) });
+
+  // Klavye kısayolları (tur açıkken tur kendi tuşlarını yakalar; burada da ayrıca kapalı)
   window.addEventListener('keydown', (e) => {
-    if (!hotkeysOn || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!hotkeysOn || isTourOpen() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (document.querySelector('.modal-backdrop')) return;
+    if (e.key === '?') {
+      e.preventDefault();
+      nickMenu.closeMenu(false);
+      openHelp();
+      return;
+    }
+    if (easter.feed(e)) { e.preventDefault(); return; }
     const key = e.key.toUpperCase();
-    const r = ROUTES.find((x) => x.key === key);
+    const r = ROUTES.find((x) => x.key && x.key === key);
     if (!r) return;
     e.preventDefault();
     const btn = barButtons.get(r.id);
@@ -274,6 +405,28 @@ export function mountShell(root) {
     location.hash = '#' + r.id;
   });
 
-  window.addEventListener('hashchange', route);
+  // #tur / #yardim bağlantıları (SSS, alt bilgi, paylaşılan adres): gezinmeden eylemi çalıştır
+  document.addEventListener('click', (e) => {
+    const a = e.target && e.target.closest ? e.target.closest('a[href="#tur"], a[href="#yardim"]') : null;
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    sound.click();
+    if (ACTION_HASHES[a.getAttribute('href')] === 'tour') startTour(); else openHelp();
+  });
+  document.addEventListener(TOUR_EVENT, () => startTour());
+  document.addEventListener(HELP_EVENT, () => openHelp());
+
+  window.addEventListener('hashchange', () => {
+    const act = ACTION_HASHES[location.hash];
+    if (act) {
+      // Adres çubuğuna elle yazıldı: bulunduğun sayfada kal, eylemi çalıştır
+      history.replaceState(null, '', current.section ? hashFor(current.section, current.sub) : '#ana');
+      if (act === 'tour') startTour(); else openHelp();
+      return;
+    }
+    route();
+  });
   route();
+  // İlk ziyaret turu: kabuk ve ilk bölüm çizildikten ~800 ms sonra (derin bağlantıda yalnızca küçük bir öneri)
+  initOnboarding({ bootAction });
 }

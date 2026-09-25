@@ -1,0 +1,33 @@
+/* =====================================================================
+   Uçan Kurye (gm-ky-)
+   ===================================================================== */
+
+.gm-ky-wrap {
+  position: relative;
+  overflow: hidden;
+  background: #0b0913;
+  border: 1px solid var(--line);
+  clip-path: var(--clip);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-ky-canvas {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+/* Hazır ve uçuş sırasında sahnede kaydırma/yakınlaştırma yok: her dokunuş bir kanat çırpışı */
+.gm-ky-wrap.playing { touch-action: none; }
+
+/* HUD: Tango varken yeşim */
+.gm-ky-tango.on .gm-stat-val { color: var(--radiant); }
+.gm-ky-tango.on { border-color: color-mix(in srgb, var(--radiant) 45%, var(--line)); }
+
+@media (max-width: 620px) {
+  /* Dört istatistik dar ekranda: etiket ikonları gizli, değerler sığsın */
+  .gm-play-kurye .gm-stat-label svg { display: none; }
+  .gm-play-kurye .gm-hud { gap: 3px; }
+}

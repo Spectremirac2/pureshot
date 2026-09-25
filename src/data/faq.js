@@ -116,6 +116,18 @@ export const FAQ = [
     lore: 'Aegis bir kez kazanılır, ama her maç yeniden savunulur.',
   },
   {
+    id: 'tur',
+    icon: 'compass',
+    tag: 'Rehber',
+    tone: 'gold',
+    q: 'Alttaki çubuk ne işe yarıyor? Tanıtım turunu nasıl yeniden izlerim?',
+    a: [
+      ['Alttaki çubuk sitenin ', { b: 'yetenek çubuğu' }, ': her slot bir bölüm, her tuş bir kısayol. ', { k: 'R' }, ' ultin (1vDOQUZ Arena), ayraçtan sonraki ', { k: 'Z' }, ' ise eşya slotun (Kahraman DOG Endeksi). Üst çubukta DOG sayacı, maraton saati ve profil menün var.'],
+      ['İlk girişteki kısa turu geçtiysen ya da tekrar görmek istiyorsan: ', { a: '#tur', t: 'Turu yeniden başlat' }, '. Klavyede ', { k: '?' }, ' yardım panelini açar, oradan da “Turu başlat” diyebilirsin. Dokunmatikte sağ üstteki kişi simgesine dokun → “Turu başlat”. Sayfanın en altında da bir düğmesi var.'],
+    ],
+    lore: 'Her ulti bir kez öğrenilir, sonra refleks olur.',
+  },
+  {
     id: 'kisayol',
     icon: 'bolt',
     tag: 'Kontrol',
@@ -124,6 +136,7 @@ export const FAQ = [
     a: [
       'Alt çubuk bir Dota yetenek ve eşya çubuğu gibi çalışır; her bölümün bir tuşu var:',
       { shortcuts: true },
+      ['Tüm kısayolların listesi için ', { k: '?' }, ' tuşuna bas ya da ', { a: '#yardim', t: 'yardım panelini aç' }, '.'],
       'Bir metin kutusuna yazarken kısayollar devre dışıdır; tuşları kullanan oyunlar da oynarken kısayolları kapatır.',
     ],
   },
@@ -146,8 +159,8 @@ export const FAQ = [
     tone: 'jade',
     q: 'Takma adımı nasıl değiştiririm?',
     a: [
-      'Geniş ekranlarda üst çubuktaki ad çipine, her ekranda ise yorum ya da soru formundaki “Yazan” çipine dokun. Kick adını da yazabilirsin.',
-      'Yeni ad, bundan sonraki yorum, soru ve skorlarında görünür.',
+      'Üst çubuktaki ad çipine (dar ekranlarda kişi simgesine) dokun ve menüden “Adını değiştir”i seç; yorum ya da soru formundaki “Yazan” çipi de aynı işi görür. Kick adını da yazabilirsin.',
+      ['Aynı menüdeki “Profilim” seni ', { a: '#profil', t: 'fan kartına' }, ' götürür. Yeni ad, bundan sonraki yorum, soru ve skorlarında görünür.'],
     ],
   },
   {

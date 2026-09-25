@@ -1,0 +1,401 @@
+/*
+  Rehber & UX (core/tour.js, core/shell.js, core/easter.js):
+  ilk giriş turu (spot ışığı + ipucu kartı), derin bağlantı dürtmesi, "?" yardım paneli,
+  HUD ad çipi menüsü, yardım düğmesi, alt bilgi rehber düğmeleri ve 1vDOQUZ altın modu.
+  z-index: HUD/çubuk 40 < menü 45 < dürtme 55 < toast 60 < modal 70 < TUR 78 < konfeti 80 < damga 85
+*/
+
+/* ---------- Tur kökü ---------- */
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.tour-root.is-center {
+  background: rgba(6, 4, 10, 0.76);
+  backdrop-filter: blur(3px);
+  transition: background 0.25s ease-out;
+}
+
+/* Spot ışığı: hedefin çevresinde delik, geri kalan her yer karartılır (dev gölge yayılımı) */
+.tour-spot {
+  position: fixed;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px var(--aegis),
+    0 0 22px 2px rgba(233, 185, 73, 0.45),
+    0 0 0 200vmax rgba(6, 4, 10, 0.76);
+  transition:
+    transform 0.34s var(--ease-out),
+    width 0.34s var(--ease-out),
+    height 0.34s var(--ease-out),
+    opacity 0.2s ease-out,
+    box-shadow 0.3s ease-out;
+}
+.tour-spot.is-off { opacity: 0; }
+.tour-spot.is-try { pointer-events: auto; cursor: pointer; }
+.tour-spot.is-try::after {
+  content: '';
+  position: absolute; inset: -5px;
+  border: 2px dashed rgba(255, 154, 61, 0.9);
+  border-radius: 9px;
+  animation: tour-dash 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes tour-dash { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* Ulti adımı: altın hale + yayılan halka */
+.tour-spot.is-ult {
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 2px var(--aegis-2),
+    0 0 36px 8px rgba(233, 185, 73, 0.7),
+    0 0 90px 24px rgba(255, 106, 43, 0.35),
+    0 0 0 200vmax rgba(12, 7, 4, 0.8);
+}
+.tour-spot.is-ult::before {
+  content: '';
+  position: absolute; inset: -4px;
+  border: 2px solid var(--aegis-2);
+  border-radius: 10px;
+  animation: tour-ult-ring 1.5s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes tour-ult-ring {
+  0% { transform: scale(1); opacity: 0.95; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.tour-spot.is-item {
+  box-shadow:
+    0 0 0 2px var(--radiant),
+    0 0 24px 2px rgba(67, 214, 160, 0.4),
+    0 0 0 200vmax rgba(6, 4, 10, 0.76);
+}
+
+/* ---------- İpucu kartı ---------- */
+.tour-card {
+  position: fixed;
+  left: 0; top: 0;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text);
+  background:
+    radial-gradient(420px 160px at 0% 0%, rgba(233, 185, 73, 0.1), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 45%),
+    var(--bg-3);
+  border: 1px solid rgba(233, 185, 73, 0.55);
+  border-radius: 3px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(246, 217, 138, 0.18);
+  outline: none;
+}
+/* Dota çerçeve köşeleri */
+.tour-card::before, .tour-card::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border: 2px solid var(--aegis);
+  pointer-events: none;
+}
+.tour-card::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+.tour-card::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+.tour-card.is-center { width: min(460px, calc(100vw - 32px)); padding: 22px 22px 18px; gap: 12px; }
+.tour-card.is-enter { animation: tour-card-in 0.26s var(--ease-out) both; }
+.tour-card.is-nudge { animation: tour-card-nudge 0.4s var(--ease-out); }
+@keyframes tour-card-in { from { opacity: 0.35; transform: translateY(6px) scale(0.98); } }
+@keyframes tour-card-nudge { 30% { transform: scale(1.025); } 60% { transform: scale(0.99); } }
+
+.tour-card.is-ult {
+  border-color: var(--aegis-2);
+  background:
+    radial-gradient(360px 180px at 50% 0%, rgba(255, 106, 43, 0.22), transparent 70%),
+    radial-gradient(420px 200px at 100% 100%, rgba(233, 185, 73, 0.14), transparent 70%),
+    linear-gradient(180deg, #2c1f14, #1a1210);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.65), 0 0 40px rgba(233, 185, 73, 0.25), inset 0 1px 0 rgba(246, 217, 138, 0.3);
+}
+.tour-card.is-ult .tour-title {
+  background: var(--grad-aegis);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tour-card.is-ult .tour-title .meme { color: transparent; }
+.tour-card.is-item { border-color: rgba(67, 214, 160, 0.55); }
+.tour-card.is-item::before, .tour-card.is-item::after { border-color: var(--radiant); }
+
+.tour-arrow {
+  position: fixed;
+  left: 0; top: 0;
+  width: 14px; height: 14px;
+  background: var(--bg-3);
+  border: 1px solid rgba(233, 185, 73, 0.55);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.tour-arrow.is-ult { background: #1b1310; border-color: var(--aegis-2); }
+.tour-arrow.is-item { border-color: rgba(67, 214, 160, 0.55); }
+/* Kart oktan sonra gelmediği için ok kartın altında kalsın: iç yarısı kartla örtülür */
+.tour-root .tour-card { z-index: 2; }
+.tour-root .tour-arrow { z-index: 1; }
+.tour-root .tour-spot { z-index: 0; }
+
+.tour-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tour-key {
+  flex: none;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px;
+  color: var(--on-aegis);
+  background: var(--grad-aegis);
+  clip-path: var(--clip-sm);
+}
+.tour-key.is-icon { color: var(--aegis-2); background: rgba(233, 185, 73, 0.12); box-shadow: inset 0 0 0 1px rgba(233, 185, 73, 0.4); clip-path: none; border-radius: 3px; }
+.tour-card.is-ult .tour-key { background: var(--grad-ember); color: var(--on-ember); box-shadow: 0 0 16px rgba(255, 106, 43, 0.6); }
+.tour-card.is-item .tour-key { background: var(--grad-radiant); color: #04140d; }
+.tour-eyebrow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; letter-spacing: 0.22em; }
+.tour-count { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--text-3); }
+
+.tour-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: var(--lh-snug);
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+.tour-title-lg { font-size: clamp(1.25rem, 1.05rem + 1vw, 1.6rem); }
+.tour-body { color: var(--text-2); font-size: 0.95rem; line-height: 1.5; }
+.tour-hint { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.6; }
+.tour-hint .kbd, .tour-try .kbd { min-width: 20px; height: 20px; font-size: 10px; vertical-align: 1px; }
+
+.tour-try {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px dashed rgba(255, 154, 61, 0.65);
+  background: rgba(255, 106, 43, 0.08);
+  color: var(--ember-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.tour-try.is-ok { border-style: solid; border-color: rgba(67, 214, 160, 0.6); background: rgba(67, 214, 160, 0.1); color: var(--radiant); }
+
+.tour-dots { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width 0.2s var(--ease-out), background 0.2s; }
+.tour-dot.is-done { background: rgba(233, 185, 73, 0.5); }
+.tour-dot.is-on { width: 18px; background: var(--aegis); }
+
+.tour-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+.tour-foot .tour-skip { margin-right: auto; }
+.tour-foot .btn.sm { padding-inline: 12px; }
+.tour-foot .btn svg { width: 16px; height: 16px; }
+
+/* Karşılama ve bitiş kartları */
+.tour-welcome-head { display: flex; align-items: center; gap: 10px; }
+.tour-crest {
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  flex: none;
+  background: var(--grad-ember);
+  color: var(--on-ember);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.tour-crest.is-gold { background: var(--grad-aegis); color: var(--on-aegis); }
+
+.tour-minibar {
+  display: flex; align-items: flex-end; justify-content: center; gap: 4px;
+  padding: 8px;
+  background: linear-gradient(180deg, rgba(30, 26, 43, 0.96), rgba(13, 11, 20, 0.98));
+  border: 1px solid var(--line-2);
+  clip-path: var(--clip-sm);
+}
+.tour-mini {
+  flex: 1 1 0;
+  max-width: 34px;
+  height: 30px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--aegis);
+  background: linear-gradient(160deg, #2a2440, #16121f);
+  border: 1px solid #3b3354;
+}
+.tour-mini.is-ult { height: 36px; max-width: 40px; color: var(--aegis-2); border-color: rgba(233, 185, 73, 0.7); background: radial-gradient(circle at 50% 40%, rgba(255, 106, 43, 0.4), transparent 70%), linear-gradient(160deg, #3a2618, #1b1010); }
+.tour-mini.is-item { border-color: rgba(233, 185, 73, 0.45); }
+.tour-mini-sep { flex: none; align-self: stretch; width: 1px; background: linear-gradient(180deg, transparent, var(--aegis), transparent); opacity: 0.6; }
+
+.tour-ctas { display: flex; flex-direction: column; gap: 6px; }
+.tour-cta {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 52px;
+  padding: 8px 12px;
+  color: var(--text);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s var(--ease-out);
+}
+.tour-cta:hover, .tour-cta:focus-visible { color: var(--text); border-color: var(--aegis); background: rgba(233, 185, 73, 0.08); }
+.tour-cta:focus-visible { outline: 2px solid var(--aegis); outline-offset: 2px; }
+.tour-cta:active { transform: scale(0.99); }
+.tour-cta-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; color: var(--ember-2); background: rgba(255, 106, 43, 0.12); border-radius: 3px; }
+.tour-cta-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.tour-cta-text strong { font-size: var(--fs-sm); }
+.tour-cta-text span { font-size: var(--fs-xs); color: var(--text-3); }
+.tour-cta-go { margin-left: auto; color: var(--text-3); flex: none; }
+
+/* ---------- Derin bağlantı dürtmesi ---------- */
+.tour-nudge {
+  position: fixed;
+  z-index: 55;
+  right: 16px;
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px) + 12px);
+  max-width: calc(100vw - 32px);
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 5px 5px 12px;
+  background: var(--bg-3);
+  border: 1px solid rgba(233, 185, 73, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  font-size: var(--fs-sm);
+  animation: toast-in 0.25s var(--ease-snap);
+}
+.tour-nudge-icon { color: var(--aegis); display: grid; place-items: center; flex: none; }
+.tour-nudge-text { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tour-nudge .btn.sm { min-height: 34px; }
+.tour-nudge .btn.primary { border-radius: 999px; clip-path: none; }
+.tour-nudge .btn.ghost { border-radius: 999px; box-shadow: none; }
+@media (pointer: coarse) { .tour-nudge .btn.sm { min-height: 44px; } }
+
+/* ---------- Hareketi azalt ---------- */
+.tour-root.no-motion *, .tour-root.no-motion *::before, .tour-root.no-motion *::after,
+.tour-root.no-motion { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-root *, .tour-root *::before, .tour-root *::after, .tour-root, .tour-nudge { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Mobil ---------- */
+@media (max-width: 480px) {
+  .tour-card { padding: 14px 14px 12px; gap: 8px; }
+  .tour-card.is-center { padding: 18px 16px 14px; }
+  .tour-body { font-size: 0.9rem; }
+  .tour-title { font-size: 1rem; }
+  .tour-foot { gap: 6px; }
+  .tour-foot .btn.sm { padding-inline: 10px; letter-spacing: 0.05em; }
+  .tour-mini { height: 26px; font-size: 10px; }
+  .tour-mini.is-ult { height: 32px; }
+}
+
+/* ---------- HUD: yardım düğmesi ve ad çipi menüsü ---------- */
+.hud-help svg { width: 18px; height: 18px; }
+@media (max-width: 640px) {
+  /* Dar ekranda yer yok: yardım ve tur ad menüsünde */
+  .hud-help { display: none; }
+}
+
+.hud-nick-wrap { position: relative; display: flex; min-width: 0; }
+.hud-nick[aria-expanded='true'] { border-color: var(--aegis); color: var(--text); background: rgba(233, 185, 73, 0.1); }
+.hud-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 50%), var(--bg-3);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(233, 185, 73, 0.15);
+  border-radius: 3px;
+  animation: pop-in 0.16s var(--ease-out) both;
+}
+.hud-menu-head { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; min-width: 0; }
+.hud-menu-label { font-family: var(--font-lore); font-weight: 700; font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--aegis); }
+.hud-menu-nick { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.hud-menu-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.hud-menu-item:focus { outline: none; }
+.hud-menu-item:focus-visible, .hud-menu-item:focus { background: rgba(233, 185, 73, 0.12); box-shadow: inset 2px 0 0 var(--aegis); }
+.hud-menu-icon { display: grid; place-items: center; width: 28px; height: 28px; flex: none; color: var(--aegis-2); background: rgba(233, 185, 73, 0.1); border-radius: 3px; }
+.hud-menu-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.hud-menu-sub { font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
+.hud-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+@media (pointer: coarse) { .hud-menu-item { min-height: 48px; } }
+
+/* ---------- Yardım paneli (fx.modal içinde) ---------- */
+.help-modal { width: min(640px, 100%); }
+.help-panel { gap: var(--sp-4); }
+.help-head { position: relative; display: flex; flex-direction: column; gap: 6px; padding-right: 48px; }
+.help-x { position: absolute; top: -6px; right: -6px; }
+.help-keys {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 6px;
+}
+.help-key {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.help-key .kbd { flex: none; min-width: 26px; }
+.help-key-label { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+.help-key .badge { margin-left: auto; flex: none; }
+.help-key.is-ult { border-color: rgba(233, 185, 73, 0.55); background: radial-gradient(circle at 0% 50%, rgba(255, 106, 43, 0.14), transparent 70%); }
+.help-key.is-ult .kbd { color: var(--on-aegis); background: var(--grad-aegis); border-color: var(--aegis); }
+.help-key.is-item { border-color: rgba(67, 214, 160, 0.4); }
+.help-key.is-meta { border-style: dashed; color: var(--text-2); }
+.help-hud { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.help-hud-item { display: flex; gap: 12px; align-items: flex-start; }
+.help-hud-item > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.help-hud-item strong { font-size: var(--fs-sm); }
+.help-hud-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--ember-2); background: rgba(255, 106, 43, 0.1); border-radius: 3px; }
+.help-foot { justify-content: flex-end; }
+
+/* ---------- Alt bilgi rehber düğmeleri ---------- */
+.footer-guide { gap: var(--sp-2); }
+.footer-guide .btn svg { width: 16px; height: 16px; }
+
+/* ---------- 1vDOQUZ altın modu (Konami kodu, 10 sn) ---------- */
+html.csk-gold {
+  --ember: #e9b949;
+  --ember-2: #f6d98a;
+  --ember-deep: #b9822a;
+  --grad-ember: linear-gradient(135deg, #fff1c2 0%, #f6d98a 35%, #e9b949 70%, #b9822a 100%);
+  --shadow-glow: 0 0 0 1px rgba(233, 185, 73, 0.6), 0 0 24px rgba(233, 185, 73, 0.45);
+}
+html.csk-gold body::before {
+  box-shadow: inset 0 0 160px rgba(233, 185, 73, 0.28);
+}
+html.csk-gold .ability-slots { border-color: var(--aegis); box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(233, 185, 73, 0.35), inset 0 1px 0 rgba(246, 217, 138, 0.4); }
