@@ -517,6 +517,8 @@
 .ar-opt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ar-chips { gap: 6px; }
 .ar-chips .chip { min-height: 44px; text-transform: none; letter-spacing: 0.02em; }
+/* Dokunmatik birincil cihazda tuş düzeni seçimi anlamsız: dokunmatik kontroller kullanılır */
+@media (pointer: coarse) { .ar-opt-scheme { display: none; } }
 .ar-opt-check { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); min-height: 44px; }
 .ar-check { width: 20px; height: 20px; accent-color: var(--ember); margin: 0; }
 

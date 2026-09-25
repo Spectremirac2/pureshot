@@ -219,7 +219,7 @@ export function mountArena(el, ctx = {}) {
     box.addEventListener('change', () => setAuto(box.checked));
     autoBoxes.push(box);
     return h('div', { class: 'ar-opts' },
-      h('div', { class: 'ar-opt', role: 'group', 'aria-label': 'Tuş düzeni' }, h('span', { class: 'label' }, 'Tuş düzeni'), h('div', { class: 'row ar-chips' }, chips)),
+      h('div', { class: 'ar-opt ar-opt-scheme', role: 'group', 'aria-label': 'Tuş düzeni' }, h('span', { class: 'label' }, 'Tuş düzeni'), h('div', { class: 'row ar-chips' }, chips)),
       h('label', { class: 'ar-opt ar-opt-check', for: `ar-auto-${idSuffix}` }, box, h('span', null, 'Otomatik nişan (en yakın DOG)')),
     );
   }

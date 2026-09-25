@@ -39,5 +39,5 @@ Playwright ile masaüstü (1440×900) ve mobil (390×844, dokunmatik) açılış
 yok, yatay taşma yok. Test ortamı yazılımsal WebGL (SwiftShader) kullandığından kare hızı (1–3 fps) gerçek
 cihazı yansıtmaz; performans ayarı gerçek cihazda ölçülmeden değiştirilmedi.
 
-Gözlem (ileride): dokunmatik cihazda başlangıç ekranındaki "Tuş düzeni" seçimi işe yaramıyor; yalnızca klavye
-algılanınca göstermek alanı sadeleştirir.
+Dokunmatik birincil cihazlarda (`pointer: coarse`) başlangıç ekranındaki "Tuş düzeni" seçimi gizlenir;
+orada dokunmatik kontroller kullanılır.

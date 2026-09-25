@@ -39,3 +39,24 @@ Quizlere ek: **Yetenek Avı** — yetenek adından kahramanı bul (OpenDota yete
 
 Kurallar: her ajan yalnızca kendi dosyalarına dokunur; ortak kayıt dosyalarını (games.js, quizzes.js)
 entegrasyon yapar. Yayına alma tek seferde (15 kredi).
+
+## Sonuç (25 Eylül 2026)
+
+Tüm dalgalar tamamlandı ve entegre edildi.
+
+- **Oyunlar:** 5 → 10 oyun (DOGdle, Portre Avı, Invoker Kombo, Pudge Hook, DOG Bingo eklendi); quizler 4 → 5
+  (Yetenek Avı). Mevcut oyunlara: DOG Avı rünleri, Last Hit çizgisi ve LH verimi, Hafıza kahraman destesi,
+  Rune yemi ve geçmiş grafiği. Özet: [OYUNLAR.md](OYUNLAR.md).
+- **Salon:** kategori filtreleri, günün meydan okuması (DOGdle), 1–9 kısayolları, 10 oyunluk envanter, 23 rozet.
+- **Ana sayfa:** “Oyun Salonu’nda yeni” bölümü, DOGdle geri sayımı, rozet kartı.
+- **Performans:** ana sayfa −%31, kahramanlar −%46, tur −%19; tekrar ziyaretlerde yalnızca HTML iner.
+  Ayrıntılar: [OPTIMIZASYON.md](OPTIMIZASYON.md).
+- **Paylaşım:** Open Graph görseli, favicon, uygulama simgeleri, web manifest.
+- **Test:** 16 bölüm/alt sayfa + 10 oyun + 5 quiz, masaüstü (1440) ve mobil (390): konsol hatası 0, 4xx 0,
+  yatay taşma yok; her oyun ajanının kendi uçtan uca oynanış testleri (`docs/oyunlar/*.md` → Test notları).
+
+### Bilinen sınırlar
+- claude.ai Artifact sürümü tek yayında en fazla 255 dosya kabul eder; yetenek ikonlarıyla dosya sayısı
+  bunu aşar (yayınlamak gerekirse ikonlar sprite’a toplanmalı ya da parti parti yüklenmeli).
+- Netlify ücretsiz planındaki “Powered by Netlify” rozeti yalnızca panelden kapatılabilir.
+- `heroes.js` sırası değişirse gelecekteki DOGdle cevapları yeniden karılır (belgelendi).
