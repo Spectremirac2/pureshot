@@ -1,0 +1,23 @@
+# Netlify: yayında açılacak statik kopya (https://cureshot-dog.netlify.app).
+# VITE_API_BASE=none → sunucu yok; yorumlar, espriler ve skorlar yalnızca ziyaretçinin tarayıcısında kalır.
+
+[build]
+  command = "npm ci && npx vite build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_API_BASE = "none"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/*.glb"
+  [headers.values]
+    Content-Type = "model/gltf-binary"
