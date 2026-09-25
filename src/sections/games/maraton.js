@@ -592,6 +592,21 @@ export function mount(el, ctx, nav) {
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; };
 
   function say(m) { L.live.textContent = m; }
+  /** HUD istatistikleri + sahne birlikte sığıyorsa ikisini de görünür alana getirir (yoksa sahnenin üstü öncelikli). */
+  function revealPlay() {
+    if (!field.isConnected) return;
+    const css = (n, f) => { const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)); return Number.isFinite(v) ? v : f; };
+    const minTop = css('--hud-h', 56) + 8;
+    const maxBottom = window.innerHeight - css('--bar-h', 84) - 8;
+    const fr = field.getBoundingClientRect();
+    const hr = L.hud.getBoundingClientRect();
+    const top = fr.bottom - hr.top <= maxBottom - minTop ? hr.top : fr.top;
+    let dy = 0;
+    if (fr.bottom > maxBottom) dy = fr.bottom - maxBottom;
+    if (top - dy < minTop) dy = top - minTop;
+    if (Math.abs(dy) < 2) return;
+    try { window.scrollBy({ top: dy, behavior: reduced ? 'instant' : 'smooth' }); } catch { window.scrollBy(0, dy); }
+  }
   function restart(elm, cls) { elm.classList.remove(cls); void elm.offsetWidth; elm.classList.add(cls); }
   function pt(elm, fy = 0.3) { const r = elm.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * fy]; }
 
@@ -803,7 +818,7 @@ export function mount(el, ctx, nav) {
     if (sim && state === 'play') {
       sim.resume();
       // Mobilde kart sayfayı aşağı kaydırmış olabilir: sahnenin tamamı yeniden görünsün
-      requestAnimationFrame(() => { if (state === 'play') revealInView(field); });
+      requestAnimationFrame(() => { if (state === 'play') revealPlay(); });
     }
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch { /* yok say */ }
   }
@@ -979,7 +994,7 @@ export function mount(el, ctx, nav) {
     ctx.sound.whoosh();
     say('Yayın başladı. Saat 00:00. İlk maçı atmak için 1’e bas.');
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch { /* yok say */ }
-    requestAnimationFrame(() => revealInView(field));
+    requestAnimationFrame(revealPlay);
   }
 
   function finish(why) {
