@@ -15,6 +15,7 @@ Yayın: <https://kick.com/cureshotkick>
 ## İçindekiler
 
 - [Özellikler](#özellikler)
+- [Belgeler](#belgeler)
 - [Teknoloji yığını](#teknoloji-yığını)
 - [Klasör yapısı](#klasör-yapısı)
 - [Geliştirme](#geliştirme)
@@ -37,13 +38,13 @@ Gezinme, Dota'nın yetenek çubuğunu taklit eder: ekranın altındaki slotlara 
 | --- | --- | --- | --- |
 | `H` | **Üs** | `#ana` | Kahraman alanı ve "1 vs 9" 3D dioraması, canlı DOG sayacı, meme sözlüğü, günün esprisi, ziyaretçi defteri |
 | `Q` | **Espri Duvarı** | `#espriler` | Topluluk esprileri: yaz, DOG'la (beğen), yorumla |
-| `W` | **Mini Oyunlar** | `#oyunlar` | DOG Avı, DOG Hafıza, Last Hit Ustası, Rune Refleksi — her birinin skor tablosu var |
+| `W` | **Mini Oyunlar** | `#oyunlar` | 10 oyun: DOGdle (günlük kahraman tahmini), Portre Avı, Invoker Kombo, Pudge Hook, DOG Bingo, DOG Avı, DOG Hafıza, Last Hit, Rune Refleksi ve Arena — skor tabloları ve rozetler |
 | `R` | **1vDOQUZ Arena** | `#arena` (`#oyunlar--arena`) | three.js ile 3D arena: dokuz DOG'a karşı tek başına ("ultimate" slotu) |
-| `E` | **Quizler** | `#quizler` | Hangi DOG'sun?, Dota 2 Bilgi Yarışması, DOG mu Değil mi?, Gerçek Hayran Testi |
+| `E` | **Quizler** | `#quizler` | Hangi DOG'sun?, Dota 2 Bilgi Yarışması, DOG mu Değil mi?, Gerçek Hayran Testi, Yetenek Avı (539 yetenek) |
 | `D` | **Karakter Analizleri** | `#karakterler` | DOG Arşivi (oyuncu türleri), kahraman potansiyeli, türleri karşılaştırma, kendi analizin |
 | `F` | **Soru-Cevap** | `#soru-cevap` | Topluluk soruları ve cevapları (kabul edilen cevap), SSS, DOG Kâhini (yerel, yapay zekâ yok) |
 | `T` | **Galeri & 3D Müze** | `#galeri` | fal.ai ile üretilmiş görseller ve 3D modeller (DOG maskotu, okçu kahraman, Aegis) |
-| `Z` | **Kahraman DOG Endeksi** | `#kahramanlar` | 127 Dota 2 kahramanı, her birinin hayran yapımı "DOG potansiyeli" ve ziyaretçi oylaması |
+| `Z` | **Kahraman DOG Endeksi** | `#kahramanlar` | 127 Dota 2 kahramanı (resmi portre ve tam boy görseller), hayran yapımı "DOG potansiyeli", ziyaretçi oylaması, tier listesi, Daha DOG mu?, çark |
 
 Ortak sistemler:
 
@@ -58,6 +59,18 @@ Ortak sistemler:
 - **Erişilebilirlik ve mobil** — 360 px genişlikte yatay kaydırma yok, ≥ 44 px dokunma hedefleri,
   görünür klavye odağı, `prefers-reduced-motion` desteği. Sesler WebAudio ile üretilir (dosya yok) ve
   yalnızca etkileşimden sonra çalar.
+
+## Belgeler
+
+`docs/` klasörü geliştirme sürecini ve tasarımı anlatır:
+
+| Belge | İçerik |
+| --- | --- |
+| [docs/ANALIZ.md](docs/ANALIZ.md) | Mevcut durum, ölçümler, darboğazlar, araştırma |
+| [docs/PLAN.md](docs/PLAN.md) | Hedefler, yeni oyunlar, iş dağılımı |
+| [docs/OYUNLAR.md](docs/OYUNLAR.md) | Tüm oyun ve quizlerin özeti; ayrıntılar `docs/oyunlar/` altında |
+| [docs/OPTIMIZASYON.md](docs/OPTIMIZASYON.md) | Performans çalışması: önce/sonra ölçümleri, betikler |
+| [docs/MIMARI.md](docs/MIMARI.md) | Mimari: bölüm sözleşmesi, veri katmanı, oyun kiti, varlık hatları, derleme modları |
 
 ## Teknoloji yığını
 
