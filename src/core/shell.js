@@ -198,6 +198,7 @@ export function mountShell(root) {
   const bar = h('nav', { class: 'ability-bar', 'aria-label': 'Bölümler' });
   const slots = h('div', { class: 'ability-slots' });
   for (const r of ROUTES) {
+    if (r.hidden) continue;
     const btn = h('a', {
       class: `ability${r.ultimate ? ' ult' : ''}`,
       href: '#' + r.id,

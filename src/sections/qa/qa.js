@@ -1053,7 +1053,7 @@ function createQA(el, ctx) {
   function para(p) {
     if (p && p.shortcuts) {
       return h('ul', { class: 'qa-keys' },
-        ROUTES.map((r) => h('li', { class: `qa-key${r.ultimate ? ' is-ult' : ''}` },
+        ROUTES.filter((r) => !r.hidden).map((r) => h('li', { class: `qa-key${r.ultimate ? ' is-ult' : ''}` },
           h('span', { class: 'kbd' }, r.key),
           h('span', null, r.label),
           r.ultimate ? h('span', { class: 'badge gold' }, 'ulti') : r.item ? h('span', { class: 'badge jade' }, 'eşya') : null,

@@ -17,6 +17,7 @@
 
 import { platform } from './platform.js';
 import { ls, uid as makeId, pick, randInt } from './dom.js';
+import { history } from './history.js';
 
 const MAX_DOC_BYTES = 200 * 1024;
 const LOCAL_ID_KEY = 'local-fan-id';
@@ -400,6 +401,7 @@ export const store = {
     },
     /** En iyi skoru kaydet (higherIsBetter=false ise düşük skor daha iyi, ör. reaksiyon süresi). */
     submitScore(gameId, score, higherIsBetter = true) {
+      history.record(gameId, score);
       const prev = meState.data.scores[gameId];
       const better = prev == null || (higherIsBetter ? score > prev : score < prev);
       if (better) this.patch((d) => { d.scores[gameId] = score; }, { delay: 300 });

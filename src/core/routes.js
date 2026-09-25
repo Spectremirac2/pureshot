@@ -11,6 +11,8 @@ export const ROUTES = [
   { id: 'soru-cevap', label: 'Soru-Cevap', short: 'S&C', key: 'F', icon: 'chat', load: () => import('../sections/qa/qa.js') },
   { id: 'galeri', label: 'Galeri & 3D Müze', short: 'Galeri', key: 'T', icon: 'cube', load: () => import('../sections/gallery/gallery.js') },
   { id: 'kahramanlar', label: 'Kahraman DOG Endeksi', short: 'Hero', key: 'Z', icon: 'swords', item: true, load: () => import('../sections/heroes/heroes.js') },
+  // Gizli rotalar: yetenek çubuğunda slotu yok, kısayolu yok (HUD'daki ad çipinden açılır)
+  { id: 'profil', label: 'Profilim', short: 'Profil', icon: 'user', hidden: true, load: () => import('../sections/profile/profile.js') },
 ];
 
 export const DEFAULT_ROUTE = 'ana';

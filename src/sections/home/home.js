@@ -428,7 +428,7 @@ function withId(headEl, id) {
 
 // ====================================================================== Portallar (yetenek slotları)
 function buildPortals(ctx, cleanups) {
-  const list = ROUTES.filter((r) => r.id !== 'ana');
+  const list = ROUTES.filter((r) => r.id !== 'ana' && !r.hidden);
   const keys = list.map((r) => r.key).join(' ');
   const cards = list.map((r) => {
     const ult = !!r.ultimate;

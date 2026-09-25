@@ -58,3 +58,24 @@ doğrudan kapasiteyi belirler (ana sayfa ~3 MB → ayda ~4.000 ziyaretçi).
 Sonuç: sitedeki kahraman verisi (127 kahraman, özellik/rol/karmaşıklık/DOG%) ve yeni eklenen resmi
 portreler, Dotadle ve portre tahmini gibi oyunlar için hazır bir temel sunuyor. 24 saatlik maratonlar ve
 “DOG DOG DOG” anları ise yayın bingosu için birebir içerik.
+
+---
+
+## 2. Tur analizi (25 Eylül 2026, 1. tur sonrası)
+
+Canlı site: 10 oyun, 5 quiz, 23 rozet; performans çalışması tamam. Kalan boşluklar:
+
+1. **İlk giriş rehberi yok.** Sitenin ana gezinmesi alttaki Dota yetenek çubuğu (H Q W E R D F T Z); ilk kez gelen
+   ziyaretçi slotların ve kısayolların ne yaptığını tahmin etmek zorunda. Araştırma: iyi ürün turları 3–5 kısa
+   adım, her zaman “Geç” seçeneği, kısa metin (≤140 karakter), değer odaklı dil ve istenince tekrar açılabilme
+   içerir. Kaynak: [Appcues — product tour UI patterns](https://www.appcues.com/blog/product-tours-ui-patterns),
+   [Formbricks — onboarding best practices](https://formbricks.com/blog/user-onboarding-best-practices)
+2. **Statik yayında skor tabloları “boş” görünüyor.** Her ziyaretçinin verisi kendi tarayıcısında kaldığı için
+   tabloda yalnızca kendi satırı var. Kişisel deneme geçmişi (son denemeler, gelişim) bu alanı anlamlı kılar.
+3. **İstatistikler dağınık.** Skorlar, rozetler, quiz sonuçları ve DOG sayısı farklı sayfalarda; toplu bir
+   “Fan Kartı” / profil sayfası ve geri dönme nedeni (günlük görevler) yok.
+4. **Oyun çeşitliliği.** Dota 2’nin kendi Crownfall etkinliğindeki mini oyunlar (Techies temalı mayın tarlası
+   “Spleen Sweeper”, Flappy Bird benzeri “Flappy Bat”) Dota oyuncularının bu türleri sevdiğini gösteriyor.
+   Kaynak: [Liquipedia — Crownfall Minigames](https://liquipedia.net/dota2/Crownfall/Minigames)
+   Birleştirme bulmacası (2048) ve yayın temalı bir strateji/simülasyon oyunu, 24 saatlik maraton kültürüne
+   birebir uyuyor.

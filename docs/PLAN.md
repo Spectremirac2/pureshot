@@ -60,3 +60,18 @@ Tüm dalgalar tamamlandı ve entegre edildi.
   bunu aşar (yayınlamak gerekirse ikonlar sprite’a toplanmalı ya da parti parti yüklenmeli).
 - Netlify ücretsiz planındaki “Powered by Netlify” rozeti yalnızca panelden kapatılabilir.
 - `heroes.js` sırası değişirse gelecekteki DOGdle cevapları yeniden karılır (belgelendi).
+
+---
+
+## 2. Tur planı
+
+| Ajan | Kapsam |
+|---|---|
+| Rehber & UX | İlk giriş turu (HUD + yetenek çubuğu, spot ışığı + kısa ipuçları, Geç/İleri/Geri, klavye), `?` yardım paneli (kısayollar), “Turu yeniden başlat”, ad çipinden profil menüsü, küçük sürprizler (Konami kodu) |
+| Profil | `#profil`: Fan Kartı (takma ad, avatar kahraman, DOG sayısı, tüm rekorlar, quiz sonuçları, rozetler), paylaşılabilir kart görseli, Günlük Görevler (her gün 3 görev, XP ve seviye) |
+| Oyunlar A | **Uçan Kurye** (Flappy türü, sonsuz), **Techies Mayın Tarlası** (mayın tarlası, 3 zorluk) |
+| Oyunlar B | **Eşya 2048** (Dota eşya zinciriyle birleştirme), **24 Saat Maraton** (yayın simülasyonu: enerji, chat, MMR) |
+| Salon & cila (2. dalga) | 14 oyunluk salon, yeni rozetler, kişisel deneme geçmişi tabloları, 1. tur oyunlarının eleştirel gözden geçirmesi ve iyileştirmesi, ana sayfa güncellemesi |
+
+Altyapı (entegrasyon, ajanlardan önce): `src/core/history.js` (her `submitScore` denemesini tarih ile kaydeder),
+gizli `#profil` rotası (yetenek çubuğunda slotu yok), dört yeni oyun için iskelet kayıtları.

@@ -23,6 +23,10 @@ import * as portre from './portre.js';
 import * as invoker from './invoker.js';
 import * as hook from './hook.js';
 import * as bingo from './bingo.js';
+import * as kurye from './kurye.js';
+import * as mayin from './mayin.js';
+import * as esya from './esya.js';
+import * as maraton from './maraton.js';
 
 // Rozet bildirimleri: tekil küresel izleyici (ana sayfa da aynı çağrıyı yapar; ikincisi etkisiz)
 ensureBadgeWatcher();
@@ -42,8 +46,8 @@ const ARENA = {
   format: (n) => `${fmtNum(n)} puan`,
 };
 
-const GAMES = [ARENA, whack.meta, lasthit.meta, memory.meta, rune.meta, dogdle.meta, portre.meta, invoker.meta, hook.meta, bingo.meta].filter(Boolean);
-const MODS = { dogavi: whack, lasthit, hafiza: memory, rune, dogdle, portre, invoker, hook, bingo };
+const GAMES = [ARENA, whack.meta, lasthit.meta, memory.meta, rune.meta, dogdle.meta, portre.meta, invoker.meta, hook.meta, bingo.meta, kurye.meta, mayin.meta, esya.meta, maraton.meta].filter(Boolean);
+const MODS = { dogavi: whack, lasthit, hafiza: memory, rune, dogdle, portre, invoker, hook, bingo, kurye, mayin, esya, maraton };
 const byId = (id) => GAMES.find((g) => g.id === id) || null;
 const DAILY_ID = 'dogdle';
 
