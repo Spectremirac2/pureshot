@@ -7,7 +7,7 @@ export const meta = {
   name: 'DOGdle',
   short: 'DOGdle',
   icon: 'eye',
-  color: 'var(--gold)',
+  color: 'var(--aegis-2)',
   kind: 'Günlük · Tahmin',
   blurb: 'Her gün bir gizli kahraman. Özellikleri karşılaştır, en az tahminle bul.',
   time: 'Günlük',
