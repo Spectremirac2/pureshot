@@ -1,0 +1,18 @@
+/* Oyunlar arası küçük yardımcılar (juice.js): sonuç kartı rekor notu */
+.gm-pb-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 7px 12px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+  background: color-mix(in srgb, var(--pb-c, var(--aegis)) 12%, transparent);
+  border-left: 3px solid var(--pb-c, var(--aegis));
+}
+.gm-pb-note svg { flex: none; color: var(--pb-c, var(--aegis)); }
+.gm-pb-note.up { --pb-c: var(--aegis); }
+.gm-pb-note.near { --pb-c: var(--ember); }
+.gm-pb-note.tie { --pb-c: var(--radiant); }

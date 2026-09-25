@@ -9,6 +9,7 @@ import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
 import { BINGO_CATS, BINGO_EVENTS, BINGO_FREE, BINGO_DECK, BINGO_QUIPS } from '../../data/bingo.js';
 import { gameLayout, hudStat, showOverlay, introCard, submitResult, bestText, isTyping, revealInView } from './kit.js';
+import { haptic } from './juice.js';
 
 const N = 5;
 const CELLS = N * N;
@@ -329,12 +330,20 @@ export function mount(el, ctx, nav) {
     const doneIds = new Set(done.map((l) => l.id));
     const inLine = new Set(done.flatMap((l) => l.cells));
     const markedN = Object.keys(state.marks).length;
+    // "Bir kala": tamamlanmamış bir çizgiyi tek başına bitirecek hücreler hafifçe parlar
+    const oneLeft = new Set();
+    for (const l of LINES) {
+      if (doneIds.has(l.id)) continue;
+      const rest = l.cells.filter((i) => i !== FREE && state.marks[i] == null);
+      if (rest.length === 1) oneLeft.add(rest[0]);
+    }
     cells.forEach((btn, i) => {
       const free = i === FREE;
       const ts = state.marks[i];
       const on = free || ts != null;
       btn.classList.toggle('on', on);
       btn.classList.toggle('in-line', inLine.has(i));
+      btn.classList.toggle('one-left', oneLeft.has(i));
       if (!free) {
         btn.setAttribute('aria-pressed', String(on));
         const t = btn.querySelector('.bg-cell-time');
@@ -345,7 +354,7 @@ export function mount(el, ctx, nav) {
       const ev = card[i];
       btn.setAttribute('aria-label', free
         ? `${c} sütunu, ${r}. satır: DOG DOG DOG, bedava hücre, işaretli`
-        : `${c} sütunu, ${r}. satır: ${ev.text} (${catOf(ev.cat).label})${on ? `, işaretli ${clock(ts)}` : ''}${inLine.has(i) ? ', tamamlanmış çizgide' : ''}`);
+        : `${c} sütunu, ${r}. satır: ${ev.text} (${catOf(ev.cat).label})${on ? `, işaretli ${clock(ts)}` : ''}${inLine.has(i) ? ', tamamlanmış çizgide' : ''}${oneLeft.has(i) ? ', BINGO için tek hücre' : ''}`);
     });
 
     // Çizgi kaplaması
@@ -470,6 +479,7 @@ export function mount(el, ctx, nav) {
       state.marks[i] = Date.now();
       state.order.push(i);
       sound.stamp();
+      haptic(12);
       const btn = cells[i];
       btn.classList.remove('pop');
       void btn.offsetWidth;
@@ -499,6 +509,7 @@ export function mount(el, ctx, nav) {
       fx.confetti(x, y, 80);
     }
     sound.win();
+    haptic(total >= 12 ? [40, 50, 40, 50, 120] : [30, 50, 60]);
     sLines.bump();
     const names = fresh.map((l) => l.name).join(', ');
     L.live.textContent = `BINGO! ${names} tamamlandı. Kartta ${total} çizgi.${saved.record ? ' Yeni rekor.' : ''}`;

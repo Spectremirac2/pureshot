@@ -10,7 +10,7 @@ Dosyalar:
 |---|---|
 | `src/sections/profile/profile.js` | Bölüm (sözleşme: `mount(el, ctx)` → temizlik, `onSub(sub)`) |
 | `src/sections/profile/profile.css` | Stiller (`pf-` öneki) |
-| `src/sections/profile/catalog.js` | Rekor kartlarının oyun/quiz kataloğu, birimler, skor yönü |
+| `src/sections/profile/catalog.js` | Rekor kartlarının oyun/quiz kataloğu (oyunlar `SALON_GAMES`'ten), quiz birimleri, skor yönü |
 | `src/sections/profile/avatar.js` | Avatar kahraman seçici (arama + özellik süzgeci, portre atlası) |
 | `src/sections/profile/sharecard.js` | 1200×630 paylaşım kartı (canvas) |
 | `src/sections/profile/data.js` | JSON yedek, içe aktarma, sıfırlama, indirme yardımcıları |
@@ -24,7 +24,7 @@ Dosyalar:
 | `#profil--gorevler` | Günlük Görevler | 3 görev, ilerleme çubukları, İstanbul gece yarısına geri sayım, seri |
 | `#profil--kart` | Fan Kartın | Canvas önizleme, “Görseli indir”, “Panoya kopyala” |
 | `#profil--rekorlar` | Rekorlar | 14 oyun + 5 quiz + “Daha DOG mu?”: en iyi skor, son denemeler çizgisi, deneme sayısı, son oynama; skoru yoksa “Oyna / Çöz” |
-| `#profil--rozetler` | Rozetler | 23 rozet, gruplu (Salon, Oyunlar, Quizler, Topluluk), kilitlilerde ilerleme |
+| `#profil--rozetler` | Rozetler | 31 rozet, gruplu (Salon, Oyunlar, Quizler, Topluluk), kilitlilerde ilerleme |
 | `#profil--veri` | Verilerin | Dışa aktar (JSON), İçe aktar, Sıfırla |
 
 Alt sayfa adresleri ilgili bölüme kaydırır; sayfadaki gezinme çipleri aynı işi yapar (`ctx.setSub` ile adres güncellenir).
@@ -36,10 +36,10 @@ Alt sayfa adresleri ilgili bölüme kaydırır; sayfadaki gezinme çipleri aynı
 - **Takma ad:** kabuğun `openNickEditor()` penceresi (dışa aktarılmazsa aynı davranışlı yerel yedek).
 - **Üyelik tarihi:** yerel kipte fan kimliği (`csk:local-fan-id` = `f` + zaman damgası + rastgele) ilk ziyaret anını
   taşır; bu, en eski deneme ve kayıtlı değer (`csk:profile:since`) arasından en erken olanı alınır ve kaydedilir.
-- **Rekor biçimi:** `catalog.js` oyunların `meta.unit` / `meta.higherIsBetter` değerlerinin kopyasını tutar (ad/simge
-  `SALON_GAMES`’ten). `games.js` bütün oyun modüllerini statik içe aktardığı için profil onu yüklemez. `SALON_GAMES`
-  bir gün `unit`/`higherIsBetter`/`format` taşırsa onlar önceliklidir. Tabloda olmayan bir skor kimliği “Diğer”
-  altında düz sayı olarak görünür. Çizgide yukarı her zaman daha iyidir (düşük-iyi oyunlarda eksen ters); altın nokta rekordur.
+- **Rekor biçimi:** oyunların adı, simgesi, rengi, birimi, skor yönü ve biçimleyicisi `SALON_GAMES`’ten gelir
+  (`core/badges.js`; oyun `meta` değerlerinin kopyası — ayrı `UNITS` tablosu kaldırıldı). `games.js` bütün oyun
+  modüllerini statik içe aktardığı için profil onu yüklemez. Yedek: birimi olmayan kayıt düz sayı ve “yüksek iyi”;
+  hiçbir katalogda olmayan bir skor kimliği “Diğer” altında düz sayı olarak görünür. Çizgide yukarı her zaman daha iyidir (düşük-iyi oyunlarda eksen ters); altın nokta rekordur.
 
 ## XP ve seviye
 
@@ -56,7 +56,7 @@ Seviye L için gereken toplam XP: `100·(L−1) + 25·(L−1)·(L−2)` → 0, 1
 |---|---|---|---|---|---|---|---|---|
 | Rütbe | Herald | Guardian | Crusader | Archon | Legend | Ancient | Divine | Immortal |
 
-Örnek: 23 rozetin tamamı + 14 oyun + 5 quiz + “Daha DOG mu?” = 2.900 XP (Seviye 10, Legend); bir ay boyunca her gün 3 görev +4.500 XP.
+Örnek: 31 rozetin tamamı + 14 oyun + 5 quiz + “Daha DOG mu?” = 3.700 XP (Seviye 11, Ancient); bir ay boyunca her gün 3 görev +4.500 XP.
 Profil açıkken seviye atlanırsa bildirim çıkar.
 
 ## Günlük Görevler (`src/core/quests.js`)
@@ -70,8 +70,8 @@ Profil açıkken seviye atlanırsa bildirim çıkar.
   günlük anlık görüntü (DOG sayısı, DOG’lanan espriler, rekorlar) ve `csk:qz:last` (quizlerin son sonuç zamanı).
 - Tamamlanan görev günde bir kez kaydedilir ve bildirilir (`fx.toast`, +50 XP); üçü birden bitince seri uzar
   (“Günün üç görevi tamam! Seri: N gün”). Seri, bugün ya da dün tamamlandıysa sürer.
-- Yeni oyunların (kurye, mayin, esya, maraton) puanlaması kesinleşmediği için onlarda yalnızca “bir kez oyna”
-  görevi var (skor kaydı sayılır).
+- 2. tur oyunlarının (kurye, mayin, esya, maraton) puanlaması kesinleşti; ilk sürümdeki “bir kez oyna” görevleri
+  eşikli görevlerle değişti (`kurye200`, `mayinOrta`, `esya1000`, `maraton24`). Havuz yine 23 şablon.
 
 ### Havuz
 
@@ -87,7 +87,10 @@ Profil açıkken seviye atlanırsa bildirim çıkar.
 | `portre1500` | oyun | Portre Avı’nda 1.500+ puan | en iyi ≥ 1500 |
 | `arena1200` | oyun | 1vDOQUZ Arena’da ilk dalgayı temizle | en iyi ≥ 1200 |
 | `bingo1` | oyun | DOG Bingo’da bir çizgi tamamla | en iyi ≥ 1 |
-| `kurye` / `mayin` / `esya` / `maraton` | oyun | … bir kez oyna / bir tur oyna | o oyunda en az 1 deneme |
+| `kurye200` | oyun | Uçan Kurye’de 200+ metre uç | en iyi ≥ 200 (rozet 300’de) |
+| `mayinOrta` | oyun | Mayın Tarlası’nda Orta tahtayı temizle | `mayin` denemesi (yalnızca kazanılan Orta tahtası skor yazar) |
+| `esya1000` | oyun | Eşya 2048’de 1.000+ puan topla | en iyi ≥ 1000 (rozet 2.500’de) |
+| `maraton24` | oyun | 24 Saat Maraton’u 24:00’e taşı | `picks['maraton:tamam']` − günün görüntüsündeki değer (`snap.mt`) ≥ 1 |
 | `quiz` | quiz | Bir quiz bitir | bilgi/dogmu/hayran/yetenek denemesi ya da `qz:last[*].at` bugün (Hangi DOG dahil) |
 | `hayran8` | quiz | Gerçek Hayran Testi’nde 8+ doğru | en iyi ≥ 8 |
 | `yetenek` | quiz | Yetenek Avı quizini bitir | 1 deneme |
@@ -112,8 +115,9 @@ yüklenmeden basılan DOG’lar sayılmaz; bu yüzden izleyicinin uygulama açı
 |---|---|---|
 | `csk:me` | store.js | fan profili: `nick, dog, likes, scores, picks` (profil `picks.avatar` ekler) |
 | `csk:hist` | history.js | `{ id: [{ s, t }] }` son 20 deneme/oyun |
+| `csk:hist:n` | history.js | `{ id: n }` ömür boyu deneme sayısı (`history.count(id)`; ilk sayımda liste uzunluğundan başlar) |
 | `csk:qz:last` | quizzes/ui.js | quizlerin son sonucu (`at` zamanı) — yalnızca okunur |
-| `csk:quests:snap` | quests.js | `{ day, at, dog, likes: [jk:…], scores }` günün anlık görüntüsü |
+| `csk:quests:snap` | quests.js | `{ day, at, dog, likes: [jk:…], scores, mt }` günün anlık görüntüsü (`mt`: 24:00’e varan Maraton sayacı; eski görüntüde yoksa ilk okumada eklenir) |
 | `csk:quests:log` | quests.js | `{ total, days: { gün: [görev id] } (son 60 gün), streak: { last, count, best } }` |
 | `csk:profile:since` | profile.js | üyelik tarihi (ms) |
 | `csk:local-fan-id` | store.js | fan kimliği (yalnızca okunur; üyelik tarihi için) |
@@ -140,8 +144,10 @@ import {
 } from './core/quests.js';
 ```
 
-Ana sayfada küçük bir görev kartı için: `subscribeQuests((list) => …)` + `msToReset()` yeterlidir; bağlantı
-`#profil--gorevler`. Ad çipi menüsünde seviye göstermek için: `fanLevel(fanXp().xp)`.
+Ana sayfadaki görev kartı (`sections/home/home.js` → `buildQuests`): ilk çizim `questStatus()`, sonra
+`subscribeQuests`; `msToReset()` ile geri sayım, `questStreak()` ile seri, `fanLevel(fanXp().xp)` ile “Fan seviyen”
+çipi (`#profil`); bağlantı `#profil--gorevler`. Satırlar yerinde güncellenir; DOG görevinin satırı DOG düğmesi gibi
+çalışır. Ad çipi menüsünde “Profilim”in yanında seviye rozeti (`shell.js`, menü her açılışta hesaplanır).
 
 ## Paylaşım kartı
 1200×630 canvas; sitenin fontları `document.fonts.load` ile beklenir (en fazla 1,5 sn). İçerik: avatar kahramanın
@@ -170,9 +176,9 @@ rozet / görev serisi kutuları, DOG türü, en iyi 3 rekor (rozet eşiğine ora
 ## Entegrasyon notları
 1. `src/main.js` içinde `ensureBadgeWatcher()` yanına `ensureQuestWatcher()` eklenmeli (şu an yalnızca profil
    yüklenince kuruluyor): görev bildirimleri her sayfada çıksın ve DOG/beğeni anlık görüntüsü günün ilk açılışında alınsın.
-2. Ana sayfaya “Günlük Görevler” kartı (bkz. API) ve ad çipi menüsüne `#profil` / `#profil--gorevler` bağlantısı.
-3. Yeni oyunların puanlaması kesinleşince: `catalog.js` `UNITS` satırı (birim, yön) ve istenirse `quests.js`’te eşikli
-   görev. Tercihen `SALON_GAMES` kayıtlarına `unit` ve `higherIsBetter` eklenirse profil kendiliğinden onları kullanır.
+2. ~~Ana sayfaya “Günlük Görevler” kartı ve ad çipi menüsüne seviye~~ — yapıldı (2. tur, salon ajanı).
+3. ~~Yeni oyunların birimleri ve eşikli görevleri~~ — yapıldı: `SALON_GAMES` 14 oyunun `unit` / `higherIsBetter` /
+   `format` değerlerini taşır, `catalog.js` onları kullanır; `quests.js`’te dört eşikli görev.
 4. Yeni ASCII dışı karakter eklenmedi (font alt kümesi değişmez).
 
 ## Test notları

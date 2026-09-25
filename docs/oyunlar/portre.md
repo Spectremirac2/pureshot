@@ -101,3 +101,20 @@ Valve’ın resmi portreleri, yerel WebP).
 - Her iki görünümde konsol hatası 0, yatay taşma 0, localhost dışı istek 0.
 - `test-rm.mjs`: sekme gizliyken “Görüş %” sabit kaldı, geri gelince sürdü; oyundan çıkınca site
   kısayolları yeniden çalıştı.
+
+## 2. tur iyileştirmeleri (oyun cilası)
+
+Masaüstü (1440×900) ve mobil (390×844 dokunmatik) oynanarak bulunanlar → yapılanlar:
+
+| Bulgu | Değişiklik |
+|---|---|
+| **Hata:** doğru cevapta bilgi şeridinin altında “null” yazıyordu (`replaceChildren(…, null)`). | Yalnızca var olan düğümler eklenir; testte her turda “null” aranıyor. |
+| Turun ilk anında, portre daha hiç açılmadan körlemesine tahmin (ya da önceki turdan kalan dokunuş) ~500 puanlık şans getirebiliyordu. | **Şık kilidi:** tur başında şıklar 0,4 sn kilitli ve soluk; sonra sırayla belirir. 1–4 tuşları ve dokunuşlar bu sırada yok sayılır. Açılma saati yine tur başından sayılır (en yüksek tur puanı ~484 · seri · zorluk); puan formülü değişmedi. |
+| Seri ilerlerken geri bildirim yalnızca HUD’daki sayıydı. | Seri ≥ 2’de yükselen “seri” notası (`sound.streak`), Seri kutusu kor rengine döner, 3+ seride portre çerçevesi kor ışığıyla yanar. Doğru/yanlışta çerçeve içi yeşil/kırmızı parlama (hareket azaltmada yok). |
+| Son şans aşaması yalnızca yanıp sönen çubukla belliydi. | Son şansta yarım saniyede bir tık sesi. |
+| Maç sonunda rekorla kıyas yoktu. | Sonuç kartında zorluk başına rekor notu: “Eski rekorunu N puan farkla geçtin” ya da (%15 içinde) “Kıl payı! Rekoruna N puan kaldı.” (`juice.js`). Yanlış cevapta dokunmatik cihazda kısa titreşim. |
+| Mobilde “Devam” düğmesi 36 px’ti. | 44 px. |
+
+Test (`final.mjs portre d|m`): kilit anında 1 tuşu yok sayıldı; 10 tur (tık, 1–4 tuşu, bir yanlış); şeritte “null” yok;
+skor = `csk:me.scores.portre`; oyun içinde site kısayolu (Z) kapalı, oyun ortasında salona dönünce Q → Espri Duvarı;
+konsol hatası 0, yatay taşma yok. İki görünümde **geçti**.

@@ -31,3 +31,7 @@
   .gm-play-kurye .gm-stat-label svg { display: none; }
   .gm-play-kurye .gm-hud { gap: 3px; }
 }
+
+/* 2. tur: uçuşta rekor geçilince HUD'daki rekor kutusu altına döner */
+.gm-play-kurye .gm-stat.beat .gm-stat-val { color: var(--aegis); }
+.gm-play-kurye .gm-stat.beat { border-color: color-mix(in srgb, var(--aegis) 55%, var(--line)); }

@@ -8,6 +8,7 @@ import './kurye.css';
 import { h, clamp, lerp, rand, randInt, fmtNum, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, onOtherControl, isTyping, tok, hexA } from './kit.js';
+import { pbNote, addPbNote, recordWatch, haptic } from './juice.js';
 
 // ------------------------------------------------------------------ sabitler (mantıksal birim; 10 birim = 1 metre)
 const H = 600; // mantıksal yükseklik; genişlik kabın en-boy oranına göre değişir
@@ -28,6 +29,7 @@ const ITEM_S = 1.3; // eşya çizim ölçeği
 const NEAR_U = 6; // bu kadar birimden (60 cm) yakın geçiş: kıl payı
 const GRACE_MS = 900;
 const TAU = Math.PI * 2;
+const DEATH_FREEZE = 0.16; // ölüm anında kısa donma: çarpma noktası okunsun (hareket azaltmada yok)
 
 const fmtM = (n) => `${fmtNum(n)} m`;
 
@@ -185,6 +187,7 @@ export function mount(el, ctx, nav) {
       bottles: 0, tango: false, tangoUsed: 0, runes: 0, turbo: 0, grace: 0,
       passed: 0, closest: Infinity, near: 0, flaps: 0,
       parts: [], floats: [], shake: 0, flash: 0, paused: false, deadT: 0, cause: '', splashed: false,
+      part: '', impact: null, hitPillar: null, freeze: 0, best: null, passBest: null, recordAt: -1,
     };
   }
 
@@ -275,7 +278,7 @@ export function mount(el, ctx, nav) {
       if (p.minClear < NEAR_U) {
         st.near++;
         floatAt(cxOf(), st.y - 34, 'Kıl payı!', C['aegis-2'], 15);
-        ctx.sound.good();
+        ctx.sound.nearMiss();
         return;
       }
     }
@@ -322,10 +325,16 @@ export function mount(el, ctx, nav) {
     say('Tango bir çarpmayı affetti.');
   }
 
-  function die(cause) {
+  function die(cause, info = null) {
     st.mode = 'dead';
     st.cause = cause;
     st.deadT = 0;
+    // Nerede, neye çarptı? Çarpma noktası ve kule parçası (üst / alt) işaretlenir
+    st.part = cause === 'river' ? 'river' : info ? info.part : '';
+    st.impact = info ? { x: info.x, y: info.y, t: 0 } : { x: cxOf(), y: RIVER_Y, t: 0 };
+    st.hitPillar = info ? info.p : null;
+    st.freeze = reduced ? 0 : DEATH_FREEZE;
+    haptic([45, 40, 60]);
     st.vy = cause === 'pillar' ? -320 : -140;
     st.spin = (Math.random() < 0.5 ? -1 : 1) * rand(5, 8);
     st.splashed = cause === 'river';
@@ -451,15 +460,19 @@ export function mount(el, ctx, nav) {
       const c = gapC(p);
       const top = c - p.gap / 2;
       const bot = c + p.gap / 2;
-      const cl = Math.min(
-        clearance(cx, st.y, HIT_R, p.x, -1e4, p.w, top),
-        clearance(cx, st.y, HIT_R, p.x, bot, p.w, 1e4),
-      );
+      const clTop = clearance(cx, st.y, HIT_R, p.x, -1e4, p.w, top);
+      const clBot = clearance(cx, st.y, HIT_R, p.x, bot, p.w, 1e4);
+      const cl = Math.min(clTop, clBot);
       if (cl < 0) {
         overlap = true;
         if (invul || st.mode === 'demo') continue;
         if (st.tango) { useTango('pillar'); continue; }
-        die('pillar');
+        const upper = clTop <= clBot;
+        die('pillar', {
+          p, part: upper ? 'top' : 'bot',
+          x: clamp(cx, p.x, p.x + p.w),
+          y: upper ? Math.min(st.y, top) : Math.max(st.y, bot),
+        });
         return;
       }
       if (!invul) p.minClear = Math.min(p.minClear, cl);
@@ -486,6 +499,14 @@ export function mount(el, ctx, nav) {
       st.y = H * 0.44 + Math.sin(st.clock * 3) * 7;
       st.vy = Math.cos(st.clock * 3) * 21;
     } else if (m === 'dead') {
+      if (st.impact) st.impact.t += dt;
+      if (st.freeze > 0) {
+        // Çarpma anında kısa donma: kurye çarptığı yerde kalır, sonra düşer
+        st.freeze -= dt;
+        st.shake = Math.max(st.shake, 0.3);
+        if (visible && lastStep) draw();
+        return;
+      }
       st.deadT += dt;
       st.vy = Math.min(MAX_FALL, st.vy + GRAV * dt);
       st.y += st.vy * dt;
@@ -514,6 +535,15 @@ export function mount(el, ctx, nav) {
     for (const f of st.floats) f.t += dt;
     st.floats = st.floats.filter((f) => f.t < f.dur);
     if (st.mode === 'play' || st.mode === 'dead') sDist.set(fmtNum(scoreOf()));
+    if (st.mode === 'play' && st.passBest && st.passBest(scoreOf())) {
+      // Eski rekor geçildi: uçuş sürüyor, kutlama kısa
+      st.recordAt = st.clock;
+      floatAt(cxOf() + 30, st.y - 46, 'YENİ REKOR!', C.aegis, 18);
+      burst(cxOf(), st.y, C.aegis, 14);
+      ctx.sound.record();
+      sBest.el.classList.add('beat');
+      say('Yeni rekor!');
+    }
     if (visible && lastStep) draw();
   }
 
@@ -780,6 +810,17 @@ export function mount(el, ctx, nav) {
     const pal = PAL[p.side];
     drawColumn(g, p.x, -20, c - p.gap / 2, pal, true);
     drawColumn(g, p.x, c + p.gap / 2, RIVER_Y + 20, pal, false);
+    if (st && p === st.hitPillar && st.mode === 'dead') {
+      // Çarpılan kule parçası kızarır
+      const k = reduced ? 0.5 : 0.35 + Math.abs(Math.sin(st.clock * 9)) * 0.3;
+      const y0 = st.part === 'top' ? -20 : c + p.gap / 2;
+      const y1 = st.part === 'top' ? c - p.gap / 2 : RIVER_Y + 20;
+      g.fillStyle = `rgba(224,53,75,${(k * 0.45).toFixed(3)})`;
+      g.fillRect(p.x, y0, p.w, y1 - y0);
+      g.strokeStyle = `rgba(255,120,130,${k.toFixed(3)})`;
+      g.lineWidth = 3;
+      g.strokeRect(p.x + 1.5, y0, p.w - 3, y1 - y0);
+    }
     if (p.amp) {
       // Oynayan kule: küçük ok işaretleri
       g.fillStyle = hexA(pal.gem, 0.55);
@@ -1049,6 +1090,21 @@ export function mount(el, ctx, nav) {
       g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.size, p.y); g.stroke();
     }
     g.globalAlpha = 1;
+    // Rekor kapısı: eski rekorun bu uçuştaki yeri (şişeler rekoru yaklaştırır)
+    if (st.mode === 'play' && st.best && st.recordAt < 0) {
+      const gx = cxOf() + (st.best - scoreOf()) * U_PER_M;
+      if (gx > cxOf() && gx < W + 40) {
+        g.save();
+        g.setLineDash([10, 8]);
+        g.strokeStyle = hexA(C.aegis, 0.75);
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(gx, 18); g.lineTo(gx, RIVER_Y); g.stroke();
+        g.setLineDash([]);
+        g.restore();
+        drawText(g, 'REKOR', gx, 104, 13, C.aegis, { font: 'Barlow', weight: 800, stroke: 4 });
+        drawText(g, fmtNum(st.best), gx, 122, 12, C['aegis-2'], { font: 'Barlow', weight: 700, stroke: 4 });
+      }
+    }
     // kurye
     const cx = cxOf();
     let alpha = 1;
@@ -1066,6 +1122,31 @@ export function mount(el, ctx, nav) {
       g.beginPath(); g.arc(cx, st.y, 31, 0, TAU); g.stroke();
     }
     if (st.mode !== 'dead' || st.y < H + 40) drawCourier(g, cx, st.y, st.tilt, st.wing, alpha);
+    if (st.mode === 'dead' && st.impact) {
+      // Çarpma noktası: beyaz-kırmızı yıldız + halka (ölüm okunaklı olsun)
+      const im = st.impact;
+      const k = clamp(im.t / 0.45, 0, 1);
+      const a = 1 - k * 0.55;
+      const rr = 9 + (reduced ? 6 : k * 14);
+      g.save();
+      g.translate(im.x, im.y);
+      g.globalAlpha = a;
+      g.fillStyle = '#fff4f0';
+      g.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const ang = (i / 16) * TAU;
+        const rad = i % 2 ? rr * 0.42 : rr;
+        g.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+      }
+      g.closePath();
+      g.fill();
+      g.strokeStyle = C.dire;
+      g.lineWidth = 3;
+      g.stroke();
+      g.globalAlpha = a * 0.8;
+      g.beginPath(); g.arc(0, 0, rr + 8, 0, TAU); g.stroke();
+      g.restore();
+    }
     // parçacıklar (ön)
     for (const p of st.parts) {
       if (p.kind === 'line') continue;
@@ -1126,11 +1207,18 @@ export function mount(el, ctx, nav) {
       const k = clamp(st.deadT / 0.25, 0, 1);
       const s = reduced ? 1 : lerp(1.5, 1, k);
       drawText(g, 'KURYE ÖLDÜ!', W / 2, H * 0.36, Math.round(Math.min(40, W / 9.5) * s), C.dire, { stroke: 7, alpha: k });
-      drawText(g, st.cause === 'river' ? 'Nehre düştü' : 'Kuleye çarptı', W / 2, H * 0.36 + 38, 15, C['text-2'], { font: 'Barlow', weight: 700, stroke: 4, alpha: k });
+      drawText(g, causeLine(), W / 2, H * 0.36 + 38, 15, C['text-2'], { font: 'Barlow', weight: 700, stroke: 4, alpha: k });
     } else if (st.mode === 'demo') {
       g.fillStyle = hexA(C.bg, 0.25);
       g.fillRect(0, 0, W, H);
     }
+  }
+
+  /** Ölüm nedeni + kısa öğüt (sahnede ve sonuç kartında). */
+  function causeLine() {
+    if (st.part === 'top') return 'Üst kuleye çarptı · daha seyrek dokun';
+    if (st.part === 'bot') return 'Alt kuleye çarptı · biraz erken dokun';
+    return 'Nehre düştü · düşerken daha sık dokun';
   }
 
   // ---------------------------------------------------------------- giriş
@@ -1171,6 +1259,10 @@ export function mount(el, ctx, nav) {
     if (graceTimer) { clearTimeout(graceTimer); graceTimer = 0; }
     resize(true);
     st = newState('ready');
+    const pb = (ctx.store.me.get().scores || {})[meta.id];
+    st.best = typeof pb === 'number' && pb > 0 ? pb : null;
+    st.passBest = recordWatch(st.best);
+    sBest.el.classList.remove('beat');
     ensurePillars();
     sDist.set('0');
     sBottle.set('0');
@@ -1207,7 +1299,9 @@ export function mount(el, ctx, nav) {
       ctx.fx.stamp('DOG DOG DOG');
       ctx.sound.bark(1, 0.15);
     }
-    const causeTxt = st.cause === 'river' ? 'Nehre daldın.' : 'Kuleye selam verdin.';
+    const causeTxt = st.part === 'top' ? 'Üst kuleye tosladın: daha seyrek dokun.'
+      : st.part === 'bot' ? 'Alt kuleye takıldın: bir tık erken çırp.'
+        : 'Nehre daldın: düşerken daha sık dokun.';
     let quip;
     if (score >= 1500) quip = 'Kurye bu hızla Roshan çukuruna bile bottle yetiştirir. 1vDOQUZ onaylı teslimat.';
     else if (score >= 800) quip = 'Rünler dolu, bottle’lar taze. Mid’ci sana bir teşekkür borçlu.';
@@ -1237,6 +1331,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
+      addPbNote(node, pbNote({ score, prev: saved.prev, fmt: (n) => `${fmtNum(n)} m` }));
       closeOverlay = showOverlay(L.stage, node, { reveal: true });
     });
   }
@@ -1250,6 +1345,7 @@ export function mount(el, ctx, nav) {
         mode: st.mode, paused: st.paused, y: st.y, vy: st.vy, x: cxOf(), r: HIT_R, H, W, riverY: RIVER_Y,
         g: GRAV, flapV: FLAP_V, speed: d.speed * (st.turbo > 0 ? TURBO_K : 1), m: st.m, score: scoreOf(),
         turbo: st.turbo, grace: st.grace, tango: st.tango, bottles: st.bottles, passed: st.passed,
+        cause: st.cause, part: st.part, best: st.best, recordAt: st.recordAt,
         pillars: st.pillars.map((p) => ({ side: p.side, x: p.x, w: p.w, top: gapC(p) - p.gap / 2, bot: gapC(p) + p.gap / 2, amp: p.amp, vy: p.amp ? Math.cos(p.ph) * p.amp * 2.2 : 0 })),
       };
     };

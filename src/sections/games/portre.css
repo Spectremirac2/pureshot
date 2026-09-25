@@ -208,6 +208,21 @@
 .gm-pt-sum-pts { color: var(--aegis); font-weight: 700; }
 .gm-pt-sum li.bad .gm-pt-sum-pts { color: var(--text-3); }
 
+/* ---------- 2. tur: şık kilidi, seri alevi, doğru/yanlış parlaması ---------- */
+/* Tur başındaki kısa "bak" anı: şıklar sırayla belirir, bu sırada seçilemez */
+.gm-pt-choices.arming .gm-pt-choice { opacity: 0.45; transform: translateY(4px); }
+.gm-pt-choices.armed .gm-pt-choice { animation: gm-pt-arm 0.22s var(--ease-out) backwards; }
+.gm-pt-choices.armed .gm-pt-choice:nth-child(2) { animation-delay: 0.03s; }
+.gm-pt-choices.armed .gm-pt-choice:nth-child(3) { animation-delay: 0.06s; }
+.gm-pt-choices.armed .gm-pt-choice:nth-child(4) { animation-delay: 0.09s; }
+@keyframes gm-pt-arm { from { opacity: 0.45; transform: translateY(4px); } }
+.gm-play-portre .gm-stat.hot .gm-stat-val { color: var(--ember); text-shadow: 0 0 12px color-mix(in srgb, var(--ember) 60%, transparent); }
+.gm-pt-frame.hot { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--ember), 0 0 34px color-mix(in srgb, var(--ember) 32%, transparent); }
+.gm-pt-frame.flash-ok .gm-pt-scan { animation: gm-pt-flash-ok 0.5s var(--ease-out); }
+.gm-pt-frame.flash-bad .gm-pt-scan { animation: gm-pt-flash-bad 0.55s var(--ease-out); }
+@keyframes gm-pt-flash-ok { from { box-shadow: inset 0 0 0 3px var(--radiant), inset 0 0 70px color-mix(in srgb, var(--radiant) 45%, transparent); } }
+@keyframes gm-pt-flash-bad { from { box-shadow: inset 0 0 0 3px var(--dire), inset 0 0 70px color-mix(in srgb, var(--dire) 50%, transparent); } }
+
 /* ---------- Duyarlı ---------- */
 @media (max-width: 620px) {
   .gm-pt { gap: 8px; }
@@ -220,7 +235,7 @@
   .gm-pt-hero { font-size: 1rem; }
   .gm-pt-verdict { font-size: 10px; padding: 4px 8px; }
   .gm-pt-quote { font-size: 11.5px; }
-  .gm-pt-next { min-height: 36px; padding: 4px 10px; }
+  .gm-pt-next { min-height: 44px; padding: 4px 12px; }
   .gm-pt-dog { display: none; }
   .gm-pt-recap { gap: 3px; }
   .gm-pt-slot { font-size: 9px; }
@@ -236,4 +251,6 @@
   .gm-pt-info.show { animation: none; }
   .gm-pt-bar.hold .gm-pt-bar-fill { animation: none; }
   .gm-pt-choice { transition: none; }
+  .gm-pt-choices.arming .gm-pt-choice { transform: none; }
+  .gm-pt-choices.armed .gm-pt-choice { animation: none; }
 }

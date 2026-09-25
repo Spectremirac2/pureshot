@@ -128,6 +128,8 @@ const ATTACK_TR = { Melee: 'Yakın', Ranged: 'Menzilli' };
 const WORD = { g: 'aynı', y: 'yakın', r: 'farklı', n: '' };
 
 const archOf = (hero) => ARCH.get(hero.archetype) || ARCH.get('legend');
+/** Dar tahtada kahraman adı: tek kelimelik adlar olduğu gibi (≤ 10 harf), çok kelimeliler topluluk kısaltmasıyla (CM, QOP…). */
+const boardName = (hero) => (!/\s/.test(hero.name) && hero.name.length <= 10 ? hero.name : hero.abbr);
 const stripQuote = (s) => String(s || '').replace(/^Topluluk der ki:\s*/, '');
 
 // Özellik şekilleri (kahraman armalarıyla aynı dil): Güç kalkan, Çeviklik elmas, Zekâ altıgen, Evrensel sekizgen
@@ -524,7 +526,7 @@ export function mount(el, ctx, nav) {
     const cells = [
       tile('hero', cmp.hero, [
         url ? h('img', { src: url, alt: '', width: '256', height: '144', decoding: 'async' }) : h('span', { class: 'gm-dg-abbr' }, hero.abbr),
-        h('span', { class: 'gm-dg-hname' }, dualLabel(hero.name, hero.abbr)),
+        h('span', { class: `gm-dg-hname${boardName(hero).length >= 9 ? ' long' : ''}` }, dualLabel(hero.name, boardName(hero))),
       ], 0, animate),
       tile('attr', cmp.attr, [attrGlyph(hero.attr), dualLabel(a.label, a.short)], 1, animate),
       tile('attack', cmp.attack, [icon(hero.attack === 'Melee' ? 'sword' : 'bow', { size: 18 }), dualLabel(ATTACK_TR[hero.attack], hero.attack === 'Melee' ? 'Yakın' : 'Menzil')], 2, animate),

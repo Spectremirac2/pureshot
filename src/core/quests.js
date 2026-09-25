@@ -47,6 +47,8 @@ const QUIZ_IDS = ['bilgi', 'dogmu', 'hayran', 'yetenek'];
 // ------------------------------------------------------------------ günlük bağlam
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
+const tamamOf = (me) => Math.max(0, Number(me && me.picks ? me.picks['maraton:tamam'] : 0) || 0);
+
 function readSnap() {
   const s = ls.get(SNAP_KEY, null);
   return s && typeof s === 'object' ? s : null;
@@ -56,13 +58,18 @@ function readSnap() {
 function ensureSnap(now, me) {
   const day = questDay(now);
   const s = readSnap();
-  if (s && s.day === day) return s;
+  if (s && s.day === day) {
+    // Eski sürümün bugünkü görüntüsünde Maraton sayacı yoksa şimdiki değerle tamamla (bir kez)
+    if (typeof s.mt !== 'number') { s.mt = tamamOf(me); ls.set(SNAP_KEY, s); }
+    return s;
+  }
   const fresh = {
     day,
     at: now,
     dog: Math.max(0, Number(me.dog) || 0),
     likes: Object.keys(me.likes || {}).filter((k) => k.startsWith('jk:')),
     scores: { ...(me.scores || {}) },
+    mt: tamamOf(me), // 24 Saat Maraton: 24:00'e varan yayın sayacı (picks['maraton:tamam'])
   };
   ls.set(SNAP_KEY, fresh);
   return fresh;
@@ -157,11 +164,28 @@ export const QUEST_POOL = [
   upQuest('portre1500', 'portre', 1500, 'Portre Avı’nda 1.500+ puan', 'puan', { icon: 'target', color: 'var(--radiant)', hint: 'Erken tanıyan çok kazanır.' }),
   upQuest('arena1200', 'arena', 1200, '1vDOQUZ Arena’da ilk dalgayı temizle', 'puan', { icon: 'bow', color: 'var(--aegis)', hint: '1.200 puan: dokuz DOG ve dalga bonusu.' }),
   upQuest('bingo1', 'bingo', 1, 'DOG Bingo’da bir çizgi tamamla', 'çizgi', { icon: 'star', color: 'var(--ember-2)', hint: 'Satır, sütun ya da çapraz.' }),
-  // Yeni oyunlar: puanlamaları kesinleşene kadar yalnızca “oyna” görevi (skor kaydı sayılır)
-  playQuest('kurye', 'kurye', 'Uçan Kurye’yi bir kez uçur', { icon: 'paw', color: 'var(--radiant)', hint: 'Skorun kaydedilince sayılır.' }),
-  playQuest('mayin', 'mayin', 'Techies Mayın Tarlası’nda bir tur oyna', { icon: 'flame', color: 'var(--dire)', hint: 'Skorun kaydedilince sayılır.' }),
-  playQuest('esya', 'esya', 'Eşya 2048’de bir tur oyna', { icon: 'coin', color: 'var(--aegis)', hint: 'Skorun kaydedilince sayılır.' }),
-  playQuest('maraton', 'maraton', '24 Saat Maraton’u bir kez oyna', { icon: 'hourglass', color: 'var(--ember)', hint: 'Skorun kaydedilince sayılır.' }),
+  // 2. tur oyunları (eşikler rozetlerin altında: kurye 300, esya 2500)
+  upQuest('kurye200', 'kurye', 200, 'Uçan Kurye’de 200+ metre uç', 'metre', { icon: 'courier', color: 'var(--radiant)', hint: 'Her şişe +25 metre sayılır.' }),
+  G('mayinOrta', 'mayin', 'Mayın Tarlası’nda Orta tahtayı temizle', {
+    icon: 'mine', color: 'var(--dire)', target: 1,
+    hint: '16×16, 40 mayın; süre fark etmez.',
+    value: (c) => {
+      // Yalnızca kazanılan Orta tahtası skor yazar
+      const b = bestDown(c, 'mayin');
+      return { value: b != null ? 1 : 0, detail: b != null ? `Bugünkü en iyin: ${b.toFixed(1).replace('.', ',')} sn` : null };
+    },
+  }),
+  upQuest('esya1000', 'esya', 1000, 'Eşya 2048’de 1.000+ puan topla', 'puan', { icon: 'rapier', color: 'var(--aegis)', hint: 'Büyük eşyaları bir köşede biriktir.' }),
+  G('maraton24', 'maraton', '24 Saat Maraton’u 24:00’e taşı', {
+    icon: 'sun', color: 'var(--ember)', target: 1,
+    hint: 'Enerjiyi izle; 24 saat asgari süre.',
+    value: (c) => {
+      // picks['maraton:tamam'] ömür boyu sayaçtır; bugünkü artış günün anlık görüntüsüne göre
+      const done = Math.max(0, tamamOf(c.me) - (Number(c.snap.mt) || 0));
+      const b = bestUp(c, 'maraton');
+      return { value: done > 0 ? 1 : 0, detail: done ? null : b != null ? `Bugünkü zirve: ${fmtNum(b)} izleyici` : null };
+    },
+  }),
 
   // --- Quizler
   { id: 'quiz', group: 'quiz', icon: 'quiz', color: 'var(--arcane)', href: '#quizler', target: 1,

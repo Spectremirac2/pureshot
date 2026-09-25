@@ -1112,12 +1112,23 @@
 }
 
 /* ---------------------------------------------------------------- Oyun Salonu'nda yeni */
+/* Masaüstü: günlük kahraman | yeni oyunlar + rozetler | günlük görevler. Tablet 2 sütun, mobil tek sütun. */
 .hm-salon-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'daily new quests'
+    'daily badges quests';
   gap: var(--sp-4);
   align-items: stretch;
 }
+.hm-salon-grid > div { display: flex; flex-direction: column; min-width: 0; }
+.hm-salon-daily { grid-area: daily; }
+.hm-salon-new { grid-area: new; }
+.hm-salon-quests { grid-area: quests; }
+.hm-salon-badges { grid-area: badges; }
+.hm-salon-daily > .hm-daily, .hm-salon-quests > .hm-quests, .hm-salon-badges > .hm-bdg { flex: 1 1 auto; }
 .hm-daily {
   display: flex;
   flex-direction: column;
@@ -1184,15 +1195,14 @@
 .hm-daily-best b { color: var(--aegis); }
 .hm-daily-cta { align-self: flex-start; }
 
-.hm-salon-side { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .hm-new-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .hm-new {
   --gc: var(--ember);
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 56px;
+  min-height: 60px;
   padding: 6px 12px 6px 6px;
   color: var(--text);
   text-decoration: none;
@@ -1213,7 +1223,9 @@
   border: 1px solid color-mix(in srgb, var(--gc) 45%, var(--line-2));
 }
 .hm-new-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.hm-new-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.98rem; line-height: 1.2; }
+.hm-new-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-family: var(--font-display); font-weight: 800; font-size: 0.98rem; line-height: 1.2; }
+.hm-new-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-new-tag { flex: none; }
 .hm-new-tag {
   padding: 1px 6px;
   font-family: var(--font-body);
@@ -1226,7 +1238,9 @@
   clip-path: var(--clip-sm);
 }
 .hm-new-kind { font-size: var(--fs-xs); color: var(--text-3); letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hm-new-state { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--radiant); }
+.hm-new-sub { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
+.hm-new-state { flex: none; font-size: var(--fs-xs); font-weight: 700; color: var(--text-3); white-space: nowrap; }
+.hm-new-state.on { color: var(--aegis); }
 .hm-new-go { color: var(--gc); display: grid; place-items: center; transition: transform 0.15s var(--ease-out); }
 .hm-new:hover .hm-new-go { transform: translateX(3px); }
 
@@ -1267,8 +1281,132 @@
 .hm-bdg-next-lbl { color: var(--text-3); }
 .hm-bdg-go { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--aegis); white-space: nowrap; }
 
-@media (max-width: 900px) {
-  .hm-salon-grid { grid-template-columns: minmax(0, 1fr); }
+/* ---- Günlük görevler kartı */
+.hm-quests {
+  container: hmgv / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background:
+    radial-gradient(90% 60% at 100% 0%, color-mix(in srgb, var(--ember) 10%, transparent), transparent 60%),
+    linear-gradient(170deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--line);
+  clip-path: var(--clip);
+  transition: border-color 0.3s;
+}
+.hm-quests.all-done { border-color: color-mix(in srgb, var(--radiant) 50%, var(--line)); }
+.hm-gv-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hm-gv-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--sp-3); }
+.hm-gv-title { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; line-height: 1.2; }
+.hm-gv-count { font-size: var(--fs-sm); color: var(--aegis); }
+.hm-quests.all-done .hm-gv-count { color: var(--radiant); }
+.hm-gv-reset { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hm-gv-reset > svg { color: var(--aegis); align-self: center; }
+@container hmgv (max-width: 400px) { .hm-gv-reset-k { display: none; } }
+.hm-gv-reset-k { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.hm-gv-clock { font-size: var(--fs-sm); font-weight: 700; color: var(--aegis-2); letter-spacing: 0.02em; }
+.hm-gv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hm-gv {
+  --qc: var(--ember);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px 8px 8px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--qc) 9%, var(--bg-2)), var(--bg-2) 70%);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--qc);
+  border-radius: 0;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.hm-gv:hover { color: var(--text); border-color: color-mix(in srgb, var(--qc) 55%, var(--line)); border-left-color: var(--qc); }
+.hm-gv:focus-visible { outline-offset: -3px; }
+.hm-gv-ico {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--qc);
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--qc) 28%, transparent), transparent 70%), linear-gradient(160deg, var(--bg-4), var(--bg));
+  border: 1px solid color-mix(in srgb, var(--qc) 50%, var(--line-2));
+  border-radius: 50%;
+}
+.hm-gv-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.hm-gv-name { font-weight: 700; font-size: var(--fs-sm); line-height: 1.3; }
+.hm-gv-bar { position: relative; height: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.hm-gv-bar > span { position: absolute; inset: 0; background: var(--qc); transform-origin: left; transform: scaleX(0); transition: transform 0.5s var(--ease-out); }
+.hm-gv-detail { font-size: 11px; line-height: 1.3; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-gv-num { font-size: var(--fs-xs); font-weight: 700; color: var(--text-2); white-space: nowrap; }
+.hm-gv.done { background: linear-gradient(90deg, color-mix(in srgb, var(--radiant) 12%, var(--bg-2)), var(--bg-2) 70%); border-left-color: var(--radiant); }
+.hm-gv.done .hm-gv-ico { color: var(--radiant); border-color: color-mix(in srgb, var(--radiant) 60%, var(--line-2)); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--radiant) 30%, transparent), transparent 70%), linear-gradient(160deg, var(--bg-4), var(--bg)); }
+.hm-gv.done .hm-gv-name { color: var(--text-2); }
+.hm-gv.done .hm-gv-bar > span { background: var(--radiant); }
+.hm-gv.done .hm-gv-detail, .hm-gv.done .hm-gv-num { color: var(--radiant); }
+.hm-gv-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px var(--sp-3); }
+.hm-gv-streak { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--text-3); }
+.hm-gv-streak.on { color: var(--ember-2); font-weight: 700; }
+.hm-gv-all { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--aegis); white-space: nowrap; }
+.hm-gv-all:hover { color: var(--aegis-2); }
+
+/* ---- Fan seviyesi çipi */
+.hm-lvl {
+  --rc: var(--aegis);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 8px 12px 8px 8px;
+  color: var(--text);
+  text-decoration: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 10%, var(--bg)), color-mix(in srgb, var(--bg) 70%, transparent));
+  border: 1px solid color-mix(in srgb, var(--rc) 40%, var(--line));
+  transition: border-color 0.15s;
+}
+.hm-lvl:hover { color: var(--text); border-color: var(--rc); }
+.hm-lvl:focus-visible { outline-offset: -3px; }
+.hm-lvl-hex {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 44px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: var(--rc);
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rc) 34%, transparent), transparent 72%), linear-gradient(160deg, var(--bg-4), var(--bg));
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.hm-lvl-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hm-lvl-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); min-width: 0; }
+.hm-lvl-k { font-family: var(--font-lore); font-weight: 700; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.hm-lvl-rank { font-weight: 700; font-size: var(--fs-sm); color: var(--rc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-lvl-bar { position: relative; height: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.hm-lvl-bar > span { position: absolute; inset: 0; background: var(--rc); transform-origin: left; transform: scaleX(0); transition: transform 0.6s var(--ease-out); }
+.hm-lvl-xp { font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 1180px) {
+  .hm-salon-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      'daily quests'
+      'new badges';
+  }
+}
+@media (max-width: 760px) {
+  .hm-salon-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'daily' 'quests' 'new' 'badges';
+  }
 }
 @media (max-width: 520px) {
   .hm-daily { padding: var(--sp-4); gap: var(--sp-3); }
@@ -1276,8 +1414,18 @@
   .hm-daily-cta { flex: 1 1 100%; }
   .hm-daily-cell { font-size: 8.5px; min-height: 40px; letter-spacing: 0; }
   .hm-daily-status { margin-left: 0; }
-  .hm-new { grid-template-columns: 44px minmax(0, 1fr) auto; }
-  .hm-new-state { display: none; }
+  /* Yeni oyun satırı: uzun adlar sarar */
+  .hm-new { padding-block: 8px; }
+  .hm-new-name { flex-wrap: wrap; row-gap: 2px; }
+  .hm-new-title { white-space: normal; }
+  .hm-quests { padding: var(--sp-3); }
+  .hm-gv { min-height: 60px; gap: 10px; padding: 8px 10px 8px 8px; }
+  .hm-gv-ico { width: 36px; height: 36px; }
+  .hm-gv { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  .hm-gv-title { font-size: 1.05rem; }
   .hm-bdg { grid-template-columns: minmax(0, 1fr); }
   .hm-bdg-ico { width: 32px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-gv-bar > span, .hm-lvl-bar > span { transition: none; }
 }

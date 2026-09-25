@@ -86,6 +86,8 @@ const P = {
   tea: '<path d="M8 8.5h8c0 2.8-1.6 3.9-1.6 5.8s1.5 3.4 1.2 6.2H8.4c-.3-2.8 1.2-4.3 1.2-6.2S8 11.3 8 8.5z"/><path d="M5.5 20.5h13"/><path d="M10.5 3.2c.8.8.8 1.8 0 2.6M13.5 3.2c.8.8.8 1.8 0 2.6"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
   moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
+  // Rozetler (2. tur): Black King Bar — taçlı asa
+  bkb: '<path d="M8 9.5L7 4l3 2.5L12 3l2 3.5L17 4l-1 5.5z"/><path d="M12 9.5V21"/><path d="M9.5 13.5h5M10 21h4"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

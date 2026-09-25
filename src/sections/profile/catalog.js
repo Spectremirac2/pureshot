@@ -1,40 +1,13 @@
 // Profil kataloğu: rekor kartlarında gösterilecek oyunlar/quizler, birimleri ve skor yönü.
 //
 // Neden ayrı tablo? games.js tüm oyun modüllerini (ve CSS'lerini) statik olarak içe aktarır; profil sayfası
-// yalnızca ad/simge/birim için bunları indirmesin. Ad, simge ve renk badges.js'teki hafif SALON_GAMES
-// kataloğundan gelir (orada yoksa aşağıdaki yedekten); birim ve skor yönü oyunların `meta.unit` /
-// `meta.higherIsBetter` değerlerinin kopyasıdır. SALON_GAMES bir gün `unit`/`higherIsBetter`/`format`
-// taşırsa o değerler önceliklidir. Yeni oyun eklenince UNITS tablosuna bir satır eklemek yeter;
-// tabloda olmayan bir skor kimliği yine de “Diğer” altında düz sayı olarak gösterilir.
+// yalnızca ad/simge/birim için bunları indirmesin. Oyunların adı, simgesi, rengi, birimi, skor yönü ve
+// biçimleyicisi badges.js'teki hafif SALON_GAMES kataloğundan gelir (oyunların meta değerlerinin kopyası).
+// Yedek: SALON_GAMES'te birimi olmayan bir oyun düz sayı ve “yüksek iyi” sayılır; hiçbir katalogda olmayan
+// bir skor kimliği “Diğer” altında düz sayı olarak gösterilir.
 
 import { fmtNum } from '../../core/dom.js';
 import { SALON_GAMES, THRESHOLDS } from '../../core/badges.js';
-
-// games/*.js meta değerlerinin kopyası (id → [birim, yüksek iyi mi])
-const UNITS = {
-  arena: ['puan', true],
-  dogavi: ['puan', true],
-  lasthit: ['altın', true],
-  hafiza: ['puan', true],
-  rune: ['ms', false],
-  dogdle: ['tahmin', false],
-  portre: ['puan', true],
-  invoker: ['büyü', true],
-  hook: ['puan', true],
-  bingo: ['çizgi', true],
-  kurye: ['metre', true],
-  mayin: ['sn', false],
-  esya: ['puan', true],
-  maraton: ['izleyici', true],
-};
-
-// SALON_GAMES'te henüz olmayan oyunlar için ad/simge yedeği (2. tur oyunları)
-const GAME_FALLBACK = [
-  { id: 'kurye', name: 'Uçan Kurye', short: 'Kurye', icon: 'paw', color: 'var(--radiant)' },
-  { id: 'mayin', name: 'Techies Mayın Tarlası', short: 'Mayın', icon: 'flame', color: 'var(--dire)' },
-  { id: 'esya', name: 'Eşya 2048', short: '2048', icon: 'coin', color: 'var(--aegis)' },
-  { id: 'maraton', name: '24 Saat Maraton', short: 'Maraton', icon: 'hourglass', color: 'var(--ember)' },
-];
 
 // Quizler (src/data/quizzes.js QUIZZES ile aynı kimlik/ad; soru bankalarını indirmemek için kopya)
 const QUIZ_LIST = [
@@ -55,12 +28,13 @@ const GOALS = {
   rune: THRESHOLDS.rune, dogdle: THRESHOLDS.dogdleSharp, portre: THRESHOLDS.portre, invoker: THRESHOLDS.invoker,
   hook: THRESHOLDS.hook, bingo: 3, hayran: THRESHOLDS.hayran, bilgi: THRESHOLDS.bilgi, daha: THRESHOLDS.daha,
   dogmu: 100,
+  kurye: THRESHOLDS.kurye, mayin: THRESHOLDS.mayinSentry, esya: THRESHOLDS.esya,
+  maraton: 3000, // ≈ 24:00'e varan yayın (Maraton Tamam rozeti skor değil bayrakla açılır)
 };
 
 function mk(base, kind) {
-  const u = UNITS[base.id];
-  const unit = base.unit || (u ? u[0] : '');
-  const up = base.higherIsBetter != null ? base.higherIsBetter !== false : base.up != null ? base.up : u ? u[1] : true;
+  const unit = base.unit || '';
+  const up = base.higherIsBetter != null ? base.higherIsBetter !== false : base.up != null ? base.up : true;
   const fmt = typeof base.format === 'function' ? base.format : base.fmt || ((n) => (unit ? `${fmtNum(n)} ${unit}` : fmtNum(n)));
   const href = base.href || (kind === 'quiz' ? `#quizler--${base.id}` : `#oyunlar--${base.id}`);
   return {
@@ -79,11 +53,9 @@ function mk(base, kind) {
   };
 }
 
-/** Oyun kataloğu: SALON_GAMES sırası + henüz orada olmayan 2. tur oyunları. */
+/** Oyun kataloğu: SALON_GAMES sırası (14 oyun). */
 export function gameCatalog() {
-  const list = SALON_GAMES.map((g) => mk(g, 'game'));
-  for (const g of GAME_FALLBACK) if (!list.some((x) => x.id === g.id)) list.push(mk(g, 'game'));
-  return list;
+  return SALON_GAMES.map((g) => mk(g, 'game'));
 }
 
 export function quizCatalog() {

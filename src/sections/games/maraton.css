@@ -432,6 +432,25 @@
 .gm-mr-title-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .gm-mr-title-text strong { font-family: var(--font-display); font-size: 1.1rem; }
 .gm-mr-res-extra { gap: 10px; }
+/* 2. tur: yayın neden bitti? */
+.gm-mr-cause {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--dire) 14%, var(--bg-2)), var(--bg-2) 70%);
+  border: 1px solid color-mix(in srgb, var(--dire) 45%, var(--line));
+}
+.gm-mr-cause-ico { width: 36px; height: 36px; display: grid; place-items: center; color: #ff8a98; background: var(--bg); border: 1px solid var(--line); }
+.gm-mr-cause-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gm-mr-cause-text strong { font-size: var(--fs-sm); color: var(--text); }
+.gm-mr-cause-facts { color: var(--text-3); font-family: var(--font-mono); letter-spacing: 0.02em; }
+.gm-mr-cause-tip { color: var(--text-2); line-height: 1.4; }
+/* Enerji kritik: durum satırı kırmızı */
+.gm-mr-status[data-low='1'] { --sc: var(--dire); }
+.gm-mr-status[data-low='1'] .gm-mr-status-sub { color: #ff8a98; font-weight: 700; }
+.gm-mr-status[data-low='1'] .gm-mr-status-ico { animation: gm-mr-blink 0.6s ease-in-out infinite; }
 .gm-mr-res-log { flex-wrap: wrap; overflow: visible; }
 .gm-mr-ov .gm-overlay-card { width: min(580px, 100%); }
 
@@ -494,4 +513,7 @@
   .gm-mr-ev-res,
   .gm-mr-log-list > .gm-mr-pill:last-child { animation: none !important; }
   .gm-mr-meter-delta.show { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-mr-status[data-low='1'] .gm-mr-status-ico { animation: none; }
 }

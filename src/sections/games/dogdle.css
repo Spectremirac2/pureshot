@@ -381,6 +381,7 @@
   .gm-dg-tile { min-height: 60px; gap: 3px; padding: 4px 2px; font-size: 10px; }
   .gm-dg-ghost { min-height: 60px; font-size: 15px; }
   .gm-dg-hname { font-size: 9px; padding: 8px 1px 2px; text-align: center; letter-spacing: 0.02em; }
+  .gm-dg-hname.long { font-size: 8px; letter-spacing: 0; }
   .gm-dg-glyph { width: 18px; height: 18px; }
   .gm-dg-tile svg.icon { width: 16px; height: 16px; }
   .gm-dg-big { font-size: 13px; }

@@ -179,6 +179,32 @@ export const sound = {
     [392, 330, 262, 196].forEach((f, i) => tone({ type: 'square', from: f, dur: 0.22, vol: 0.1, delay: i * 0.14 }));
   },
   tick() { tone({ type: 'square', from: 1800, dur: 0.02, vol: 0.05 }); },
+
+  // ---- Oyun cilası (2. tur): yalnızca eklendi, yukarıdaki seslere dokunulmadı
+  /** Seri/kombo basamağı: n arttıkça bir tam ton yükselen kısa çift nota (n 1–10). */
+  streak(n = 1) {
+    const k = Math.max(0, Math.min(9, n - 1));
+    const f = 523 * Math.pow(2, (k * 2) / 12);
+    tone({ type: 'triangle', from: f, dur: 0.07, vol: 0.14 });
+    tone({ type: 'triangle', from: f * 1.5, dur: 0.12, vol: 0.12, delay: 0.06 });
+  },
+  /** Oyun içinde rekor geçildi: parlak, kısa fanfar. */
+  record() {
+    [784, 988, 1175, 1568].forEach((f, i) => tone({ type: 'square', from: f, dur: 0.1, vol: 0.07, delay: i * 0.07 }));
+    tone({ type: 'sine', from: 1568, to: 2093, dur: 0.4, vol: 0.1, delay: 0.28 });
+  },
+  /** Geri sayım bip'i; go = başlama notası. */
+  count(go = false) { tone({ type: 'square', from: go ? 1175 : 660, dur: go ? 0.22 : 0.09, vol: 0.1 }); },
+  /** Kıl payı: hızlı yükselen ıslık. */
+  nearMiss() {
+    tone({ type: 'sine', from: 900, to: 1900, dur: 0.14, vol: 0.09 });
+    noise({ dur: 0.12, vol: 0.08, freq: 3000, q: 1.2 });
+  },
+  /** Ağır darbe (vuruş duraklaması eşliği): alçak gümbürtü + kısa çıtırtı. */
+  thud() {
+    tone({ type: 'sine', from: 140, to: 50, dur: 0.22, vol: 0.4 });
+    noise({ dur: 0.06, vol: 0.25, freq: 1800, q: 0.9 });
+  },
 };
 
 // İlk etkileşimde ses bağlamını aç

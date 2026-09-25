@@ -298,3 +298,29 @@
   .gm-mn-c.m.pop::after, .gm-mn-c.m.boom::after { display: none; }
   .gm-mn-c.lp::after { animation: none; transform: none; opacity: 1; }
 }
+
+/* ---------- 2. tur: dokunmatikte uzun basma ipucu (sabit; tahtayı kaydırmaz) ---------- */
+.gm-mn-coach {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--bar-h, 84px) + 12px);
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+  margin-inline: auto;
+  padding: 10px 10px 10px 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, #62c8ff 14%, var(--bg-3)), var(--bg-3));
+  border: 1px solid color-mix(in srgb, #62c8ff 55%, var(--line-2));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6);
+  clip-path: var(--clip-sm);
+  animation: gm-mn-coach-in 0.3s var(--ease-out);
+}
+.gm-mn-coach p { margin: 0; flex: 1; min-width: 0; font-size: var(--fs-sm); line-height: 1.4; color: var(--text-2); }
+.gm-mn-coach p strong { color: var(--text); }
+.gm-mn-coach-ico { flex: none; display: grid; place-items: center; width: 38px; height: 38px; color: #62c8ff; background: var(--bg); border: 1px solid var(--line); }
+.gm-mn-coach-ok { flex: none; min-height: 44px; }
+@keyframes gm-mn-coach-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .gm-mn-coach { animation: none; } }

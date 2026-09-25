@@ -9,11 +9,13 @@ import { h, clear, fmtNum, ls, shuffle, prefersReducedMotion } from '../../core/
 import { icon } from '../../core/icons.js';
 import { abilityIconUrl } from '../../core/assets.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, isTyping, tok } from './kit.js';
+import { pbNote, addPbNote, recordWatch, haptic } from './juice.js';
 
 const DURATION = 60;
 const PENALTY = 2;
 const RACE_N = 10;
 const PIPS = 5;
+const COUNT_STEP = 0.42; // 3-2-1 geri sayımında adım (sn): saat ancak "Invoke!" ile başlar
 const GRACE_MS = 1200; // bitişten sonra site kısayolları bu kadar kapalı kalır (tuşa basmaya devam edenler sayfadan çıkmasın)
 const RACE_KEY = 'invoker-race-best';
 const MODE_KEY = 'invoker-mode';
@@ -193,6 +195,14 @@ export function mount(el, ctx, nav) {
     tRecipe,
   );
   const msg = h('p', { class: 'gm-iv-msg', 'aria-hidden': 'true' }, 'Q W E ile küre diz, R ile çağır.');
+  // Sıradaki hedef: bir sonraki büyüyü önceden görüp küreleri planla
+  const nIco = h('span', { class: 'gm-iv-next-ico' });
+  const nName = h('span', { class: 'gm-iv-next-name' }, '—');
+  const nPips = h('span', { class: 'gm-iv-next-pips' });
+  const nextEl = h('div', { class: 'gm-iv-next', 'aria-hidden': 'true' },
+    h('span', { class: 'gm-iv-next-lbl' }, 'Sıradaki'), nIco, nName, nPips);
+  const countEl = h('div', { class: 'gm-iv-count', 'aria-hidden': 'true' });
+  const nextIcon = (() => { const m = new Map(); return (sp) => { if (!m.has(sp.id)) m.set(sp.id, spellIcon(sp, 'gm-iv-next-img')); return m.get(sp.id); }; })();
 
   const orbSlots = [0, 1, 2].map(() => h('span', { class: 'gm-iv-orb is-empty' }));
   const orbsEl = h('div', { class: 'gm-iv-orbs', role: 'img', 'aria-label': 'Küreler: boş' }, orbSlots);
@@ -238,9 +248,11 @@ export function mount(el, ctx, nav) {
   const field = h('div', { class: 'gm-iv-field', dataset: { state: 'intro' } },
     h('div', { class: 'gm-iv-top' }, modeBadge, bookBtn),
     target,
+    nextEl,
     msg,
     row,
     pad,
+    countEl,
   );
   L.stage.appendChild(field);
 
@@ -354,12 +366,34 @@ export function mount(el, ctx, nav) {
     field.classList.toggle('hot', n >= PIPS);
   }
 
-  function nextTarget() {
-    if (!g.bag.length) {
-      g.bag = shuffle(SPELLS);
-      if (g.bag[0] === g.target) g.bag.push(g.bag.shift()); // art arda aynı hedef yok
+  function refill() {
+    const b = shuffle(SPELLS);
+    if (b[0] === g.target) b.push(b.shift()); // art arda aynı hedef yok
+    g.bag.push(...b);
+  }
+
+  function renderNext() {
+    const sp = g && g.bag[0];
+    nextEl.classList.toggle('is-last', !sp);
+    if (!sp) {
+      nIco.replaceChildren();
+      nName.textContent = mode === 'race' ? 'Son büyü!' : '—';
+      nPips.replaceChildren();
+      nextEl.style.removeProperty('--sc');
+      return;
     }
+    nextEl.style.setProperty('--sc', spellColor(sp));
+    nIco.replaceChildren(nextIcon(sp));
+    nName.textContent = sp.name;
+    nPips.replaceChildren(pips(sp.combo));
+  }
+
+  function nextTarget() {
+    if (!g.bag.length) refill();
     g.target = g.bag.shift();
+    // Zaman saldırısında sıradaki hep bellidir; yarışta torba 10 büyüyle sınırlı
+    if (mode === 'time' && !g.bag.length) refill();
+    renderNext();
     g.targetAt = runner.time;
     g.pressesThis = 0;
     g.minNeed = minPresses(g.orbs, g.target);
@@ -425,8 +459,15 @@ export function mount(el, ctx, nav) {
       const sr = sStreak.el.getBoundingClientRect();
       ctx.fx.floatText(`SERİ ×${g.streak}`, sr.left + sr.width / 2, sr.top, { color: tok('--aegis'), size: 20 });
       ctx.sound.good();
+    } else if (g.streak >= 2) {
+      ctx.sound.streak(((g.streak - 1) % PIPS) + 1);
     } else {
       ctx.sound.coin();
+    }
+    if (mode === 'time' && g.passBest && g.passBest(g.score)) {
+      const sr = sScore.el.getBoundingClientRect();
+      ctx.fx.floatText('REKOR!', sr.left + sr.width / 2, sr.bottom + 6, { color: tok('--aegis'), size: 22 });
+      ctx.sound.record();
     }
     say(`${spell.name} çağrıldı. ${g.score} büyü.`);
     if (mode === 'race' && g.score >= RACE_N) { end(); return; }
@@ -442,6 +483,7 @@ export function mount(el, ctx, nav) {
     sWrong.set(fmtNum(g.wrong));
     sWrong.bump();
     ctx.sound.miss();
+    haptic([25, 30, 25]);
     ctx.fx.shake(target);
     const [x, y] = cardPoint();
     ctx.fx.floatText('DOG!', x, y, { color: tok('--dire'), size: 30 });
@@ -502,17 +544,51 @@ export function mount(el, ctx, nav) {
     setStreak(0);
     sWrong.set('0');
     sTime.el.classList.remove('low');
-    state = 'play';
-    field.dataset.state = 'play';
+    g.passBest = mode === 'time' ? recordWatch((ctx.store.me.get().scores || {})[meta.id]) : null;
+    // Kısa geri sayım: saat ancak "Invoke!" ile başlar (fareyle Başla'ya basıp klavyeye dönen de adil başlasın).
+    // Bu sırada tuşlar yok sayılır; ilk hedef "Sıradaki" olarak görünür.
+    state = 'count';
+    field.dataset.state = 'count';
     L.stage.classList.add('playing');
     // Q W E R oyunun tuşları: kabuğun gezinme kısayolları oyun boyunca kapalı
     ctx.hotkeys(false);
     hotkeysOff = true;
-    nextTarget();
-    setMsg(mode === 'race' ? `${RACE_N} büyünün hepsi birer kez. Kronometre çalışıyor!` : 'Q W E ile küre diz, R ile çağır.', '');
+    target.dataset.spell = '';
+    target.style.removeProperty('--sc');
+    tIco.replaceChildren();
+    tName.textContent = 'Hazır ol…';
+    tTr.textContent = 'Saat “Invoke!” ile başlar. Sıradakine bak, parmaklar Q W E’de.';
+    tRecipe.replaceChildren();
+    for (const li of bookItems.values()) li.classList.remove('is-target');
+    refill();
+    renderNext();
+    setMsg(mode === 'race' ? `${RACE_N} büyünün hepsi birer kez, kronometreyle.` : 'Sıradakine bak, parmakları Q W E’ye koy.', '');
+    ['3', '2', '1'].forEach((n, i) => runner.after(i * COUNT_STEP, () => showCount(n, false)));
+    runner.after(3 * COUNT_STEP, go);
     ctx.sound.whoosh();
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch { /* yok say */ }
     requestAnimationFrame(() => revealInView(field));
+  }
+
+  function showCount(text, final) {
+    if (state !== 'count' && !final) return;
+    countEl.textContent = text;
+    countEl.classList.toggle('go', !!final);
+    countEl.classList.add('on');
+    if (!reduced) restart(countEl, 'pop');
+    ctx.sound.count(!!final);
+  }
+
+  function go() {
+    if (state !== 'count') return;
+    state = 'play';
+    field.dataset.state = 'play';
+    showCount('Invoke!', true);
+    const r = runner;
+    r.after(0.5, () => { if (runner === r) countEl.classList.remove('on'); });
+    nextTarget();
+    setMsg(mode === 'race' ? `${RACE_N} büyünün hepsi birer kez. Kronometre çalışıyor!` : 'Q W E ile küre diz, R ile çağır.', '');
+    say(`Başla! Hedef: ${g.target.name}.`);
   }
 
   function restoreHotkeys() {
@@ -523,6 +599,7 @@ export function mount(el, ctx, nav) {
   function end() {
     if (state !== 'play') return;
     state = 'end';
+    countEl.classList.remove('on');
     field.dataset.state = 'end';
     L.stage.classList.remove('playing');
     graceTimer = setTimeout(restoreHotkeys, GRACE_MS);
@@ -551,14 +628,18 @@ export function mount(el, ctx, nav) {
             : s >= 10
               ? 'Küreler dönüyor, büyüler geliyor. Tarifleri kapatıp bir tur daha?'
               : 'DOG DOG DOG. Quas, Wex, Exort birbirine girdi; her Invoker böyle başlar.';
-      card = () => resultCard(meta, {
-        score: s,
-        saved,
-        stats: [...common, ['Küre basışı', fmtNum(g.presses)]],
-        quip,
-        onRetry: start,
-        onBack: () => nav && nav.back(),
-      });
+      card = () => {
+        const res = resultCard(meta, {
+          score: s,
+          saved,
+          stats: [...common, ['Küre basışı', fmtNum(g.presses)]],
+          quip,
+          onRetry: start,
+          onBack: () => nav && nav.back(),
+        });
+        addPbNote(res.node, pbNote({ score: s, prev: saved.prev, fmt: (n) => `${fmtNum(n)} büyü` }));
+        return res;
+      };
       say(`Süre bitti. ${s} büyü çağırdın.`);
     } else {
       const total = Math.round((g.elapsed + g.penalty) * 100) / 100;
@@ -572,15 +653,19 @@ export function mount(el, ctx, nav) {
           : total < 28
             ? 'Temiz yarış. Biraz daha pratikle 15 saniyenin altı seni bekliyor.'
             : 'DOG DOG DOG ama bitirdin. Tarifler açık, bir tur daha!';
-      card = () => resultCard(raceMeta, {
-        score: total,
-        saved: { record, prev: typeof prev === 'number' ? prev : null },
-        stats: [...common, ['Ceza', `+${fmtNum(g.penalty)} sn`]],
-        quip,
-        title: 'Yarış sonu · yerel rekor',
-        onRetry: start,
-        onBack: () => nav && nav.back(),
-      });
+      card = () => {
+        const res = resultCard(raceMeta, {
+          score: total,
+          saved: { record, prev: typeof prev === 'number' ? prev : null },
+          stats: [...common, ['Ceza', `+${fmtNum(g.penalty)} sn`]],
+          quip,
+          title: 'Yarış sonu · yerel rekor',
+          onRetry: start,
+          onBack: () => nav && nav.back(),
+        });
+        addPbNote(res.node, pbNote({ score: total, prev: typeof prev === 'number' ? prev : null, higher: false, fmt: (n) => `${fmtSec(n)} sn` }));
+        return res;
+      };
       say(`Yarış bitti. ${fmtSec(total)} saniye.`);
     }
     const r = runner;

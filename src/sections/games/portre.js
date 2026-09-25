@@ -7,12 +7,16 @@ import { icon } from '../../core/icons.js';
 import { HEROES, ATTRS } from '../../data/heroes.js';
 import { heroPortraitUrl } from '../../core/assets.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, onOtherControl, tok } from './kit.js';
+import { pbNote, addPbNote, haptic } from './juice.js';
 
 const ROUNDS = 10;
 const IW = 256;
 const IH = 144;
 const BASE_PTS = 100;
 const SPEED_PTS = 400;
+// Tur başında şıklar bu kadar süre kilitli (sn): önceki turdan kalan dokunuş ya da görmeden
+// "ilk an" tahmini puan toplamasın. Açılma saati yine tur başından sayılır.
+const ARM = 0.4;
 
 const DIFFS = {
   caylak: {
@@ -222,6 +226,11 @@ export function mount(el, ctx, nav) {
       const left = clamp(1 - t / total, 0, 1);
       fill.style.transform = `scaleX(${left.toFixed(4)})`;
       bar.classList.toggle('hold', t > diff.reveal);
+      // Son şans: yarım saniyede bir tık sesi (saat sesi gibi)
+      if (t > diff.reveal) {
+        const k = Math.floor((t - diff.reveal) / 0.5);
+        if (k !== R.lastTick) { R.lastTick = k; ctx.sound.tick(); }
+      }
       vis.textContent = `Görüş %${Math.round(R.p * 100)}`;
       sValue.set(`+${fmtNum(roundPoints(R.p, G.streak + 1, diff.bonus))}`);
       if (t >= total) timeout();
@@ -258,6 +267,8 @@ export function mount(el, ctx, nav) {
     sRound.set(`0/${ROUNDS}`);
     sScore.set('0');
     sStreak.set('×1');
+    sStreak.el.classList.remove('hot');
+    frameEl.classList.remove('hot', 'flash-ok', 'flash-bad');
     sValue.set('—');
     [...recap.children].forEach((li, i) => {
       li.className = 'gm-pt-slot';
@@ -308,14 +319,25 @@ export function mount(el, ctx, nav) {
     if (G.i + 1 < ROUNDS) loadImg(G.heroes[G.i + 1].id);
     state = 'play';
     R.t0 = runner.time;
+    R.armed = false;
+    R.lastTick = -1;
     frame(0);
-    btns.forEach(({ b }) => { b.disabled = false; });
     bar.classList.remove('hold');
+    // Şıklar kısa bir "bak" anından sonra açılır (sırayla belirerek)
+    choicesEl.classList.remove('armed');
+    choicesEl.classList.add('arming');
+    runner.after(ARM, () => {
+      if (token !== my || state !== 'play') return;
+      R.armed = true;
+      choicesEl.classList.remove('arming');
+      choicesEl.classList.add('armed');
+      btns.forEach(({ b }) => { b.disabled = false; });
+    });
     L.live.textContent = `Tur ${G.i + 1}. Şıklar: ${choices.map((c, i) => `${i + 1} ${c.name}`).join(', ')}.`;
   }
 
   function answer(i) {
-    if (state !== 'play' || !R) return;
+    if (state !== 'play' || !R || !R.armed) return;
     const pickHero = R.choices[i];
     const t = runner.time - R.t0;
     settle(pickHero, i, t);
@@ -348,7 +370,7 @@ export function mount(el, ctx, nav) {
       pts = roundPoints(R.p, G.streak, diff.bonus);
       G.score += pts;
       G.fastest = G.fastest == null ? t : Math.min(G.fastest, t);
-      ctx.sound.coin();
+      if (G.streak >= 2) ctx.sound.streak(G.streak); else ctx.sound.coin();
       const r = btns[idx].b.getBoundingClientRect();
       ctx.fx.floatText(`+${pts}`, r.left + r.width / 2, r.top, { color: tok('--aegis-2', '#f6d98a'), size: 22 });
       if (G.streak === 3) ctx.fx.stamp('DOG DOG DOG', { variant: 'gold' });
@@ -356,12 +378,19 @@ export function mount(el, ctx, nav) {
       sScore.bump();
     } else {
       G.streak = 0;
-      if (pickHero) { ctx.sound.bad(); ctx.fx.shake(btns[idx].b); } else ctx.sound.miss();
+      if (pickHero) { ctx.sound.bad(); ctx.fx.shake(btns[idx].b); haptic([30, 40, 30]); } else ctx.sound.miss();
     }
     const mult = multFor(G.streak);
     sScore.set(fmtNum(G.score));
     sStreak.set(`×${String(mult).replace('.', ',')}`);
     if (ok) sStreak.bump();
+    sStreak.el.classList.toggle('hot', G.streak >= 2);
+    frameEl.classList.toggle('hot', G.streak >= 3);
+    if (!reduced) {
+      frameEl.classList.remove('flash-ok', 'flash-bad');
+      void frameEl.offsetWidth;
+      frameEl.classList.add(ok ? 'flash-ok' : 'flash-bad');
+    }
     sValue.set(ok ? `+${fmtNum(pts)}` : '0');
     G.log.push({ hero: R.hero, ok, pts, t });
     fill.style.transform = 'scaleX(0)';
@@ -390,7 +419,8 @@ export function mount(el, ctx, nav) {
         h('span', { class: 'badge ember num gm-pt-dog' }, `DOG %${hero.dogRate}`),
         go,
       ),
-      ok ? null : h('p', { class: 'gm-pt-quote' }, '“', stripQuote(hero.prejudice), '”'),
+      // (replaceChildren null'u "null" metni olarak yazar: yalnızca var olan düğümler)
+      ...(ok ? [] : [h('p', { class: 'gm-pt-quote' }, '“', stripQuote(hero.prejudice), '”')]),
     );
     L.live.textContent = ok
       ? `Doğru, ${hero.name}. ${pts} puan. Seri ${G.streak}.`
@@ -413,6 +443,7 @@ export function mount(el, ctx, nav) {
     const score = G.score;
     const saved = submitResult(meta, score);
     const best = (ls.get('portre:best', {}) || {});
+    const prevDiff = typeof best[diff.id] === 'number' ? best[diff.id] : null;
     if (!(best[diff.id] >= score)) { best[diff.id] = score; ls.set('portre:best', best); }
     const quip = score >= 6000
       ? 'Aegis senin. Portrenin ilk pikselinden kahramanı tanıdın; draft’ta ban’lanacak göz bu.'
@@ -439,6 +470,8 @@ export function mount(el, ctx, nav) {
         onBack: () => nav && nav.back(),
       });
       node.insertBefore(recapCard(), node.querySelector('.gm-result-actions'));
+      // Rekor notu: bu zorluktaki önceki en iyiye göre (kıl payı ya da fark)
+      addPbNote(node, pbNote({ score, prev: prevDiff, fmt: (n) => `${fmtNum(n)} puan` }));
       closeOverlay = showOverlay(L.stage, node, { reveal: true });
       L.live.textContent = `Bitti. ${G.correct} doğru, ${score} puan.`;
       runner.destroy();
@@ -526,6 +559,7 @@ export function mount(el, ctx, nav) {
     const my = ++token;
     R = { hero, choices: [], img: null, p: 0, rp: 0, fx: IW * 0.5, fy: IH * 0.4 };
     btns.forEach(({ b, name, mark }) => { b.disabled = true; b.className = 'gm-pt-choice'; name.textContent = '???'; clear(mark); });
+    choicesEl.classList.remove('arming', 'armed');
     tag.textContent = `${ROUNDS} tur`;
     vis.textContent = 'Görüş %0';
     fill.style.transform = 'scaleX(1)';

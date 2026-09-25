@@ -11,12 +11,14 @@ import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
 import { itemIconUrl } from '../../core/assets.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, isTyping, tok } from './kit.js';
+import { pbNote, addPbNote, haptic } from './juice.js';
 
 // ------------------------------------------------------------------ sabitler
 const N = 4;
 const WIN_TIER = 11; // Divine Rapier = 2048
 const AEGIS_TIER = 12;
 const SAVE_KEY = 'esya:game';
+const CODEX_KEY = 'esya:codex'; // bu cihazda şimdiye dek yapılmış en yüksek kademe (koleksiyon)
 const SAVE_V = 1;
 const SLIDE_MS = 120; // CSS ile aynı (--es-slide)
 const SWIPE_MIN = 26; // px
@@ -223,13 +225,26 @@ export function mount(el, ctx, nav) {
       return li;
     }),
   );
+  // Koleksiyon: oyunlar arası keşfedilen eşyalar (hiç yapılmamış olanlar siluet)
+  let codex = Math.max(2, Number(ls.get(CODEX_KEY, 0)) || 0, Number((store.me.get().picks || {})['esya:tier']) || 0);
+  const codexEl = h('span', { class: 'gm-es-codex num', title: 'Bu cihazda en az bir kez yaptığın eşyalar' });
+  function syncCodex(t) {
+    if (t > codex) { codex = Math.min(MAX_TIER, t); ls.set(CODEX_KEY, codex); }
+  }
+  function renderCodex() {
+    const n = Math.min(codex, CHAIN_TIERS);
+    codexEl.textContent = codex > CHAIN_TIERS ? `Koleksiyon ${n}/${CHAIN_TIERS} + Cheese` : `Koleksiyon ${n}/${CHAIN_TIERS}`;
+    chainEls.forEach((li, i) => li.classList.toggle('is-unseen', i + 1 > codex));
+  }
   const side = h('div', { class: 'gm-es-side' },
     h('div', { class: 'gm-es-side-head' },
       h('span', { class: 'eyebrow' }, 'Zincir'),
+      codexEl,
       h('span', { class: 'xsmall dim' }, 'Gerçek tarif değil'),
     ),
     chain,
   );
+  renderCodex();
   const field = h('div', { class: 'gm-es-field', dataset: { state: 'intro' } },
     h('div', { class: 'gm-es-main' }, board, h('div', { class: 'gm-es-bar' }, tools, msg)),
     side,
@@ -468,9 +483,29 @@ export function mount(el, ctx, nav) {
 
   function newBest(t, m) {
     const it = itemOf(t);
-    setMsg(`Yeni eşya: ${it.name}! ${it.line}`, 'good');
-    say(`Yeni eşya: ${it.name}.`);
-    if (t === AEGIS_TIER) {
+    const firstEver = t > codex;
+    syncCodex(t);
+    renderCodex();
+    setMsg(firstEver ? `İlk kez: ${it.name}! Koleksiyona girdi. ${it.line}` : `Yeni eşya: ${it.name}! ${it.line}`, 'good');
+    say(firstEver ? `İlk kez yaptın: ${it.name}. Koleksiyona eklendi.` : `Yeni eşya: ${it.name}.`);
+    const li0 = chainEls[Math.min(t, CHAIN_TIERS) - 1];
+    if (firstEver && li0) {
+      li0.classList.add('is-new');
+      later(() => li0.classList.remove('is-new'), 2600);
+    }
+    if (firstEver && t !== AEGIS_TIER && t < MAX_TIER) {
+      // Hiç yapılmamış eşya: daha büyük kutlama (kademeye göre)
+      const [x, y] = tilePoint(t);
+      ctx.fx.floatText('YENİ EŞYA!', x, y - 24, { color: it.color, size: 18 });
+      if (t >= 6) {
+        ctx.fx.floatText(it.short.toLocaleUpperCase('tr-TR'), x, y, { color: it.color, size: 24 });
+        ctx.sound.record();
+        if (!reduced && t >= 7) ctx.fx.confetti(x, y, 36);
+      } else {
+        ctx.sound.good();
+      }
+      haptic(t >= 7 ? [20, 40, 30] : 14);
+    } else if (t === AEGIS_TIER) {
       ctx.fx.stamp('AEGIS!', { variant: 'gold' });
       const [x, y] = tilePoint(t);
       ctx.fx.confetti(x, y, 60);
@@ -623,6 +658,9 @@ export function mount(el, ctx, nav) {
   }
 
   function continueGame() {
+    // Bu özellikten önce kaydedilmiş tahtadaki eşyalar da koleksiyona sessizce girsin
+    syncCodex(g.best);
+    renderCodex();
     render(false);
     setMsg(g.moves ? 'Kaldığın yerden devam. Büyük eşyayı köşede tut.' : 'Kaydır: aynı iki eşya birleşir.', 'dim');
     play();
@@ -721,6 +759,7 @@ export function mount(el, ctx, nav) {
       onRetry: newGame,
       onBack: () => nav && nav.back(),
     });
+    addPbNote(node, pbNote({ score, prev: saved.prev, fmt: (n) => `${fmtNum(n)} puan` }));
     renderHud();
     closeOverlay = showOverlay(L.stage, node, { reveal: true });
     say(`Oyun bitti. ${fmtNum(score)} puan. En iyi eşya: ${it.name}.`);

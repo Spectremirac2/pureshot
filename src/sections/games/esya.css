@@ -275,6 +275,35 @@
   color: var(--text-3);
 }
 .gm-es-link.flash { animation: gm-es-flash 0.9s ease-out; }
+/* 2. tur: koleksiyon — hiç yapılmamış eşyalar siluet, ilk kez yapılan "YENİ" rozetiyle parlar */
+.gm-es-side-head { flex-wrap: wrap; }
+.gm-es-codex { font-size: 11px; font-weight: 700; color: var(--aegis); letter-spacing: 0.04em; }
+.gm-es-link.is-unseen .gm-es-link-ico { position: relative; overflow: hidden; }
+.gm-es-link.is-unseen .gm-es-img { filter: grayscale(1) blur(2px) brightness(0.4); }
+.gm-es-link.is-unseen .gm-es-link-ico::after {
+  content: '?';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 15px;
+  color: color-mix(in srgb, var(--tc) 55%, var(--text-3));
+}
+.gm-es-link.is-unseen .gm-es-link-name { color: var(--text-3); font-style: italic; }
+.gm-es-link.is-new { background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 32%, transparent), transparent 90%); }
+.gm-es-link.is-new::after {
+  content: 'YENİ';
+  position: absolute;
+  right: 54px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #120c02;
+  background: var(--tc);
+}
 @keyframes gm-es-flash { 0% { background-color: color-mix(in srgb, var(--tc) 45%, transparent); } }
 
 /* ---------- HUD: en iyi eşya ---------- */
@@ -359,6 +388,7 @@
   .gm-es-link-name { font-size: 10px; letter-spacing: 0.02em; max-width: 100%; }
   .gm-es-link.is-best { border-bottom-color: var(--tc); background: linear-gradient(0deg, color-mix(in srgb, var(--tc) 18%, transparent), transparent); }
   .gm-es-link.is-next { border-left: 0; border-bottom: 2px dashed color-mix(in srgb, var(--tc) 60%, var(--line-2)); }
+  .gm-es-link.is-new::after { top: 2px; right: 2px; font-size: 8px; padding: 0 3px; }
 }
 @media (max-width: 620px) {
   .gm-es-field { padding: 8px; gap: 12px; }

@@ -108,7 +108,8 @@ Ayrıntılı ölçümler: [OPTIMIZASYON.md](OPTIMIZASYON.md).
 ## Yeni oyun eklemek
 
 1. `src/sections/games/<id>.js` (+ `<id>.css`): `meta` ve `mount` dışa aktar; kiti kullan.
-2. `games.js` içinde içe aktar, `GAMES` ve `MODS` listelerine ekle, kategorisini belirle.
+2. `games.js` içinde içe aktar, `GAMES` ve `MODS` listelerine ekle, kategorisini (`CAT_OF`) belirle;
+   `core/badges.js` içindeki `SALON_GAMES` kataloğuna ad, simge, birim ve skor yönüyle ekle (ana sayfa ve profil bunu okur).
 3. Klavye kullanıyorsa oynarken `ctx.hotkeys(false)`; temizlikte tüm dinleyici ve zamanlayıcıları kaldır.
 4. Rozet eşiği gerekiyorsa `core/badges.js` tablosuna ekle.
 5. `docs/oyunlar/<id>.md` yaz; masaüstü (1440) ve mobil (390) test et.

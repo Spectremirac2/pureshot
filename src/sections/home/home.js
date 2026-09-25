@@ -14,6 +14,7 @@ import { mountComments } from '../../components/comments.js';
 import { portraitEl } from '../../components/portrait.js';
 import { attachTilt } from '../../components/tilt.js';
 import { SALON_GAMES, BADGES, earnedSet, badgeProgress, badgeHref, ensureBadgeWatcher } from '../../core/badges.js';
+import { subscribeQuests, questStatus, msToReset, questStreak, fanXp, fanLevel, QUEST_XP } from '../../core/quests.js';
 
 // Rozet bildirimleri: tekil küresel izleyici (Oyun Salonu da aynı çağrıyı yapar; ikincisi etkisiz)
 ensureBadgeWatcher();
@@ -488,9 +489,13 @@ function dogdleToday() {
   return { done: !!d.solved, guesses };
 }
 
+const SAYI = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz', 'on'];
+/** "A, B, C ve D" */
+const listTr = (arr) => (arr.length <= 1 ? arr.join('') : `${arr.slice(0, -1).join(', ')} ve ${arr[arr.length - 1]}`);
+
 function buildSalon(ctx, cleanups) {
   const games = SALON_GAMES.filter((g) => g.isNew);
-  const daily = games.find((g) => g.id === 'dogdle');
+  const daily = SALON_GAMES.find((g) => g.id === 'dogdle');
 
   // --- Günün meydan okuması
   let dailyCard = null;
@@ -549,25 +554,27 @@ function buildSalon(ctx, cleanups) {
     cleanups.push(() => clearInterval(iv));
   }
 
-  // --- Yeni oyunlar şeridi
+  // --- Yeni oyunlar şeridi (salona en son gelen oyunlar; SALON_GAMES[].isNew)
   const played = new Map();
   const list = h('ul', { class: 'hm-new-list', 'aria-label': 'Salona yeni gelen oyunlar' },
     games.map((g) => {
-      const state = h('span', { class: 'hm-new-state' });
-      played.set(g.id, state);
+      const state = h('span', { class: 'hm-new-state num' });
+      played.set(g.id, { el: state, g });
       const a = h('a', { class: 'hm-new', href: `#oyunlar--${g.id}`, style: { '--gc': g.color } },
         h('span', { class: 'hm-new-ico', 'aria-hidden': 'true' }, icon(g.icon, { size: 22 })),
         h('span', { class: 'hm-new-text' },
-          h('span', { class: 'hm-new-name' }, g.name, h('span', { class: 'hm-new-tag' }, 'Yeni')),
-          h('span', { class: 'hm-new-kind' }, g.kind || ''),
+          h('span', { class: 'hm-new-name' }, h('span', { class: 'hm-new-title' }, g.name), h('span', { class: 'hm-new-tag' }, 'Yeni')),
+          h('span', { class: 'hm-new-sub' }, h('span', { class: 'hm-new-kind' }, g.kind || ''), state),
         ),
-        state,
         h('span', { class: 'hm-new-go', 'aria-hidden': 'true' }, icon('arrowRight', { size: 16 })),
       );
       a.addEventListener('click', () => ctx.sound.click());
       return h('li', null, a);
     }),
   );
+
+  // --- Günlük görevler (kompakt; ayrıntı profilde)
+  const quests = buildQuests(ctx, cleanups);
 
   // --- Rozetler (kompakt)
   const count = h('b', { class: 'num' });
@@ -589,9 +596,11 @@ function buildSalon(ctx, cleanups) {
   let lastKey = '';
   const paint = (me) => {
     const scores = (me && me.scores) || {};
-    for (const [id, el] of played) {
-      const has = typeof scores[id] === 'number';
-      el.textContent = has ? 'Oynadın' : '';
+    for (const [id, { el, g }] of played) {
+      const v = scores[id];
+      const has = typeof v === 'number';
+      el.textContent = has ? (g.format ? g.format(v) : fmtNum(v)) : 'Dene';
+      el.title = has ? `Rekorun: ${el.textContent}` : 'Henüz oynamadın';
       el.classList.toggle('on', has);
     }
     const got = earnedSet(me);
@@ -628,13 +637,154 @@ function buildSalon(ctx, cleanups) {
   const toSalon = h('a', { class: 'btn ghost', href: '#oyunlar' }, icon('gamepad', { size: 18 }), 'Oyun Salonu', icon('arrowRight', { size: 16 }));
   toSalon.addEventListener('click', () => ctx.sound.click());
 
+  const n = games.length;
+  const title = n ? `Salona ${SAYI[n] || n} yeni oyun geldi` : 'Oyun Salonu';
+  const note = n ? `${listTr(games.map((g) => g.name))}. Günün görevleri XP, rekorların rozet kazandırır.` : 'Günün görevleri XP, rekorların rozet kazandırır.';
   return h('section', { class: 'hm-sec hm-salon', 'aria-labelledby': 'hm-salon-h' },
-    withId(head('03', 'Oyun Salonu’nda yeni', `Salona ${games.length === 5 ? 'beş' : games.length} yeni oyun geldi`, 'Günlük kahraman bulmacası, Invoker kombosu, Pudge kancası, portre avı ve yayın bingosu. Rekorların rozet kazandırır.', h('div', { class: 'hm-head-actions' }, toSalon)), 'hm-salon-h'),
+    withId(head('03', 'Oyun Salonu’nda yeni', title, note, h('div', { class: 'hm-head-actions' }, toSalon)), 'hm-salon-h'),
     h('div', { class: 'hm-salon-grid' },
-      dailyCard,
-      h('div', { class: 'hm-salon-side' }, list, badges),
+      dailyCard ? h('div', { class: 'hm-salon-daily' }, dailyCard) : null,
+      h('div', { class: 'hm-salon-new' }, list),
+      h('div', { class: 'hm-salon-quests' }, quests),
+      h('div', { class: 'hm-salon-badges' }, badges),
     ),
   );
+}
+
+// ====================================================================== Günlük görevler (kompakt kart)
+// core/quests.js: subscribeQuests (ilerleme + tamamlanma), msToReset (İstanbul gece yarısı), fanXp/fanLevel.
+function buildQuests(ctx, cleanups) {
+  const clock = h('span', { class: 'hm-gv-clock num', 'aria-hidden': 'true' }, fmtCountdown(msToReset()));
+  const clockSr = h('span', { class: 'sr-only' });
+  const count = h('span', { class: 'hm-gv-count num' });
+  const streak = h('span', { class: 'hm-gv-streak' });
+  const rows = h('ol', { class: 'hm-gv-list', 'aria-label': 'Bugünün görevleri' });
+  const lvlNum = h('span', { class: 'hm-lvl-n num' });
+  const lvlRank = h('span', { class: 'hm-lvl-rank' });
+  const lvlXp = h('span', { class: 'hm-lvl-xp num' });
+  const lvlBar = h('span', { class: 'hm-lvl-bar', 'aria-hidden': 'true' }, h('span'));
+  const lvl = h('a', { class: 'hm-lvl', href: '#profil', 'aria-label': 'Fan seviyen' },
+    h('span', { class: 'hm-lvl-hex', 'aria-hidden': 'true' }, lvlNum),
+    h('span', { class: 'hm-lvl-text' },
+      h('span', { class: 'hm-lvl-top' }, h('span', { class: 'hm-lvl-k' }, 'Fan seviyen'), lvlRank),
+      lvlBar,
+      lvlXp,
+    ),
+  );
+  const all = h('a', { class: 'hm-gv-all', href: '#profil--gorevler' }, 'Tüm görevler', icon('arrowRight', { size: 14 }));
+  for (const a of [lvl, all]) a.addEventListener('click', () => ctx.sound.click());
+
+  const card = h('article', { class: 'hm-quests', 'aria-labelledby': 'hm-gv-h' },
+    h('div', { class: 'hm-gv-head' },
+      h('div', { class: 'hm-gv-top' },
+        h('span', { class: 'eyebrow' }, 'Günlük görevler'),
+        h('span', { class: 'hm-gv-reset', title: 'Görevler İstanbul saatiyle gece yarısı yenilenir' },
+          icon('hourglass', { size: 13 }), h('span', { class: 'hm-gv-reset-k', 'aria-hidden': 'true' }, 'Yeni görevler'), clock, clockSr,
+        ),
+      ),
+      h('h3', { class: 'hm-gv-title', id: 'hm-gv-h' }, 'Bugünün görevleri', count),
+    ),
+    rows,
+    h('div', { class: 'hm-gv-foot' }, streak, all),
+    lvl,
+  );
+
+  // Satırlar kimliğe göre yerinde güncellenir (DOG görevine art arda basarken odak kaybolmasın)
+  let ids = '';
+  const byId = new Map();
+  function rowFor(q) {
+    const ico = h('span', { class: 'hm-gv-ico', 'aria-hidden': 'true' });
+    const fill = h('span');
+    const detail = h('span', { class: 'hm-gv-detail' });
+    const num = h('span', { class: 'hm-gv-num num' });
+    const attrs = { class: 'hm-gv', style: { '--qc': q.color || 'var(--ember)' } };
+    const el = q.href
+      ? h('a', { ...attrs, href: q.href })
+      : h('button', { ...attrs, type: 'button', title: q.action === 'dog' ? 'Bas: DOG DOG DOG' : '' });
+    el.append(
+      ico,
+      h('span', { class: 'hm-gv-text' },
+        h('span', { class: 'hm-gv-name' }, memeText(q.text)),
+        h('span', { class: 'hm-gv-bar', 'aria-hidden': 'true' }, fill),
+        detail,
+      ),
+      num,
+    );
+    el.addEventListener('click', () => {
+      if (q.action === 'dog') {
+        pressDog(el);
+        return;
+      }
+      ctx.sound.click();
+    });
+    const item = h('li', null, el);
+    const r = { item, el, ico, fill, detail, num, doneShown: null };
+    byId.set(q.id, r);
+    return r;
+  }
+  function paintRow(q) {
+    const r = byId.get(q.id);
+    const pct = q.target ? Math.max(0, Math.min(1, q.progress / q.target)) : 0;
+    r.el.classList.toggle('done', !!q.done);
+    if (r.doneShown !== !!q.done) {
+      r.doneShown = !!q.done;
+      r.ico.replaceChildren(icon(q.done ? 'check' : q.icon || 'star', { size: 18, stroke: q.done ? 2.4 : 1.9 }));
+    }
+    r.fill.style.transform = `scaleX(${q.done ? 1 : pct})`;
+    r.detail.textContent = q.done ? `Tamam · +${QUEST_XP} XP` : q.detail || q.hint || '';
+    r.num.textContent = q.done ? '✓' : q.target > 1 ? `${fmtNum(q.progress)}/${fmtNum(q.target)}` : `0/${q.target}`;
+    const state = q.done ? 'tamamlandı' : q.target > 1 ? `${fmtNum(q.progress)} / ${fmtNum(q.target)}` : 'yapılmadı';
+    r.el.setAttribute('aria-label', `${q.text}: ${state}`);
+  }
+  function paintLevel() {
+    const x = fanXp(store.me.get());
+    const L = fanLevel(x.xp);
+    lvl.style.setProperty('--rc', L.color);
+    lvlNum.textContent = String(L.level);
+    lvlRank.textContent = `Seviye ${L.level} · ${L.rank}`;
+    lvlXp.textContent = `${fmtNum(L.into)}/${fmtNum(L.need)} XP · sonraki seviyeye ${fmtNum(L.need - L.into)} XP`;
+    lvlBar.firstChild.style.transform = `scaleX(${Math.max(0, Math.min(1, L.pct))})`;
+    lvl.setAttribute('aria-label', `Fan seviyen: Seviye ${L.level}, ${L.rank}. ${fmtNum(L.xp)} XP. Profiline git.`);
+  }
+  const paint = (status) => {
+    const list = Array.isArray(status) ? status : [];
+    const key = list.map((q) => q.id).join(',');
+    if (key !== ids) {
+      ids = key;
+      byId.clear();
+      rows.replaceChildren(...list.map((q) => rowFor(q).item));
+    }
+    list.forEach(paintRow);
+    const done = list.filter((q) => q.done).length;
+    count.textContent = `${done}/${list.length || 3}`;
+    card.classList.toggle('all-done', list.length > 0 && done === list.length);
+    const st = questStreak();
+    streak.replaceChildren(
+      icon('flame', { size: 14 }),
+      st.current > 0 ? `Seri: ${fmtNum(st.current)} gün` : done === list.length && list.length ? 'Seri başladı' : 'Üçü de biterse seri başlar',
+    );
+    streak.classList.toggle('on', st.current > 0);
+    paintLevel();
+  };
+  // İlk çizim hemen (abonelik ilk durumu kısa bir gecikmeyle verir), sonra her değişiklikte
+  try { paint(questStatus()); } catch (e) { console.error(e); }
+  cleanups.push(subscribeQuests(paint));
+
+  let lastMin = -1;
+  const tick = () => {
+    if (document.hidden) return;
+    const ms = msToReset();
+    clock.textContent = fmtCountdown(ms);
+    const min = Math.floor(ms / 60000);
+    if (min !== lastMin) {
+      lastMin = min;
+      clockSr.textContent = `Görevler ${Math.floor(min / 60)} saat ${min % 60} dakika sonra yenilenir`;
+    }
+  };
+  tick();
+  const iv = setInterval(tick, 1000);
+  cleanups.push(() => clearInterval(iv));
+  return card;
 }
 
 // ====================================================================== Günün esprisi

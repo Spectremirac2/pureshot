@@ -183,6 +183,64 @@
 .gm-iv-msg[data-tone='warn'] { color: var(--aegis); }
 .gm-iv-msg[data-tone='dim'] { color: var(--text-3); }
 
+/* ---------- sıradaki hedef (2. tur) ---------- */
+.gm-iv-next {
+  --sc: var(--line-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin-top: -4px;
+  padding: 0 10px 0 4px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--sc) 10%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--sc) 35%, var(--line));
+  clip-path: var(--clip-sm);
+}
+.gm-iv-field[data-state='intro'] .gm-iv-next { visibility: hidden; }
+.gm-iv-next-lbl {
+  padding-left: 4px;
+  font-family: var(--font-lore);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.gm-iv-next-ico { flex: none; width: 22px; height: 22px; display: grid; }
+.gm-iv-next-ico:empty { display: none; }
+.gm-iv-next-img { width: 22px; height: 22px; font-size: 8px; }
+.gm-iv-next-name { font-weight: 700; color: var(--text); white-space: nowrap; }
+.gm-iv-next.is-last .gm-iv-next-name { color: var(--aegis); }
+.gm-iv-next-pips .gm-iv-pips { gap: 3px; }
+.gm-iv-next-pips .gm-iv-pip { width: 15px; height: 15px; font-size: 8px; }
+.gm-iv-field:not(.show-recipe) .gm-iv-next-pips { display: none; }
+
+/* ---------- 3-2-1 geri sayım ---------- */
+.gm-iv-count {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(3rem, 2rem + 5vw, 5.5rem);
+  line-height: 1;
+  color: var(--text);
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.55), 0 0 36px color-mix(in srgb, var(--arcane) 70%, transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.gm-iv-count.on { opacity: 1; }
+.gm-iv-count.go { font-size: clamp(2rem, 1.4rem + 3vw, 3.4rem); color: var(--aegis-2); text-shadow: 0 4px 0 rgba(0, 0, 0, 0.55), 0 0 36px color-mix(in srgb, var(--aegis) 70%, transparent); }
+.gm-iv-count.pop { animation: gm-iv-count 0.38s var(--ease-out); }
+@keyframes gm-iv-count { from { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }
+.gm-iv-field[data-state='count'] .gm-iv-orbs, .gm-iv-field[data-state='count'] .gm-iv-pad { opacity: 0.55; }
+.gm-iv-field[data-state='count'] .gm-iv-msg { visibility: hidden; }
+
 /* ---------- küreler + D/F ---------- */
 .gm-iv-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
 .gm-iv-orbs { display: flex; gap: 14px; }
@@ -405,6 +463,8 @@
   .gm-iv-target-recipe .gm-iv-pips { flex-direction: column; gap: 3px; }
   .gm-iv-target-recipe .gm-iv-pip { width: 20px; height: 20px; }
   .gm-iv-msg { font-size: var(--fs-xs); }
+  .gm-iv-next { height: 26px; font-size: var(--fs-xs); margin-top: -2px; }
+  .gm-iv-next-ico, .gm-iv-next-img { width: 18px; height: 18px; }
   .gm-iv-row { gap: 12px; }
   .gm-iv-orbs { gap: 9px; }
   .gm-iv-orb { width: 48px; height: 48px; }
@@ -433,4 +493,5 @@
 @media (prefers-reduced-motion: reduce) {
   .gm-iv-field::before, .gm-iv-orb::after { animation: none; }
   .gm-iv-orb.enter, .gm-iv-slot.pop, .gm-iv-target.swap, .gm-iv-key.hit { animation: none; }
+  .gm-iv-count, .gm-iv-count.pop { animation: none; transition: none; }
 }

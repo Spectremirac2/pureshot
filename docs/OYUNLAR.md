@@ -38,7 +38,7 @@ Arena’ya gider. En iyi skorlar ziyaretçinin profiline yazılır; her oyunun k
 
 ## Rozetler
 
-23 rozet, profildeki skorlardan ve seçimlerden türetilir (ayrı kayıt yok); yeni kazanılan rozet sitenin
+31 rozet, profildeki skorlardan ve seçimlerden türetilir (ayrı kayıt yok); yeni kazanılan rozet sitenin
 her yerinde bildirim olarak görünür. Salonda `#oyunlar--rozetler`, ana sayfada küçük bir kart olarak listelenir.
 Eşikler ve liste: [oyunlar/rozetler.md](oyunlar/rozetler.md).
 

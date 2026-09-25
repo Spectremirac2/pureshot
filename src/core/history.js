@@ -7,11 +7,13 @@
 //   history.all()              { id: [...] }
 //   history.since(ms)          [{ id, s, t }] belirli bir andan sonraki tüm denemeler
 //   history.subscribe(fn)      fn(id) — yeni denemede çağrılır; kapatma fonksiyonu döner
+//   history.count(id)          ömür boyu deneme sayısı (liste 20 ile sınırlı; sayaç ayrı tutulur: csk:hist:n)
 //   istanbulDayStart(now)      İstanbul (UTC+3) takviminde günün başlangıcı (ms)
 
 import { ls } from './dom.js';
 
 const KEY = 'hist';
+const COUNT_KEY = 'hist:n';
 const MAX = 20;
 const listeners = new Set();
 
@@ -30,9 +32,15 @@ export const history = {
     if (!id || typeof score !== 'number' || !Number.isFinite(score)) return;
     const all = read();
     const list = Array.isArray(all[id]) ? all[id] : [];
+    // Ömür boyu sayaç: ilk kez sayılan oyunda mevcut liste uzunluğundan başlar
+    const counts = ls.get(COUNT_KEY, {});
+    const n = counts && typeof counts === 'object' ? counts : {};
+    const prev = n[id] != null ? Number(n[id]) : NaN;
+    n[id] = (Number.isFinite(prev) ? prev : list.length) + 1;
     list.push({ s: score, t: Date.now() });
     all[id] = list.slice(-MAX);
     ls.set(KEY, all);
+    ls.set(COUNT_KEY, n);
     for (const fn of listeners) {
       try { fn(id); } catch (e) { console.error(e); }
     }
@@ -53,5 +61,10 @@ export const history = {
   subscribe(fn) {
     listeners.add(fn);
     return () => listeners.delete(fn);
+  },
+  count(id) {
+    const n = ls.get(COUNT_KEY, {});
+    const v = n && typeof n === 'object' ? Number(n[id]) : 0;
+    return Math.max(Number.isFinite(v) ? v : 0, this.get(id).length);
   },
 };

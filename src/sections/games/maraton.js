@@ -13,6 +13,7 @@ import { store } from '../../core/store.js';
 import { itemIconUrl, heroPortraitUrl } from '../../core/assets.js';
 import { MR_EVENTS, MR_CHAT, MR_USERS, MR_TITLES } from '../../data/maraton.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, isTyping, tok, memeText } from './kit.js';
+import { pbNote, addPbNote, haptic } from './juice.js';
 
 // ------------------------------------------------------------------ denge
 const SEC_PER_HOUR = 11; // gerçek saniye / oyun saati → 24 saat ≈ 4,4 dk (+ olay kartları)
@@ -27,6 +28,7 @@ const EVENT_GAP = [1.7, 2.7];
 const DRAIN = { match: 6.6, idle: 4.6 }; // enerji / saat
 const TEA = { base: 16, window: 6, fade: 0.15, min: 0.4 };
 const REST = { e: 56, t: 20 }; // mola boyunca / saat
+const LOW_E = 22; // bu enerjinin altında açık uyarı (yalnızca arayüz; simülasyona etkisi yok)
 
 // İzleyici gün eğrisi: gece düşer, sabah dipte, akşam en yüksek
 const CURVE = [[0, 0.95], [3, 0.62], [6, 0.45], [9, 0.55], [12, 0.7], [15, 0.78], [18, 0.92], [21, 1.12], [24, 1.2]];
@@ -75,7 +77,7 @@ export function createSim({ rnd = Math.random, on = () => {} } = {}) {
     pending: null,
     over: null,
     log: [],
-    stats: { wins: 0, losses: 0, dogs: 0, teas: 0, chats: 0, breaks: 0, quadOk: 0, quadFail: 0, events: 0, streak: 0, bestStreak: 0, mmr0: START.mmr, minEnergy: START.energy },
+    stats: { wins: 0, losses: 0, dogs: 0, teas: 0, chats: 0, breaks: 0, quadOk: 0, quadFail: 0, events: 0, streak: 0, bestStreak: 0, mmr0: START.mmr, minEnergy: START.energy, idleH: 0 },
   };
 
   const fix = () => {
@@ -246,6 +248,7 @@ export function createSim({ rnd = Math.random, on = () => {} } = {}) {
     if (s.over || s.pending) return;
     const h0 = s.hour;
     s.hour = Math.min(DAY, s.hour + dt);
+    if (idle()) s.stats.idleH += s.hour - h0; // lobide boş geçen süre (bitiş nedeni için)
     s.energy -= drainRate() * dt;
     if (s.away) { s.energy += s.away.eRate * dt; s.tilt -= s.away.tRate * dt; }
     const target = s.match ? 66 : s.away ? 42 : bored() ? 34 : 55;
@@ -588,6 +591,7 @@ export function mount(el, ctx, nav) {
   let evCard = null;
   let evTimer = 0;
   let lastMode = '';
+  let lowWarned = false;
   const timers = new Set();
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; };
 
@@ -890,6 +894,19 @@ export function mount(el, ctx, nav) {
       text = idleFor > 0.2 ? 'Lobide · chat sıkılıyor' : 'Lobide';
       sub = s.log.length ? 'Sıradaki maçı at (1)' : 'İlk maçı at (1) — yayın başladı!';
     }
+    // Enerji kritik: bitişten önce açık uyarı (durum satırı + çay/mola düğmeleri nabız atar)
+    const low = s.energy < LOW_E && !s.away && !s.pending;
+    if (low) sub = s.match ? 'Enerji kritik! Çay iç (2); maç bitince mola ver (4)' : 'Enerji kritik! Çay (2) ya da mola (4)';
+    if (low && !lowWarned) {
+      lowWarned = true;
+      ctx.sound.bad();
+      haptic([30, 40, 30]);
+      chatLine('low', { text: 'gözler kapanıyor… çay lazım' });
+      say('Enerji kritik. Çay iç ya da mola ver, yoksa yayın biter.');
+    } else if (s.energy > LOW_E + 14) {
+      lowWarned = false;
+    }
+    if (status.dataset.low !== (low ? '1' : '0')) status.dataset.low = low ? '1' : '0';
     if (mode !== lastMode) { status.dataset.mode = mode; lastMode = mode; }
     if (statusText.textContent !== text) statusText.textContent = text;
     if (statusSub.textContent !== sub) statusSub.textContent = sub;
@@ -913,7 +930,9 @@ export function mount(el, ctx, nav) {
       ab.cdFill.style.transform = `scaleX(${cdFrac.toFixed(4)})`;
       ab.b.setAttribute('aria-label', `${a.key}: ${a.name}, ${subText}`);
     }
-    actBtns.match.b.classList.toggle('is-call', !s.match && !s.away && !s.pending && s.hour - s.idleSince > 0.05);
+    actBtns.match.b.classList.toggle('is-call', !s.match && !s.away && !s.pending && s.hour - s.idleSince > 0.05 && !(low && sim.can('rest')));
+    actBtns.tea.b.classList.toggle('is-call', low && sim.can('tea'));
+    actBtns.rest.b.classList.toggle('is-call', low && sim.can('rest'));
     field.dataset.hot = s.hype > 0.6 ? '1' : '0';
   }
 
@@ -981,6 +1000,7 @@ export function mount(el, ctx, nav) {
     shownViewers = sim.s.viewers;
     nextChatAt = 0.05;
     lastMode = '';
+    lowWarned = false;
     state = 'play';
     field.dataset.state = 'play';
     L.stage.classList.add('playing');
@@ -1037,6 +1057,28 @@ export function mount(el, ctx, nav) {
         : s.hour >= 10
           ? 'Yarı yolu geçtin ama enerji bitti. Mola vermek de maratona dahil.'
           : 'DOG DOG DOG… “24 saat en kısası” derken bu yayın ısınma turu oldu. Çay, mola, tekrar!';
+    // Yayın neden bitti? Enerji sıfırlandıysa nedenler ve tek bir somut öğüt
+    let cause = null;
+    if (!done) {
+      const tip = st.teas === 0
+        ? 'Hiç çay içmedin: Çay (2) +16 enerji verir, iki saatte bir hazır.'
+        : st.breaks === 0 && s.hour >= 6
+          ? 'Hiç mola vermedin: Mola (4) yarım saatte ~28 enerji verir, tilt’i de söndürür. Maç aralarında ver.'
+          : st.idleH >= 1.5
+            ? `Lobide ${durText(st.idleH)} boş bekledin: boş lobi enerjiyi hızla yer. Maçı erken at.`
+            : st.chats >= 14
+              ? `Chat’e ${st.chats} kez cevap verdin: her cevap −2 enerji. Moodu maçla da tutabilirsin.`
+              : 'Enerji 35’in altına inince molayı, 70’in altına inince çayı düşün.';
+      cause = h('div', { class: 'gm-mr-cause', role: 'note' },
+        h('span', { class: 'gm-mr-cause-ico', 'aria-hidden': 'true' }, icon('bolt', { size: 18 })),
+        h('span', { class: 'gm-mr-cause-text' },
+          h('strong', null, `Enerji 0’a düştü: ${clockText(s.hour)}’da uyuya kaldın.`),
+          h('span', { class: 'gm-mr-cause-facts xsmall' },
+            `${st.teas} çay · ${st.breaks} mola · ${st.wins + st.losses} maç · lobide ${durText(st.idleH)}`),
+          h('span', { class: 'gm-mr-cause-tip small' }, tip),
+        ),
+      );
+    }
     const r = runner;
     later(() => {
       if (state !== 'end') return;
@@ -1046,6 +1088,7 @@ export function mount(el, ctx, nav) {
         s.log.map((e) => h('li', { class: `gm-mr-pill ${e.win ? 'is-w' : 'is-l'}` }, e.win ? 'G' : 'M',
           e.dog ? h('i', { class: 'gm-mr-pill-dog' }) : null, e.quad === 'ok' ? h('i', { class: 'gm-mr-pill-quad' }) : null)));
       const extra = h('div', { class: 'stack gm-mr-res-extra' },
+        cause,
         h('div', { class: 'gm-mr-title' },
           h('span', { class: 'gm-mr-title-ico', 'aria-hidden': 'true' }, icon(done ? 'trophy' : 'moon', { size: 22 })),
           h('span', { class: 'gm-mr-title-text' },
@@ -1076,6 +1119,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
+      addPbNote(node, pbNote({ score, prev: saved.prev, fmt: (n) => `${fmtNum(n)} izleyici` }));
       closeOverlay = showOverlay(L.stage, node, { reveal: true });
       if (hotkeysOff) { ctx.hotkeys(true); hotkeysOff = false; }
     }, done ? 1500 : 1300);

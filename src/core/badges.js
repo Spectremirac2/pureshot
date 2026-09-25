@@ -15,20 +15,46 @@ import { fx } from './fx.js';
 import { sound } from './sound.js';
 
 // ------------------------------------------------------------------ salon kataloğu
-// Oyun modüllerini içe aktarmadan (ana sayfa gibi hafif sayfalar için) salonun oyun listesi.
-// Kimlikler games.js'teki meta.id değerleriyle aynıdır; ad/simge yalnızca metin ve vitrin içindir.
+// Oyun modüllerini içe aktarmadan (ana sayfa, profil gibi hafif sayfalar için) salonun oyun listesi.
+// Kimlikler games.js'teki meta.id değerleriyle aynıdır. unit / higherIsBetter / format / charge oyunların
+// meta değerlerinin kopyasıdır (profil rekorları, skor biçimi); bir oyunun puanlaması değişirse burası da
+// güncellenmeli. isNew: salonda ve ana sayfada "Yeni" etiketi (yalnızca en son eklenen oyunlar).
+const pts = (n) => `${fmtNum(n)} puan`;
+const fmtSec = (s) => Math.max(0, Number(s) || 0).toFixed(1).replace('.', ',');
 export const SALON_GAMES = [
-  { id: 'arena', name: '1vDOQUZ Arena', short: 'Arena', icon: 'bow', color: 'var(--aegis)' },
-  { id: 'dogavi', name: 'DOG Avı', short: 'DOG Avı', icon: 'paw', color: 'var(--ember)' },
-  { id: 'lasthit', name: 'Last Hit Ustası', short: 'Last Hit', icon: 'coin', color: 'var(--aegis)' },
-  { id: 'hafiza', name: 'DOG Hafıza', short: 'Hafıza', icon: 'brain', color: 'var(--arcane)' },
-  { id: 'rune', name: 'Rune Refleksi', short: 'Rune', icon: 'bolt', color: 'var(--radiant)' },
-  { id: 'dogdle', name: 'DOGdle', short: 'DOGdle', icon: 'eye', color: 'var(--aegis-2)', kind: 'Günlük tahmin', isNew: true },
-  { id: 'portre', name: 'Portre Avı', short: 'Portre', icon: 'target', color: 'var(--radiant)', kind: 'Göz · Refleks', isNew: true },
-  { id: 'invoker', name: 'Invoker Kombo', short: 'Invoker', icon: 'orbs', color: 'var(--arcane)', kind: 'Parmak · Refleks', isNew: true },
-  { id: 'hook', name: 'Pudge Hook', short: 'Hook', icon: 'hook', color: 'var(--dire)', kind: 'Nişan · Beceri', isNew: true },
-  { id: 'bingo', name: 'DOG Bingo', short: 'Bingo', icon: 'star', color: 'var(--ember)', kind: 'Yayın · Etkileşim', isNew: true },
+  { id: 'arena', name: '1vDOQUZ Arena', short: 'Arena', icon: 'bow', color: 'var(--aegis)', kind: 'Ultimate · R',
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'dogavi', name: 'DOG Avı', short: 'DOG Avı', icon: 'paw', color: 'var(--ember)', kind: 'Aktif · Alan etkili',
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'lasthit', name: 'Last Hit Ustası', short: 'Last Hit', icon: 'coin', color: 'var(--aegis)', kind: 'Hedefli · Tek hedef',
+    unit: 'altın', higherIsBetter: true, format: (n) => `${fmtNum(n)} altın` },
+  { id: 'hafiza', name: 'DOG Hafıza', short: 'Hafıza', icon: 'brain', color: 'var(--arcane)', kind: 'Pasif · Zihin',
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'rune', name: 'Rune Refleksi', short: 'Rune', icon: 'bolt', color: 'var(--radiant)', kind: 'Anlık · Refleks',
+    unit: 'ms', higherIsBetter: false, format: (n) => `${fmtNum(n)} ms` },
+  { id: 'dogdle', name: 'DOGdle', short: 'DOGdle', icon: 'eye', color: 'var(--aegis-2)', kind: 'Günlük · Tahmin',
+    unit: 'tahmin', higherIsBetter: false, format: (n) => `${fmtNum(n)} tahmin` },
+  { id: 'portre', name: 'Portre Avı', short: 'Portre', icon: 'target', color: 'var(--radiant)', kind: 'Refleks · Göz',
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'invoker', name: 'Invoker Kombo', short: 'Invoker', icon: 'orbs', color: 'var(--arcane)', kind: 'Refleks · Parmak',
+    unit: 'büyü', higherIsBetter: true, format: (n) => `${fmtNum(n)} büyü` },
+  { id: 'hook', name: 'Pudge Hook', short: 'Hook', icon: 'hook', color: 'var(--dire)', kind: 'Beceri · Nişan',
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'bingo', name: 'DOG Bingo', short: 'Bingo', icon: 'star', color: 'var(--ember)', kind: 'Yayın · Etkileşim',
+    unit: 'çizgi', higherIsBetter: true, format: (n) => `${fmtNum(n)} çizgi` },
+  // 2. tur oyunları
+  { id: 'kurye', name: 'Uçan Kurye', short: 'Kurye', icon: 'courier', color: 'var(--radiant)', kind: 'Refleks · Ritim', isNew: true,
+    unit: 'metre', higherIsBetter: true, format: (n) => `${fmtNum(n)} metre`,
+    charge: (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}km` : `${Math.round(n)}m`) },
+  { id: 'mayin', name: 'Techies Mayın Tarlası', short: 'Mayın', icon: 'mine', color: 'var(--dire)', kind: 'Zihin · Mantık', isNew: true,
+    unit: 'sn', higherIsBetter: false, format: (n) => `${fmtSec(n)} sn`, charge: (n) => `${Math.round(n)}sn` },
+  { id: 'esya', name: 'Eşya 2048', short: '2048', icon: 'rapier', color: 'var(--aegis)', kind: 'Zihin · Birleştir', isNew: true,
+    unit: 'puan', higherIsBetter: true, format: pts },
+  { id: 'maraton', name: '24 Saat Maraton', short: 'Maraton', icon: 'hourglass', color: 'var(--ember)', kind: 'Yayın · Strateji', isNew: true,
+    unit: 'izleyici', higherIsBetter: true, format: (n) => `${fmtNum(n)} izleyici` },
 ];
+/** Kimliğe göre salon oyunu (yoksa null). */
+export const salonGame = (id) => SALON_GAMES.find((g) => g.id === id) || null;
 export const SALON_IDS = SALON_GAMES.map((g) => g.id);
 export const NEW_GAME_IDS = SALON_GAMES.filter((g) => g.isNew).map((g) => g.id);
 
@@ -46,11 +72,18 @@ export const THRESHOLDS = {
   invoker: 15, // büyü / 60 sn
   hook: 1500, // puan (düşman 100, uzun kanca +50, seri ×2/×3)
   bingo: 1, // tamamlanan çizgi
+  kurye: 300, // metre (uçulan + şişe bonusu)
+  kuryeEfsane: 1000, // metre
+  mayinSentry: 90, // sn, Orta tahta (16×16, 40 mayın) — DÜŞÜK iyi
+  esya: 2500, // puan (≈ BKB/Aghanim kademesi)
+  esyaRapier: 11, // ulaşılan en yüksek eşya kademesi (picks['esya:tier']; 11 = Divine Rapier)
+  maratonTamam: 1, // 24:00'e varan yayın sayısı (picks['maraton:tamam'])
+  maratonFenomen: 7000, // zirve izleyici
   hayran: 10, // 12 sorudan doğru
   bilgi: 1200, // puan (10 soru × 100 + hız bonusu)
   daha: 10, // "Daha DOG mu?" serisi
   dog: 3, // DOG düğmesi (üç kez söylenir)
-  maraton: 24, // DOG düğmesi (en kısa yayın: 24 saat)
+  maraton: 24, // DOG düğmesi (en kısa yayın: 24 saat) — 24 Saat Maraton oyunuyla ilgisi yok (anahtar korunur)
   critic: 10, // DOG'lanan espri
 };
 
@@ -63,6 +96,7 @@ const has = (me, id) => scoreOf(me, id) != null;
 const atLeast = (id, n) => (me) => { const v = scoreOf(me, id); return v != null && v >= n; };
 const atMost = (id, n) => (me) => { const v = scoreOf(me, id); return v != null && v <= n; };
 const playedCount = (me) => SALON_IDS.filter((id) => has(me, id)).length;
+const pickNum = (me, key) => Math.max(0, Number(me && me.picks ? me.picks[key] : 0) || 0);
 const dogCount = (me) => Math.max(0, Number(me && me.dog) || 0);
 const jokeLikes = (me) => Object.keys((me && me.likes) || {}).filter((k) => k.startsWith('jk:')).length;
 const T = THRESHOLDS;
@@ -80,6 +114,10 @@ const downTo = (id, fmt) => (me) => {
   const v = scoreOf(me, id);
   return v == null ? null : { pct: null, text: `En iyin: ${fmt(v)}` };
 };
+/** Eşya 2048 kademe adları (esya.js zinciriyle aynı; rozet ilerleme metni için). */
+const ESYA_TIERS = ['', 'Iron Branch', 'Tango', 'Magic Stick', 'Magic Wand', 'Boots of Speed', 'Blink Dagger', 'Black King Bar',
+  'Aghanim’s Scepter', 'Radiance', 'Butterfly', 'Divine Rapier', 'Aegis', 'Cheese'];
+const fmtGame = (id) => (n) => { const g = salonGame(id); return g && g.format ? g.format(n) : fmtNum(n); };
 const count = (fn, goal, label) => (me) => {
   const v = fn(me);
   return v > 0 ? { pct: Math.min(1, v / goal), text: `${Math.min(v, goal)}/${goal} ${label}` } : null;
@@ -138,6 +176,37 @@ export const BADGES = [
   { id: 'bingo', group: 'oyun', game: 'bingo', name: 'Bingo!', icon: 'star', color: 'var(--ember-2)',
     how: 'DOG Bingo’da bir çizgi tamamla: satır, sütun ya da çapraz.',
     test: atLeast('bingo', T.bingo) },
+  { id: 'bottle', group: 'oyun', game: 'kurye', name: 'Bottle Teslimatı', icon: 'bottle', color: 'var(--radiant)',
+    how: `Uçan Kurye’de ${fmtNum(T.kurye)} metre uç: bottle mid’e ulaşsın.`,
+    test: atLeast('kurye', T.kurye), progress: upTo('kurye', T.kurye, unit('metre')) },
+  { id: 'efsane-kurye', group: 'oyun', game: 'kurye', name: 'Efsane Kurye', icon: 'courier', color: 'var(--aegis-2)',
+    how: `Uçan Kurye’de ${fmtNum(T.kuryeEfsane)} metre uç. Mid’ci sana bir bottle borçlu.`,
+    test: atLeast('kurye', T.kuryeEfsane), progress: upTo('kurye', T.kuryeEfsane, unit('metre')) },
+  { id: 'mayin-temiz', group: 'oyun', game: 'mayin', name: 'Mayın Temizleyici', icon: 'mine', color: 'var(--dire)',
+    how: 'Techies Mayın Tarlası’nda bir Orta tahtayı (16×16, 40 mayın) temizle.',
+    test: (me) => has(me, 'mayin') },
+  { id: 'sentry', group: 'oyun', game: 'mayin', name: 'Sentry Ustası', icon: 'ward', color: 'var(--arcane)',
+    how: `Orta tahtayı ${T.mayinSentry} saniye ya da daha kısa sürede temizle.`,
+    test: atMost('mayin', T.mayinSentry), progress: downTo('mayin', fmtGame('mayin')) },
+  { id: 'bkb', group: 'oyun', game: 'esya', name: 'BKB Bastın', icon: 'bkb', color: 'var(--aegis)',
+    how: `Eşya 2048’de ${fmtNum(T.esya)} puan topla.`,
+    test: atLeast('esya', T.esya), progress: upTo('esya', T.esya, unit('puan')) },
+  { id: 'rapier', group: 'oyun', game: 'esya', name: 'Divine Rapier', icon: 'rapier', color: 'var(--dire)',
+    how: 'Eşya 2048’de iki Butterfly’ı birleştir, Divine Rapier’e ulaş.',
+    test: (me) => pickNum(me, 'esya:tier') >= T.esyaRapier,
+    progress: (me) => {
+      const t = Math.min(ESYA_TIERS.length - 1, Math.floor(pickNum(me, 'esya:tier')));
+      if (t > 0) return { pct: Math.min(1, t / T.esyaRapier), text: `En iyi eşyan: ${ESYA_TIERS[t]}` };
+      const v = scoreOf(me, 'esya');
+      return v == null ? null : { pct: null, text: `En iyin: ${fmtNum(v)} puan` };
+    } },
+  { id: 'maraton-tamam', group: 'oyun', game: 'maraton', name: 'Maraton Tamam', icon: 'sun', color: 'var(--aegis)',
+    how: '24 Saat Maraton’da yayını 24:00’e taşı. (Asgari süre, biliyoruz.)',
+    test: (me) => pickNum(me, 'maraton:tamam') >= T.maratonTamam,
+    progress: (me) => { const v = scoreOf(me, 'maraton'); return v == null ? null : { pct: null, text: `En iyin: ${fmtNum(v)} izleyici` }; } },
+  { id: 'kick-fenomen', group: 'oyun', game: 'maraton', name: 'Kick Fenomeni', icon: 'kick', color: 'var(--radiant)',
+    how: `24 Saat Maraton’da ${fmtNum(T.maratonFenomen)} izleyici zirvesi yap.`,
+    test: atLeast('maraton', T.maratonFenomen), progress: upTo('maraton', T.maratonFenomen, unit('izleyici')) },
 
   // --- Quizler
   { id: 'teshis', group: 'quiz', name: 'Teşhis Kondu', icon: 'mask', color: 'var(--ember)',

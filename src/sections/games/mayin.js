@@ -7,6 +7,7 @@ import './mayin.css';
 import { h, clamp, fmtNum, ls, shuffle, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, isTyping } from './kit.js';
+import { pbNote, addPbNote, haptic } from './juice.js';
 
 const DIFFS = [
   { id: 'caylak', name: 'Çaylak', rows: 9, cols: 9, mines: 10, ico: 'paw', sub: '9×9 · 10 mayın' },
@@ -22,6 +23,8 @@ const BEST_KEY = 'mayin-best';
 const DIFF_KEY = 'mayin-diff';
 const STATS_KEY = 'mayin-stats';
 const MODE_KEY = 'mayin-mode';
+const ZOOM_KEY = 'mayin-zoom';
+const COACH_KEY = 'mayin-coach'; // dokunmatikte uzun basma ipucu bir kez gösterildi
 
 const fmtSec = (s) => (Math.max(0, s)).toFixed(1).replace('.', ',');
 const NBSP = ' ';
@@ -143,7 +146,7 @@ export function mount(el, ctx, nav) {
 
   let D = byId(ls.get(DIFF_KEY, 'orta'));
   let flagMode = ls.get(MODE_KEY, 'dig') === 'flag';
-  let zoom = false;
+  let zoom = !!ls.get(ZOOM_KEY, false); // dar ekranda yakınlaştırma tercihi hatırlanır
 
   // ---------------------------------------------------------------- HUD
   const sMines = hudStat('Mayın', String(D.mines), { ico: 'mine', cls: 'gm-mn-count' });
@@ -213,6 +216,7 @@ export function mount(el, ctx, nav) {
   const zoomBtn = h('button', { class: 'chip gm-mn-zoom', type: 'button', 'aria-pressed': 'false', hidden: true }, icon('search', { size: 14 }), 'Yakınlaştır');
   zoomBtn.addEventListener('click', () => {
     zoom = !zoom;
+    ls.set(ZOOM_KEY, zoom);
     zoomBtn.setAttribute('aria-pressed', String(zoom));
     ctx.sound.click();
     layoutBoard();
@@ -309,8 +313,8 @@ export function mount(el, ctx, nav) {
     cs = Math.max(MIN_CELL, cs);
     const canZoom = cs < 32 && (coarse || narrow);
     zoomBtn.hidden = !canZoom;
-    if (!canZoom && zoom) { zoom = false; zoomBtn.setAttribute('aria-pressed', 'false'); }
-    if (zoom) cs = Math.max(cs, Math.min(40, Math.round(cs * 1.6)));
+    zoomBtn.setAttribute('aria-pressed', String(zoom && canZoom));
+    if (zoom && canZoom) cs = Math.max(cs, Math.min(40, Math.round(cs * 1.6)));
     board.style.setProperty('--cs', `${cs}px`);
     view.classList.toggle('scroll', cs * cols > vw + 1);
   }
@@ -441,12 +445,39 @@ export function mount(el, ctx, nav) {
     if (opened) ctx.sound.click();
   }
 
+  // ---------------------------------------------------------------- dokunmatik ipucu (bir-iki kez)
+  let coachEl = null;
+  let coachTimer = 0;
+  function maybeCoach() {
+    if (!coarse || flagMode || coachEl || !G || G.state !== 'play') return;
+    const seen = ls.get(COACH_KEY, 0);
+    if (seen === true || Number(seen) >= 2) return;
+    ls.set(COACH_KEY, (Number(seen) || 0) + 1);
+    const ok = h('button', { class: 'btn sm gm-mn-coach-ok', type: 'button' }, 'Anladım');
+    coachEl = h('div', { class: 'gm-mn-coach', role: 'note' },
+      h('span', { class: 'gm-mn-coach-ico', 'aria-hidden': 'true' }, icon('ward', { size: 22 })),
+      h('p', null, h('strong', null, 'Mayın mı sandın? '), 'Hücreye ', h('strong', null, 'uzun bas'),
+        ': Sentry dikilir, o hücre açılmaz. Ya da üstteki ', h('strong', null, 'Bayrak'), ' moduna geç.'),
+      ok);
+    ok.addEventListener('click', () => { ctx.sound.click(); dismissCoach(true); });
+    document.body.appendChild(coachEl);
+    coachTimer = setTimeout(() => dismissCoach(false), 12000);
+    say('İpucu: mayın sandığın hücreye uzun bas, Sentry dikilir.');
+  }
+  function dismissCoach(learned) {
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0; }
+    if (learned) ls.set(COACH_KEY, true);
+    if (coachEl) { coachEl.remove(); coachEl = null; }
+  }
+
   function act(i) {
     if (!playable()) return;
     if (G.open[i]) { chord(i); return; }
     if (G.flag[i]) { ctx.sound.miss(); return; }
     G.clicks++;
+    const first = !G.placed;
     const r = reveal(i);
+    if (first && r > 0 && G.state === 'play') setTimeout(maybeCoach, 700);
     if (r > 0) {
       if (r > 8) ctx.sound.whoosh(); else ctx.sound.click();
       if (G.state === 'play') say(r > 1 ? `${r} hücre açıldı.` : (G.num[i] ? `${G.num[i]}.` : 'Boş.'));
@@ -462,6 +493,7 @@ export function mount(el, ctx, nav) {
     if (G.flag[i] && !reduced) {
       cells[i].classList.add('plant');
     }
+    if (G.flag[i]) { haptic(10); if (coachEl) dismissCoach(true); }
     const left = G.d.mines - G.flags;
     sMines.set(String(left));
     sMines.el.classList.toggle('neg', left < 0);
@@ -476,6 +508,7 @@ export function mount(el, ctx, nav) {
   }
 
   function endCommon() {
+    dismissCoach(false);
     field.dataset.state = G.state;
     board.classList.remove('kb');
     graceUntil = performance.now() + GRACE_MS;
@@ -554,6 +587,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
+      addPbNote(node, pbNote({ score: t, prev: saved.prev, higher: false, fmt: (n) => `${fmtSec(n)} sn` }));
       closeOverlay = showOverlay(L.stage, node, { reveal: true });
     });
   }
@@ -566,6 +600,7 @@ export function mount(el, ctx, nav) {
     endCommon();
     cells[i].classList.add('m', 'boom');
     ctx.sound.hit();
+    haptic([60, 40, 90]);
     ctx.fx.shake(view);
     say('Mayına bastın! Zincirleme patlama.');
     // Yanlış Sentry'ler çarpı, doğru Sentry'ler yerinde; diğer mayınlar uzaklığa göre sırayla patlar
@@ -605,7 +640,9 @@ export function mount(el, ctx, nav) {
     const correct = Array.from(G.flag).reduce((a, f, j) => a + (f && G.mine[j] ? 1 : 0), 0);
     const st = ls.get(STATS_KEY, {}) || {};
     const s = st[d.id] || { p: 1, w: 0 };
-    const quip = pct >= 85 ? 'Bitiş çizgisinde mayın… Techies kahkahayı bastı. DOG DOG DOG.'
+    const leftSafe = safe - G.opened;
+    const quip = leftSafe <= 5 ? `Kıl payı! Yalnızca ${leftSafe} güvenli hücre kalmıştı… Techies kahkahayı bastı. DOG DOG DOG.`
+      : pct >= 85 ? 'Bitiş çizgisinde mayın… Techies kahkahayı bastı. DOG DOG DOG.'
       : pct >= 40 ? 'Ormanın yarısı temiz, sonra orman cevap verdi. DOG DOG DOG.'
         : 'BOOM! Techies’in mayını seni erkenden buldu. Sayıları say, sonra aç. DOG DOG DOG.';
     const retry = h('button', { class: 'btn primary', type: 'button', 'data-primary': '' }, icon('refresh', { size: 18 }), 'Tekrar dene');
@@ -894,6 +931,7 @@ export function mount(el, ctx, nav) {
     board.removeEventListener('animationend', onAnimEnd);
     if (press && press.timer) clearTimeout(press.timer);
     press = null;
+    dismissCoach(false);
     if (graceTimer) clearTimeout(graceTimer);
     ro.disconnect();
     runner.destroy();

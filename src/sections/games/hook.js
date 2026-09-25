@@ -8,6 +8,7 @@ import { icon } from '../../core/icons.js';
 import { HEROES } from '../../data/heroes.js';
 import { heroPortraitUrl, abilityIconUrl } from '../../core/assets.js';
 import { createRunner, gameLayout, hudStat, showOverlay, introCard, resultCard, submitResult, revealInView, isTyping, onOtherControl, tok, hexA } from './kit.js';
+import { pbNote, addPbNote, recordWatch, haptic } from './juice.js';
 
 const ROUND = 60;
 const COOLDOWN = 1.2;
@@ -22,6 +23,9 @@ const N_ALLY = 4;
 const HOOK_R = 7;
 const TAU = Math.PI * 2;
 const GRACE_MS = 900;
+const HITSTOP = 0.06; // düşman isabetinde kısa vuruş duraklaması (sn); uzun kancada biraz daha
+const HITSTOP_LONG = 0.1;
+const NEAR_GAP = 14; // kanca bir düşmanın bu kadar yakınından geçip ıskalarsa: kıl payı
 
 export const meta = {
   id: 'hook',
@@ -189,6 +193,9 @@ export function mount(el, ctx, nav) {
       spawnIn: 0.2,
       sparks: [],
       floats: [],
+      rings: [],
+      hitstop: 0,
+      recordHit: false,
       flow: 0,
       shake: 0,
       pudgeAnim: 0,
@@ -278,7 +285,7 @@ export function mount(el, ctx, nav) {
       return;
     }
     const ang = st.aim.ang;
-    st.hook = { ang, dx: Math.cos(ang), dy: Math.sin(ang), dist: 0, phase: 'out', target: null };
+    st.hook = { ang, dx: Math.cos(ang), dy: Math.sin(ang), dist: 0, phase: 'out', target: null, near: Infinity, nearT: null };
     st.cd = COOLDOWN;
     st.throws++;
     st.pudgeAnim = 0.25;
@@ -303,6 +310,11 @@ export function mount(el, ctx, nav) {
           if (t.hooked) continue;
           const [d, u] = segDist(t.x, t.y, ax, ay, bx, by);
           if (d <= t.r + HOOK_R && u < bu) { bu = u; best = t; }
+          // Kıl payı takibi: düşman kahramana en yakın geçiş
+          if (t.kind === 'enemy') {
+            const gap = d - (t.r + HOOK_R);
+            if (gap < hk.near) { hk.near = gap; hk.nearT = t; }
+          }
         }
         if (best) {
           hk.dist = prev + (hk.dist - prev) * bu;
@@ -322,7 +334,7 @@ export function mount(el, ctx, nav) {
       }
       if (hk.dist <= 0) {
         if (hk.target) onArrive(hk.target, lo);
-        else onMiss();
+        else onMiss(hk);
         st.hook = null;
       }
     }
@@ -345,8 +357,12 @@ export function mount(el, ctx, nav) {
       floatAt(t.x, t.y - t.r - 30, long ? `UZUN KANCA · ${units}` : t.hero.name, long ? C['ember-2'] : C.text, long ? 13 : 12);
       if (m > 1 && (st.streak === 3 || st.streak === 6)) floatAt(t.x, t.y + t.r + 22, `SERİ ×${m}`, C.ember, 16);
       burst(t.x, t.y, C.dire, 18);
+      ring(t.x, t.y, t.r + 4, long ? C['ember-2'] : C.aegis, long ? 0.5 : 0.38);
+      if (!reduced) st.hitstop = long ? HITSTOP_LONG : HITSTOP;
       ctx.sound.hit();
-      if (long) ctx.sound.good();
+      if (long) ctx.sound.thud();
+      if (st.streak >= 2) ctx.sound.streak(st.streak);
+      haptic(long ? [18, 30, 24] : 16);
       say(`${t.hero.name} çekildi. Artı ${pts} puan.`);
     } else if (t.kind === 'creep') {
       st.creep++;
@@ -366,6 +382,8 @@ export function mount(el, ctx, nav) {
       burst(t.x, t.y, C.radiant, 12);
       ctx.fx.stamp('DOG DOG DOG');
       ctx.sound.bad();
+      ring(t.x, t.y, t.r + 4, C.radiant, 0.45);
+      haptic([40, 50, 40]);
       if (!reduced) st.shake = 0.35;
       say(`Dost ${t.hero.name} çekildi. Eksi ${ALLY_PEN}. DOG DOG DOG.`);
     }
@@ -384,15 +402,23 @@ export function mount(el, ctx, nav) {
     st.pudgeAnim = 0.35;
   }
 
-  function onMiss() {
+  function onMiss(hk) {
     st.misses++;
     const lo = lay();
     if (st.mode === 'play') {
       const had = st.streak;
       st.streak = 0;
       renderStreak();
+      if (hk && hk.nearT && hk.near < NEAR_GAP) {
+        // Kanca düşmanın burnunun dibinden geçti: ceza aynı, ama söyleyelim
+        const t = hk.nearT;
+        floatAt(t.x, t.y - t.r - 10, 'Kıl payı!', C['aegis-2'], 15);
+        ctx.sound.nearMiss();
+        say('Kıl payı ıska.');
+      } else {
+        ctx.sound.miss();
+      }
       floatAt(lo.pudge.x, lo.pudge.y - lo.pudge.r - 14, had >= 2 ? 'Iska · seri bitti' : 'Iska', C['text-2'], 13);
-      ctx.sound.miss();
     }
   }
 
@@ -400,6 +426,14 @@ export function mount(el, ctx, nav) {
     st.score = Math.max(0, st.score + d);
     sScore.set(fmtNum(st.score));
     sScore.bump();
+    if (st.mode === 'play' && st.passBest && st.passBest(st.score)) {
+      // Oyun içinde eski rekor geçildi
+      const lo = lay();
+      st.recordHit = true;
+      floatAt(lo.pudge.x, lo.pudge.y - lo.pudge.r - 40, 'REKOR!', C.aegis, 22);
+      ring(lo.pudge.x, lo.pudge.y, lo.pudge.r + 6, C.aegis, 0.6);
+      ctx.sound.record();
+    }
   }
 
   function renderStreak() {
@@ -420,6 +454,9 @@ export function mount(el, ctx, nav) {
       const sp = rand(60, meat ? 240 : 190);
       st.sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (meat ? 80 : 0), t: 0, dur: rand(0.35, 0.75), color, size: meat ? rand(3, 6) : rand(2, 4), g: meat ? 380 : 0 });
     }
+  }
+  function ring(x, y, r, color, dur = 0.4) {
+    st.rings.push({ x, y, r, color, t: 0, dur: reduced ? dur * 0.6 : dur });
   }
   function say(m) { L.live.textContent = m; }
 
@@ -679,13 +716,47 @@ export function mount(el, ctx, nav) {
     const dx = Math.cos(st.aim.ang), dy = Math.sin(st.aim.ang);
     const ready = st.cd <= 0;
     const len = lo.R;
+    // Nişan çizgisinde şu an ilk sıradaki birim (kanca yola çıkınca o da yürümüş olacak: öne at!)
+    let first = null;
+    let fu = 2;
+    for (const t of st.targets) {
+      if (t.hooked) continue;
+      const [d, u] = segDist(t.x, t.y, mx, my, mx + dx * len, my + dy * len);
+      if (d <= t.r + HOOK_R && u < fu) { fu = u; first = t; }
+    }
     g.save();
+    g.lineCap = 'round';
+    if (ready) {
+      // hazırken yumuşak parıltılı, daha parlak çizgi
+      g.strokeStyle = hexA(C.aegis, 0.13);
+      g.lineWidth = 8;
+      g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + dx * len, my + dy * len); g.stroke();
+    }
     g.setLineDash([6, 6]);
     g.lineDashOffset = -st.t * 30;
-    g.strokeStyle = hexA(ready ? C.aegis : C['text-3'], ready ? 0.55 : 0.3);
+    g.strokeStyle = hexA(ready ? C.aegis : C['text-3'], ready ? 0.85 : 0.35);
     g.lineWidth = 2;
     g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + dx * len, my + dy * len); g.stroke();
     g.setLineDash([]);
+    if (first && ready) {
+      // Çizgideki ilk birimi işaretle; dostsa uyar
+      const ally = first.kind === 'ally';
+      const col = ally ? C.radiant : first.kind === 'enemy' ? C.dire : C['text-2'];
+      const pulse = reduced ? 0 : Math.sin(st.t * 12) * 1.5;
+      g.strokeStyle = hexA(col, 0.95);
+      g.lineWidth = 2.5;
+      g.beginPath(); g.arc(first.x, first.y, first.r + 8 + pulse, 0, TAU); g.stroke();
+      if (ally) {
+        g.font = '800 11px Barlow, sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'alphabetic';
+        g.lineWidth = 3;
+        g.strokeStyle = 'rgba(0,0,0,0.8)';
+        g.strokeText('DOST!', first.x, first.y - first.r - 12);
+        g.fillStyle = C.radiant;
+        g.fillText('DOST!', first.x, first.y - first.r - 12);
+      }
+    }
     // imleç artısı (menzil içindeyse nişan noktası, değilse menzil sonu)
     const dAim = Math.hypot(st.aim.x - mx, st.aim.y - my);
     const d = Math.min(dAim, len);
@@ -729,6 +800,13 @@ export function mount(el, ctx, nav) {
       g.fillStyle = p.color;
       g.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
+    for (const r of st.rings) {
+      const k = r.t / r.dur;
+      g.globalAlpha = Math.max(0, 1 - k);
+      g.strokeStyle = r.color;
+      g.lineWidth = 1 + 3 * (1 - k);
+      g.beginPath(); g.arc(r.x, r.y, r.r + k * 22, 0, TAU); g.stroke();
+    }
     g.globalAlpha = 1;
     g.textAlign = 'center';
     g.textBaseline = 'alphabetic';
@@ -766,6 +844,13 @@ export function mount(el, ctx, nav) {
   // ---------------------------------------------------------------- döngü
   function frame(dt, _t, lastStep = true) {
     if (!st) return;
+    if (st.hitstop > 0) {
+      // Vuruş duraklaması: dünya (ve tur saati) bir an donar, yalnızca halkalar akar
+      st.hitstop -= dt;
+      for (const r of st.rings) r.t += dt;
+      if (visible && lastStep) draw();
+      return;
+    }
     st.t += dt;
     st.flow += dt;
     if (st.mode === 'play') {
@@ -798,6 +883,8 @@ export function mount(el, ctx, nav) {
     st.sparks = st.sparks.filter((p) => p.t < p.dur);
     for (const f of st.floats) f.t += dt;
     st.floats = st.floats.filter((f) => f.t < f.dur);
+    for (const r of st.rings) r.t += dt;
+    st.rings = st.rings.filter((r) => r.t < r.dur);
     const cdK = st.hook ? 1 : st.cd / COOLDOWN;
     cdEl.style.setProperty('--cd', `${Math.round(clamp(cdK, 0, 1) * 100)}%`);
     cdEl.classList.toggle('ready', !st.hook && st.cd <= 0);
@@ -815,6 +902,8 @@ export function mount(el, ctx, nav) {
     e.preventDefault();
     const p = toLogical(e);
     setAimPoint(p.x, p.y, e.pointerType === 'mouse' ? 'mouse' : 'touch');
+    // Dokunmatikte parmağın altında kalan nişan noktasını kısa bir halkayla göster
+    if (e.pointerType !== 'mouse') ring(p.x, p.y, 5, C['aegis-2'], 0.35);
     throwHook();
   }
   function onPointerMove(e) {
@@ -860,6 +949,7 @@ export function mount(el, ctx, nav) {
     Lw = cssW < 600 ? 400 : 800;
     resize(true);
     st = newState('play');
+    st.passBest = recordWatch((ctx.store.me.get().scores || {})[meta.id]);
     sScore.set('0');
     sTime.set(String(ROUND));
     sTime.el.classList.remove('low');
@@ -924,6 +1014,7 @@ export function mount(el, ctx, nav) {
         onRetry: start,
         onBack: () => nav && nav.back(),
       });
+      addPbNote(node, pbNote({ score: s, prev: saved.prev, fmt: (n) => `${fmtNum(n)} puan` }));
       closeOverlay = showOverlay(L.stage, node, { reveal: true });
     });
   }

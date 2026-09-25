@@ -296,6 +296,28 @@
 .bg-log-item.start { color: var(--text-3); font-size: var(--fs-xs); }
 .bg-log-item.start .bg-log-ico { color: var(--text-3); }
 
+/* "Bir kala": bu hücre işaretlenirse bir çizgi tamamlanır (2. tur) */
+.bg-cell.one-left:not(.on) {
+  border-color: color-mix(in srgb, var(--aegis) 70%, var(--line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aegis) 45%, transparent), 0 0 12px color-mix(in srgb, var(--aegis) 22%, transparent);
+  animation: bg-one 1.8s ease-in-out infinite;
+}
+.bg-cell.one-left:not(.on)::after {
+  content: '1 kala';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  z-index: 1;
+  padding: 0 4px;
+  font-size: clamp(7px, 1.7cqi, 10px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a1204;
+  background: var(--aegis);
+}
+@keyframes bg-one { 50% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aegis) 75%, transparent), 0 0 20px color-mix(in srgb, var(--aegis) 38%, transparent); } }
+
 /* ---------------------------------------------------------------- yayın modu */
 .gm-play-bingo.bg-stream { grid-template-columns: minmax(0, 1fr); }
 .gm-play-bingo.bg-stream > .gm-aside,
@@ -344,6 +366,15 @@
   .bg-report .gm-result-num { font-size: 2.4rem; }
   .bg-log-list { max-height: 300px; }
   .bg-stream .bg-main { width: 100%; }
+  /* Yayın modunda dar ekran: yalnızca çıkış ve tam ekran düğmeleri (kart üstte kalsın) */
+  .bg-stream .bg-toolbar .btn:not(.bg-stream-btn):not(.bg-fs-btn) { display: none; }
+  .bg-stream .bg-load { display: none; }
+}
+@container (max-width: 520px) {
+  /* Küçük hücrede damga yazıyı örtmesin */
+  .bg-cell-stamp::before { width: 66%; }
+  .bg-cell.on .bg-cell-text { font-weight: 700; }
+  .bg-cell.one-left:not(.on)::after { right: 1px; bottom: 1px; padding: 0 2px; }
 }
 @media (pointer: coarse) {
   .bg-cell:hover { transform: none; }
@@ -351,4 +382,5 @@
 @media (prefers-reduced-motion: reduce) {
   .bg-grid.dealt .bg-cell, .bg-cell.pop .bg-cell-stamp, .bg-line.fresh, .bg-log-item, .bg-load { animation: none; }
   .bg-cell-stamp { transition: none; }
+  .bg-cell.one-left:not(.on) { animation: none; }
 }

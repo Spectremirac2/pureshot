@@ -264,6 +264,45 @@ a.gm-inv-slot:hover { border-color: var(--aegis); transform: translateY(-1px); c
     var(--bg-2);
 }
 
+/* Rekor defteri kutucuğu: son satırdaki boş hücreleri doldurur (games.js → applyFilter: data-r3 / data-r2).
+   3 sütunda 1 ya da 2 hücre, 2 sütunda 1 hücre; tek sütunda (ve satır tamken) gizli. */
+.gm-filler {
+  display: none;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--aegis) 38%, var(--line));
+  background:
+    radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--aegis) 10%, transparent), transparent 65%),
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--aegis) 4%, transparent) 0 2px, transparent 2px 12px),
+    var(--bg-2);
+}
+.gm-filler .gm-card-best strong { font-size: var(--fs-md); }
+.gm-filler-k { margin-bottom: -6px; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.gm-filler-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gm-filler-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 10px 4px 4px;
+  font-size: var(--fs-xs);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border-left: 2px solid var(--gc);
+}
+.gm-filler-ico { display: grid; place-items: center; width: 24px; height: 24px; color: var(--gc); }
+.gm-filler-name { font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-filler-v { color: var(--aegis); font-weight: 700; white-space: nowrap; }
+.gm-filler-t { color: var(--text-3); white-space: nowrap; min-width: 7ch; text-align: right; }
+.gm-filler-none { font-size: var(--fs-xs); color: var(--text-3); }
+@media (min-width: 1081px) {
+  .gm-grid[data-r3='1'] > .gm-filler { display: flex; grid-column: span 2; }
+  .gm-grid[data-r3='2'] > .gm-filler { display: flex; }
+  .gm-grid[data-r3='1'] > .gm-filler .gm-filler-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+}
+@media (min-width: 621px) and (max-width: 1080px) {
+  .gm-grid[data-r2='1'] > .gm-filler { display: flex; }
+}
+
 /* Öne çıkan Arena kartı: tam genişlik afiş */
 .gm-feature {
   grid-column: 1 / -1;

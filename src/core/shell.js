@@ -9,6 +9,7 @@ import { sound } from './sound.js';
 import { fx } from './fx.js';
 import { startTour, openHelp, isTourOpen, initOnboarding, TOUR_EVENT, HELP_EVENT } from './tour.js';
 import { initEaster } from './easter.js';
+import { fanXp, fanLevel } from './quests.js';
 
 // Başka modüller turu/yardımı içe aktarmadan da açabilsin: document.dispatchEvent(new CustomEvent('csk:tour'))
 export { startTour, openHelp, isTourOpen };
@@ -184,6 +185,27 @@ function buildNickMenu() {
     item('button', { type: 'button' }, 'keyboard', 'Yardım ve kısayollar', null, () => openHelp()),
     item('button', { type: 'button' }, 'compass', 'Turu başlat', null, () => startTour()),
   ];
+  // Fan seviyesi rozeti "Profilim"in yanında (menü her açılışta tazelenir; bkz. core/quests.js)
+  const lvlNum = h('span', { class: 'hud-menu-lvl-n num' });
+  const lvlRank = h('span', { class: 'hud-menu-lvl-r' });
+  const lvlBadge = h('span', { class: 'hud-menu-lvl', 'aria-hidden': 'true' }, lvlNum, lvlRank);
+  const profLabel = items[0].querySelector('.hud-menu-text > span');
+  if (profLabel) profLabel.append(lvlBadge);
+  const paintLevel = () => {
+    try {
+      const L = fanLevel(fanXp(store.me.get()).xp);
+      lvlBadge.style.setProperty('--rc', L.color);
+      lvlNum.textContent = String(L.level);
+      lvlRank.textContent = L.rank;
+      lvlBadge.title = `Fan seviyen: ${L.level} · ${L.rank} (${fmtNum(L.xp)} XP)`;
+      items[0].setAttribute('aria-label', `Profilim: seviye ${L.level}, ${L.rank}. Fan kartı, rekorlar, rozetler`);
+      lvlBadge.hidden = false;
+    } catch {
+      lvlBadge.hidden = true;
+    }
+  };
+  injectMenuStyle();
+
   menu.append(
     h('div', { class: 'hud-menu-head', role: 'presentation' }, h('span', { class: 'hud-menu-label' }, 'Oyuncu kartı'), headNick),
     items[0], items[1],
@@ -197,6 +219,7 @@ function buildNickMenu() {
     if (open) { focusItem(n); return; }
     open = true;
     headNick.textContent = nickOf();
+    paintLevel();
     menu.hidden = false;
     nickBtn.setAttribute('aria-expanded', 'true');
     document.addEventListener('pointerdown', onDocDown, true);
@@ -239,6 +262,21 @@ function buildNickMenu() {
     nickBtn.setAttribute('aria-label', `Profil menüsü: ${n}`);
   });
   return { wrap, closeMenu };
+}
+
+/** Ad menüsündeki seviye rozeti stilleri (menünün kendi stilleri styles/tour.css'te). */
+let menuStyled = false;
+function injectMenuStyle() {
+  if (menuStyled) return;
+  menuStyled = true;
+  const el = document.createElement('style');
+  el.dataset.shellLevel = '';
+  el.textContent = `.hud-menu-text>span:first-child{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.hud-menu-lvl{--rc:var(--aegis);display:inline-flex;align-items:center;gap:5px;min-width:0;padding:1px 8px 1px 2px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;line-height:1.5;color:var(--rc);background:color-mix(in srgb,var(--rc) 10%,transparent);border:1px solid color-mix(in srgb,var(--rc) 45%,transparent);border-radius:999px}
+.hud-menu-lvl[hidden]{display:none}
+.hud-menu-lvl-n{display:grid;place-items:center;width:16px;height:17px;font-size:10px;letter-spacing:0;color:var(--bg);background:var(--rc);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.hud-menu-lvl-r{overflow:hidden;text-overflow:ellipsis}`;
+  (document.head || document.documentElement).appendChild(el);
 }
 
 // ------------------------------------------------------------------ Kabuk

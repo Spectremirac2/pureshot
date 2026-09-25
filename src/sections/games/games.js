@@ -4,9 +4,10 @@
 // Belge: docs/oyunlar/salon.md
 
 import './games.css';
-import { h, clear, fmtNum, ls, prefersReducedMotion } from '../../core/dom.js';
+import { h, clear, fmtNum, ls, prefersReducedMotion, timeAgo } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { store } from '../../core/store.js';
+import { history } from '../../core/history.js';
 import { sound } from '../../core/sound.js';
 import { artUrl } from '../../core/assets.js';
 import { NEW_GAME_IDS, BADGES, earnedSet, badgeProgress, badgeHref, ensureBadgeWatcher } from '../../core/badges.js';
@@ -68,10 +69,14 @@ const CAT_OF = {
   rune: ['refleks'],
   invoker: ['refleks'],
   hook: ['refleks'],
+  kurye: ['refleks'],
   hafiza: ['zihin'],
   portre: ['zihin'],
+  mayin: ['zihin'],
+  esya: ['zihin'],
   dogdle: ['gunluk', 'zihin'],
   bingo: ['yayin'],
+  maraton: ['yayin'],
 };
 function catsOf(meta) {
   if (CAT_OF[meta.id]) return CAT_OF[meta.id];
@@ -167,6 +172,7 @@ function createSalon(el, ctx) {
   const bestEls = []; // [{ meta, el, kind }]
   const cardEls = []; // [{ meta, el, key }]  (Arena hariç, görünür sıraya göre 1–9)
   let featureEl = null;
+  let gridEl = null;
   let badgesEl = null;
   let current = null; // { id, cleanup }
   let token = 0;
@@ -202,6 +208,10 @@ function createSalon(el, ctx) {
         b.el.classList.toggle('is-empty', !has);
         b.charge.textContent = has ? chargeText(b.meta, v) : '';
         b.el.title = `${b.meta.name}: ${has ? b.meta.format(v) : 'henüz oynamadın'}`;
+      } else if (b.kind === 'filler') {
+        const n = GAMES.filter((g) => typeof scores[g.id] === 'number').length;
+        b.charge.textContent = `${n}/${N}`;
+        b.paint();
       } else if (b.kind === 'aegis') {
         const n = GAMES.filter((g) => typeof scores[g.id] === 'number').length;
         b.el.classList.toggle('is-empty', n < N);
@@ -301,6 +311,51 @@ function createSalon(el, ctx) {
     linkTo(meta, a);
     cleanups.push(attachTilt(a, { max: 5 }));
     cardEls.push({ meta, el: a, key });
+    return a;
+  }
+
+  // ---------- rekor defteri kutucuğu (ızgaradaki boş hücreleri doldurur)
+  // Görünür kart sayısı sütun sayısına bölünmüyorsa son satırdaki boşluğu profilin rekor defterine
+  // bağlantıyla doldurur (3 sütunda 1 ya da 2 hücre, 2 sütunda 1 hücre; tek sütunda gizli). Bkz. applyFilter.
+  function recordsTile() {
+    const sum = h('strong', { class: 'num' });
+    const recent = h('ul', { class: 'gm-filler-list' });
+    const a = h('a', { class: 'gm-card gm-filler', href: '#profil--rekorlar', style: { '--gc': 'var(--aegis)' } },
+      h('div', { class: 'gm-card-top' },
+        h('span', { class: 'gm-slot', 'aria-hidden': 'true' }, icon('trophy', { size: 28 })),
+        h('div', { class: 'gm-card-titles' },
+          h('span', { class: 'gm-card-kind' }, 'Profil · Rekorlar'),
+          h('h2', { class: 'gm-card-name' }, 'Rekor defterin'),
+        ),
+      ),
+      h('p', { class: 'gm-card-desc' }, 'Bütün rekorların, son denemelerin ve gelişim çizgin tek sayfada. Seviyen ve günün görevleri de orada.'),
+      h('span', { class: 'gm-filler-k' }, 'Son oynadıkların'),
+      recent,
+      h('div', { class: 'gm-card-foot' },
+        h('span', { class: 'gm-card-best' }, sum, ' oyunda rekor'),
+        h('span', { class: 'gm-card-go' }, 'Profiline git', icon('arrowRight', { size: 16 })),
+      ),
+    );
+    a.addEventListener('click', () => sound.click());
+    const paint = () => {
+      // Son oynanan üç salon oyunu (deneme geçmişinden)
+      const all = history.all() || {};
+      const rows = GAMES.map((g) => {
+        const list = Array.isArray(all[g.id]) ? all[g.id] : [];
+        const last = list[list.length - 1];
+        return last && Number.isFinite(last.t) ? { g, t: last.t, s: last.s } : null;
+      }).filter(Boolean).sort((x, y) => y.t - x.t).slice(0, 3);
+      recent.replaceChildren(...(rows.length
+        ? rows.map(({ g, t, s: v }) => h('li', { class: 'gm-filler-row', style: { '--gc': g.color || 'var(--ember)' } },
+          h('span', { class: 'gm-filler-ico', 'aria-hidden': 'true' }, icon(g.icon, { size: 14 })),
+          h('span', { class: 'gm-filler-name' }, memeText(g.short || g.name)),
+          h('span', { class: 'gm-filler-v num' }, g.format(v)),
+          h('span', { class: 'gm-filler-t' }, timeAgo(t)),
+        ))
+        : [h('li', { class: 'gm-filler-none' }, 'Henüz deneme yok. Bir oyun seç, defter dolsun.')]));
+    };
+    bestEls.push({ meta: null, el: a, charge: sum, kind: 'filler', paint });
+    cleanups.push(history.subscribe(() => { if (!hub.hidden) paint(); }));
     return a;
   }
 
@@ -430,6 +485,11 @@ function createSalon(el, ctx) {
     }
     const empty = hub.querySelector('.gm-grid-empty');
     if (empty) empty.hidden = n > 0 || (featureEl && !featureEl.hidden);
+    // Son satırdaki boş hücre sayısı (Arena afişi tam satırdır): rekor defteri kutucuğu CSS'te buna göre görünür
+    if (gridEl) {
+      gridEl.dataset.r3 = String(n % 3);
+      gridEl.dataset.r2 = String(n % 2);
+    }
   }
 
   function visibleCards() {
@@ -589,9 +649,11 @@ function createSalon(el, ctx) {
       if (unLb) unLb();
       clear(host);
       const m = byId(id);
+      host.style.setProperty('--gc', m.color || 'var(--ember)');
       unLb = mountLeaderboard(host, {
         gameId: m.id,
         title: `${m.name} · ilk 10`,
+        personalTitle: m.name,
         higherIsBetter: m.higherIsBetter !== false,
         format: m.format,
       });
@@ -600,11 +662,17 @@ function createSalon(el, ctx) {
     select(sel, false);
     requestAnimationFrame(() => { const b = btns.find((x) => x.getAttribute('aria-selected') === 'true'); if (b) reveal(b, false); edges(); });
     cleanups.push(() => unLb && unLb());
+    // Statik yayında (veriler yalnızca bu tarayıcıda) tablo kişisel rekor defterine dönüşür: başlık da öyle
+    const eyebrow = h('span', { class: 'eyebrow' }, 'Canlı');
+    const title = h('h2', { class: 'h2', id: 'gm-boards-title' }, 'Salon tablosu');
+    const applyMode = () => {
+      if (store.shared) return;
+      eyebrow.textContent = 'Kişisel · son denemeler';
+      title.textContent = 'Rekor defterin';
+    };
+    if (store.mode) applyMode(); else store.ready.then(applyMode);
     return h('section', { class: 'panel gm-boards', 'aria-labelledby': 'gm-boards-title' },
-      h('div', { class: 'gm-block-head' },
-        h('span', { class: 'eyebrow' }, 'Canlı'),
-        h('h2', { class: 'h2', id: 'gm-boards-title' }, 'Salon tablosu'),
-      ),
+      h('div', { class: 'gm-block-head' }, eyebrow, title),
       strip,
       host,
     );
@@ -612,20 +680,25 @@ function createSalon(el, ctx) {
 
   function buildHub() {
     const N = GAMES.length;
+    // Statik yayında tablo yerine kişisel rekor defteri var (bkz. boards)
+    const leadTail = h('span', null, 'En iyi skorların profiline yazılır, salonun tablosunda parlar.');
+    const personalLead = () => { if (!store.shared) leadTail.textContent = 'En iyi skorların profiline yazılır, her denemen rekor defterinde birikir.'; };
+    if (store.mode) personalLead(); else store.ready.then(personalLead);
     const head = h('header', { class: 'gm-head' },
       h('div', { class: 'section-head gm-head-text' },
         h('span', { class: 'eyebrow' }, 'W · Mini Oyunlar'),
         h('h1', { class: 'h1' }, 'Oyun ', h('em', null, 'Salonu')),
-        h('p', { class: 'lead' }, `${cap(sayi(N))} mini oyun, tek görev: DOG’ları ayıkla, carry’ni koru, `, h('span', { class: 'meme' }, '1vDOQUZ'), ' ol. En iyi skorların profiline yazılır, salonun tablosunda parlar.'),
+        h('p', { class: 'lead' }, `${cap(sayi(N))} mini oyun, tek görev: DOG’ları ayıkla, carry’ni koru, `, h('span', { class: 'meme' }, '1vDOQUZ'), ' ol. ', leadTail),
         dailyCard(),
       ),
       inventory(),
     );
 
     featureEl = featureCard();
-    const grid = h('div', { class: 'gm-grid' },
+    gridEl = h('div', { class: 'gm-grid' },
       featureEl,
       GAMES.slice(1).map((m) => gameCard(m)),
+      recordsTile(),
       h('p', { class: 'empty gm-grid-empty', hidden: true }, 'Bu kategoride oyun yok. Başka bir kategori seç.'),
     );
 
@@ -634,7 +707,7 @@ function createSalon(el, ctx) {
       boards(),
       h('section', { class: 'panel gm-chat' }, chatHost),
     );
-    hub.append(head, h('div', { class: 'gm-games' }, toolbar(), grid), badgesPanel(), lower);
+    hub.append(head, h('div', { class: 'gm-games' }, toolbar(), gridEl), badgesPanel(), lower);
     cleanups.push(mountComments(chatHost, { threadId: 'games', title: 'Oyun Salonu Sohbeti', placeholder: 'Skorunla övün ya da DOG’ları ifşa et…' }));
     applyFilter();
     refreshBest();
