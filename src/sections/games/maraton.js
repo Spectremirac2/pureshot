@@ -720,7 +720,7 @@ export function mount(el, ctx, nav) {
     logList.appendChild(li);
     logBox.classList.add('has');
     while (logList.children.length > 36) logList.firstChild.remove();
-    li.scrollIntoView?.({ block: 'nearest', inline: 'end' });
+    logList.scrollLeft = logList.scrollWidth; // yalnızca yatay: sayfa kaymasın
   }
 
   // ---------------------------------------------------------------- aksiyon
@@ -744,10 +744,9 @@ export function mount(el, ctx, nav) {
     actions.hidden = true;
     const s = sim.s;
     const choiceBtns = ev.choices.map((c, i) => {
-      const fx = c.chance != null ? { ...(c.ok.fx || {}) } : c.fx || {};
       const chips = c.chance != null
         ? [h('span', { class: 'gm-mr-chip is-risk' }, `Risk · %${Math.round(c.chance * 100)} şans`)]
-        : fxChips(fx);
+        : fxChips(c.fx || {});
       const b = h('button', { class: 'gm-mr-choice', type: 'button', dataset: { i: String(i) } },
         h('span', { class: 'kbd gm-mr-choice-key' }, String(i + 1)),
         h('span', { class: 'gm-mr-choice-body' },

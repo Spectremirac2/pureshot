@@ -443,6 +443,13 @@ export function mount(el, ctx, nav) {
       later(() => { if (state === 'won') showWin(); }, slideMs + 380);
       return;
     }
+    if (!canMove(g.cells) && g.undo > 0 && g.prev) {
+      // Son şans: geri al hakkı varken oyun hemen bitmez
+      setMsg('Hamle kalmadı! Son hamleyi geri al (U) ya da Bitir’e bas.', 'bad');
+      say('Hamle kalmadı. Geri al ya da bitir.');
+      if (!reduced) restart(undoBtn, 'gm-es-pulse');
+      return;
+    }
     if (!canMove(g.cells)) {
       state = 'over';
       field.dataset.state = 'over';
@@ -571,6 +578,7 @@ export function mount(el, ctx, nav) {
   endBtn.addEventListener('click', async () => {
     if (state !== 'play') return;
     ctx.sound.click();
+    if (!canMove(g.cells)) { finish('full'); return; }
     const ok = await ctx.fx.confirm(`Oyun bitsin mi? ${fmtNum(g.score)} puanın kaydedilir.`, { ok: 'Bitir', cancel: 'Devam' });
     if (ok && state === 'play') finish('quit');
   });
@@ -619,6 +627,11 @@ export function mount(el, ctx, nav) {
     setMsg(g.moves ? 'Kaldığın yerden devam. Büyük eşyayı köşede tut.' : 'Kaydır: aynı iki eşya birleşir.', 'dim');
     play();
     ctx.sound.whoosh();
+    // Kayıtlı tahtada hamle kalmadıysa (ör. bitişten hemen önce sayfa yenilendi) sonucu göster
+    if (!canMove(g.cells)) {
+      state = 'over';
+      later(() => { if (state === 'over') finish('full'); }, 300);
+    }
   }
 
   function restoreHotkeys() {
@@ -649,6 +662,7 @@ export function mount(el, ctx, nav) {
       ctx.sound.click();
       g.cont = true;
       save();
+      if (!canMove(g.cells)) { finish('win'); return; }
       play();
       setMsg('Rapier elinde, hedef Aegis (4096). Sakın ölme!', 'good');
     });

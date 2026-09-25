@@ -13,6 +13,7 @@
     "fetch:heroes": "node scripts/fetch-hero-images.mjs",
     "fetch:abilities": "node scripts/fetch-abilities.mjs",
     "fetch:game-icons": "node scripts/fetch-ability-icons.mjs",
+    "fetch:items": "node scripts/fetch-item-icons.mjs",
     "optimize:assets": "node scripts/optimize-assets.mjs",
     "build:fonts": "node scripts/subset-fonts.mjs",
     "build:atlas": "node scripts/build-hero-atlas.mjs",
