@@ -21,7 +21,7 @@ mkdirSync(OUT, { recursive: true });
 
 const GLB_TEXTURE_SIZE = '768';
 // Ekranda küçük görünen birimler (creep'ler, kurye) 512² dokuyla yeterince net; ~%25 daha küçük dosya
-const glbTextureSize = (file) => (/^model-(creep-|courier)/.test(file.split('/').pop()) ? '512' : GLB_TEXTURE_SIZE);
+const glbTextureSize = (file) => (/^model-(creep-|neutral-|courier)/.test(file.split('/').pop()) ? '512' : GLB_TEXTURE_SIZE);
 const rules = [
   { test: /^hero-keyart/, width: 2400, quality: 78 },
   { test: /^poster-/, width: 1600, quality: 80 },

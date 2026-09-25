@@ -83,21 +83,20 @@ export function thinkDog(d, g, dt) {
     return wd < 0.4 ? { mx: 0, mz: 0, spd: 0 } : { mx: wx, mz: wz, spd: d.speed * 0.45 };
   }
 
-  if (d.stun > 0) {
-    d.stun -= dt;
+  const st = d.st;
+  if (st.stun > 0) {
     d.status = 'stun';
     d.canBite = false;
     return { mx: 0, mz: 0, spd: 0 };
   }
-  if (d.root > 0) {
+  if (st.root > 0) {
     // Buz Zinciri: yürüyemez, ısıramaz
     d.status = 'frozen';
     d.canBite = false;
     d.windup = 0;
     return { mx: 0, mz: 0, spd: 0 };
   }
-  if (d.fear > 0) {
-    d.fear -= dt;
+  if (st.fear > 0) {
     d.status = 'fear';
     d.canBite = false;
     return { mx: -ux, mz: -uz, spd: d.speed * 1.05 };
@@ -124,7 +123,7 @@ export function thinkDog(d, g, dt) {
     return { mx: tx - tz * zz, mz: tz + tx * zz, spd: d.speed * 1.05 };
   }
   // Savaş Çağrısı: özel durumları unut, doğrudan Balta'ya
-  if (d.taunt > 0) {
+  if (st.taunt > 0) {
     d.status = 'taunt';
     if (d.state === 'afk' || d.state === 'farm' || d.state === 'flee' || d.state === 'guard' || d.state === 'paused' || d.state === 'tele') d.state = d.type === 'mid' ? 'chase' : 'go';
     d.canBite = true;
@@ -344,7 +343,7 @@ export function thinkDog(d, g, dt) {
 /** Isırma: kısa bir hazırlık (telgraf), sonra menzildeyse hasar. */
 export function tryBite(d, g, dt) {
   if (d.attackCd > 0) d.attackCd -= dt;
-  if (d.root > 0 || d.stun > 0) { d.windup = 0; return false; }
+  if (d.st.root > 0 || d.st.stun > 0 || d.st.fear > 0) { d.windup = 0; return false; }
   if (d.windup > 0) {
     d.windup -= dt;
     if (d.windup <= 0) {

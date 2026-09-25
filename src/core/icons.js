@@ -88,6 +88,18 @@ const P = {
   moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
   // Rozetler (2. tur): Black King Bar — taçlı asa
   bkb: '<path d="M8 9.5L7 4l3 2.5L12 3l2 3.5L17 4l-1 5.5z"/><path d="M12 9.5V21"/><path d="M9.5 13.5h5M10 21h4"/>',
+  // Galeri · Salon II (Arena eserleri): çift ağızlı balta, kar tanesi, ikiz hançer, çivili sopa,
+  // küreli asa, boynuzlu canavar, Radiant kulesi, dikenli Dire kulesi, tam ekran aç/kapat
+  axe: '<path d="M12 3v18M10.5 21h3"/><path d="M12 5.5C8.6 4 5.2 5.4 4 9.5c1.2 4 4.6 5.4 8 4"/><path d="M12 5.5c3.4-1.5 6.8-.1 8 4-1.2 4-4.6 5.4-8 4"/>',
+  frost: '<path d="M12 2.5v19M3.8 7.3l16.4 9.5M3.8 16.8l16.4-9.6"/><path d="M10 3.8l2 2 2-2M3.9 9.6l2.7-.7-.7-2.7M5.9 17.8l.7-2.7-2.7-.7M14 20.2l-2-2-2 2M20.1 14.4l-2.7.7.7 2.7M18.1 6.2l-.7 2.7 2.7.7"/>',
+  daggers: '<g transform="rotate(-14 7 12)"><path d="M7 2.5l1.6 10H5.4z"/><path d="M4.4 12.5h5.2M7 12.5v6"/><circle cx="7" cy="19.8" r="1"/></g><g transform="rotate(14 17 12)"><path d="M17 2.5l1.6 10h-3.2z"/><path d="M14.4 12.5h5.2M17 12.5v6"/><circle cx="17" cy="19.8" r="1"/></g>',
+  club: '<path d="M4.5 20.5l7.3-7.3"/><path d="M11.4 13.6a4.3 4.3 0 106.1-6.1 4.3 4.3 0 00-6.1 6.1z"/><path d="M13 5.3l-.6-2.3M18.7 11l2.3.6M17.8 5.9l1.9-1.4M10.5 8.8L8.3 8.1M15.4 15.6l.6 2.2"/>',
+  staff: '<path d="M6.5 21.5l7.6-12.3"/><circle cx="16.3" cy="6.2" r="2.8"/><path d="M13 7.6c-1-1.8-.6-3.9 1-5.1M19.6 4.8c1 1.8.6 3.9-1 5.1"/><path d="M4.5 18l3 1.8"/>',
+  beast: '<path d="M7 10.5C7 7.5 9.2 6 12 6s5 1.5 5 4.5v3.2c0 3.3-2.3 6.3-5 6.3s-5-3-5-6.3z"/><path d="M7.4 9C4.6 8.4 3 6.2 3.2 3.5c1.3 1.2 2.9 1.8 4.9 2M16.6 9c2.8-.6 4.4-2.8 4.2-5.5-1.3 1.2-2.9 1.8-4.9 2"/><path d="M9.3 11.3l1.8.9M14.7 11.3l-1.8.9"/><path d="M10.3 16.2l.5 1.6M13.7 16.2l-.5 1.6M10 15.8h4"/>',
+  tower: '<path d="M7.5 21V11h9v10"/><path d="M5.5 21h13"/><path d="M6.5 11h11l-1-3.2h-9z"/><path d="M8.5 7.8V6.4M12 7.8V6.4M15.5 7.8V6.4"/><path d="M12 1.6l1.6 2.2L12 6 10.4 3.8z"/><path d="M10.5 21v-3.2a1.5 1.5 0 013 0V21"/>',
+  towerDire: '<path d="M7.5 21l1-10h7l1 10"/><path d="M5.5 21h13"/><path d="M8.5 11L5 7.2M15.5 11L19 7.2M10.5 11l-.9-4.3M13.5 11l.9-4.3"/><path d="M12 1.8l1.7 2.4L12 6.6l-1.7-2.4z"/><path d="M6.4 15.4L3.8 14M17.6 15.4l2.6-1.4"/><path d="M10.6 21v-3a1.4 1.4 0 012.8 0v3"/>',
+  expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

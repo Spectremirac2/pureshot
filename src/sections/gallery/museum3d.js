@@ -1,16 +1,21 @@
 // 3D Müze: karanlık salon, taş kaide, spot ışık, yansıyan zemin, kor tozları.
+// İki salon, 12 eser: Salon I · Efsaneler (3) ve Salon II · Arena (9). Salon sekmeleri, eser slotları,
+// sahnedeki önceki/sonraki okları, klavye (← →) ve tam ekran ile gezilir.
 // fal.ai (Trellis 2) GLB modeli varsa onu, yoksa exhibits.js'teki prosedürel versiyonu sergiler.
-// WebGL yoksa 2D yedek (portre/afiş) gösterir. mountMuseum(el, ctx) → temizlik fonksiyonu.
+// Bellek: yalnızca sergilenen eser ve iki komşusu yüklü tutulur (modelpool.js); uzaklaşanlar serbest bırakılır.
+// WebGL yoksa 2D yedek (portre/afiş ya da ikonlu kart) gösterir. mountMuseum(el, ctx) → temizlik fonksiyonu.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { h, clear, append, fmtNum, ls, clamp, prefersReducedMotion } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
-import { art, modelAvailable, fetchModel } from './sources.js';
+import { art, modelAvailable } from './sources.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { byId } from '../../data/archetypes.js';
 import { EXHIBITS, buildExhibit, stoneTexture } from './exhibits.js';
+import { WINGS, wingOf, TOTAL_NO } from './exhibit-data.js';
+import { createModelPool } from './modelpool.js';
 import { likeTracker, likesLocalOnly } from './likes.js';
 
 const THEMES = [
@@ -111,13 +116,16 @@ function tileTexture() {
   return t;
 }
 
-function bannerTexture(pal) {
+/** Salon sancağı. kind: 'dog' (Salon I, pati arması) | 'radiant' (yeşim, kule) | 'dire' (kızıl, boynuzlar) */
+function bannerTexture(pal, kind = 'dog') {
+  const top = kind === 'radiant' ? '#1c6b50' : pal.direDeep;
+  const bottom = kind === 'radiant' ? '#0b2a22' : '#2a0a12';
   return canvasTex(128, 384, (g) => {
     g.beginPath();
     g.moveTo(10, 0); g.lineTo(118, 0); g.lineTo(118, 384); g.lineTo(64, 326); g.lineTo(10, 384); g.closePath();
     const grd = g.createLinearGradient(0, 0, 0, 384);
-    grd.addColorStop(0, pal.direDeep);
-    grd.addColorStop(1, '#2a0a12');
+    grd.addColorStop(0, top);
+    grd.addColorStop(1, bottom);
     g.fillStyle = grd;
     g.fill();
     g.save();
@@ -128,11 +136,45 @@ function bannerTexture(pal) {
     g.restore();
     g.fillStyle = pal.aegis;
     g.fillRect(10, 26, 108, 6);
-    // pati arması
-    g.beginPath(); g.ellipse(64, 176, 24, 20, 0, 0, Math.PI * 2); g.fill();
-    for (const [x, y] of [[36, 146], [53, 130], [75, 130], [92, 146]]) { g.beginPath(); g.ellipse(x, y, 9, 11, 0, 0, Math.PI * 2); g.fill(); }
+    if (kind === 'radiant') {
+      // kule + kristal
+      g.fillRect(48, 150, 32, 58);
+      g.fillRect(40, 140, 48, 12);
+      g.fillRect(34, 206, 60, 8);
+      g.beginPath(); g.moveTo(64, 96); g.lineTo(76, 116); g.lineTo(64, 136); g.lineTo(52, 116); g.closePath();
+      g.fillStyle = pal.radiant;
+      g.fill();
+    } else if (kind === 'dire') {
+      // boynuzlu kafatası
+      g.beginPath(); g.ellipse(64, 172, 26, 24, 0, 0, Math.PI * 2); g.fill();
+      g.fillRect(50, 186, 28, 22);
+      g.beginPath(); g.moveTo(42, 160); g.quadraticCurveTo(22, 140, 26, 110); g.quadraticCurveTo(36, 138, 52, 150); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(86, 160); g.quadraticCurveTo(106, 140, 102, 110); g.quadraticCurveTo(92, 138, 76, 150); g.closePath(); g.fill();
+      g.fillStyle = bottom;
+      g.beginPath(); g.ellipse(54, 172, 7, 8, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(74, 172, 7, 8, 0, 0, Math.PI * 2); g.fill();
+      g.fillRect(58, 192, 4, 14); g.fillRect(66, 192, 4, 14);
+    } else {
+      // pati arması
+      g.beginPath(); g.ellipse(64, 176, 24, 20, 0, 0, Math.PI * 2); g.fill();
+      for (const [x, y] of [[36, 146], [53, 130], [75, 130], [92, 146]]) { g.beginPath(); g.ellipse(x, y, 9, 11, 0, 0, Math.PI * 2); g.fill(); }
+    }
   });
 }
+
+/** 2D yedek için ikonlu kart (WebGL yok ve eserin portresi/afişi de yoksa). */
+function iconCard(ex, pal) {
+  const svg = icon(ex.icon, { size: 220, stroke: 1.4 });
+  svg.setAttribute('x', '146');
+  svg.setAttribute('y', '120');
+  svg.setAttribute('stroke', pal.aegis2);
+  const inner = new XMLSerializer().serializeToString(svg);
+  const name = ex.name.toLocaleUpperCase('tr-TR').replace(/[<&>]/g, '');
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><radialGradient id="g" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${pal.bg4}"/><stop offset="1" stop-color="${pal.bg}"/></radialGradient></defs><rect width="512" height="512" fill="url(#g)"/><rect x="18" y="18" width="476" height="476" fill="none" stroke="${pal.aegis}" stroke-opacity=".6" stroke-width="3"/>${inner}<text x="256" y="420" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="700" font-size="34" fill="${pal.aegis}">${name}</text><text x="256" y="456" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="18" fill="${pal.text}" fill-opacity=".7">ESER NO. ${ex.no}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(doc);
+}
+
+const fmtKB = (bytes) => `${fmtNum(Math.round(bytes / 1024))} KB`;
 
 function meshStats(obj) {
   let tris = 0, verts = 0, meshes = 0;
@@ -162,7 +204,7 @@ function meshStats(obj) {
 function disposeTree(root) {
   const geos = new Set(), mats = new Set();
   const walk = (o) => {
-    if (o.userData && o.userData.shared) return; // fal modeli: önbellekteki kaynaklar paylaşımlı
+    if (o.userData && o.userData.pooled) return; // fal modeli: kaynaklar model havuzuna ait (modelpool.trim bırakır)
     if (o.geometry) geos.add(o.geometry);
     if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => mats.add(m));
     for (const c of o.children) walk(c);

@@ -213,5 +213,77 @@
     "request_id": "01a0dadd-fe76-7fc2-ac29-28534e294d6e",
     "url": "https://v3b.fal.media/files/b/0aabe697/e0kKZrrEFDmDKw4k0QEjE_trellis2_86f7ea7849424a40a6e961a539962ba0.glb",
     "source": "src3d-courier"
+  },
+  "src3d-neutral-wolf": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dae9-1588-7222-8588-bce7b110c53f",
+    "url": "https://v3b.fal.media/files/b/0aabe6d6/In16BSP3GkAz3AGlzBBEl_9AhIqayz.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-neutral-harpy": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dae9-2147-7ed0-9b11-088101de4d54",
+    "url": "https://v3b.fal.media/files/b/0aabe6d6/qptrUkWn7J3RKAAHIwiI9_hXo1zYQq.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-boss-general": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dae9-2eba-79c3-b82f-722a868ef500",
+    "url": "https://v3b.fal.media/files/b/0aabe6d7/rrLc22ebTA5dps7lpoGnm_wqJCD3mY.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-boss-ancient": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dae9-3c16-7161-8366-7f4c82c2003c",
+    "url": "https://v3b.fal.media/files/b/0aabe6d7/PeAwZOfyG6t84x4HeA0sx_ANnYSVPq.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-hero-storm": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dae9-499b-72c1-b712-94edeb241720",
+    "url": "https://v3b.fal.media/files/b/0aabe6d7/2Vx3yinv4CPFxMyLyFIf__PIdsDN0x.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "src3d-hero-treant": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0daea-922f-7950-be24-df16e11a17ee",
+    "url": "https://v3b.fal.media/files/b/0aabe6e0/EmWPxTJwDvw7lk5leB4ts_bDi2EKsR.png",
+    "note": "Stil referansı: src3d-archer; 1K, 1:1"
+  },
+  "model-neutral-wolf": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daea-9677-75f2-85c8-26ca0800e604",
+    "url": "https://v3b.fal.media/files/b/0aabe6e1/AXcaygIDul486QnmkPP5h_trellis2_8e24608156d34480906c9f08fbc50436.glb",
+    "source": "src3d-neutral-wolf"
+  },
+  "model-neutral-harpy": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daea-9b15-7573-b920-2f0eb65b82aa",
+    "url": "https://v3b.fal.media/files/b/0aabe6e3/3FXW3LL-SGWKiOiuO8jAI_trellis2_a64a1da5e124494d8b4de7f826dd0d29.glb",
+    "source": "src3d-neutral-harpy"
+  },
+  "model-boss-general": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daea-9f4d-7020-a6bd-25f7779629eb",
+    "url": "https://v3b.fal.media/files/b/0aabe6e6/3s4umKDcj5EvPNUWBT5EK_trellis2_1103de0f8b8b46f88fb30dda0f524307.glb",
+    "source": "src3d-boss-general"
+  },
+  "model-boss-ancient": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daea-a349-7aa1-9dfb-b5a1e5433e55",
+    "url": "https://v3b.fal.media/files/b/0aabe6e8/y3H64mkIteZXizmEJ-E9Z_trellis2_a1762ea358384b5d9ef04b42bb20d60f.glb",
+    "source": "src3d-boss-ancient"
+  },
+  "model-hero-storm": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daea-a737-78b0-a7ee-6556c7661df0",
+    "url": "https://v3b.fal.media/files/b/0aabe6ea/sSID6OUlSHmbjOpdCToyR_trellis2_9acf12495a7d4f4ba9515c2b451c23ae.glb",
+    "source": "src3d-hero-storm"
+  },
+  "model-hero-treant": {
+    "endpoint": "fal-ai/trellis-2",
+    "request_id": "01a0daed-3e97-7191-a4ac-a2e93c6956a9",
+    "url": null,
+    "source": "src3d-hero-treant"
   }
 }
