@@ -460,7 +460,20 @@ açar; ilk ziyaret turu sabit 2,5 sn yerine tur kartını bekler.
 
 ### Sonuçlar
 
-TEST_RESULTS_PLACEHOLDER
+Tümü `HEAD` üzerinde, düzenek düzeltmeleriyle; tek şerit (iki paralel yazılımsal WebGL koşusu zaman aşımına yol açıyor).
+
+- **Node:** `story.test` 62/62, `progression.test` 17/17, `scenario` tümü geçti, `variants` 18/18 varyant (0 istisna).
+- **Görev simülasyonu** (faz D’nin görev bilen botu, 6 kahraman × 15 görev × 2): 174/180 zafer; en zoru s2m3 Gölge
+  Ulusu (9/12) ve final s5m3 (11/12). Rastgele girdili bulanık test: 0 istisna.
+- **Playwright Arena:** hikâye masaüstü 59/59, mobil 58/58; dokunmatik HUD 390 ve 844 px 11/11; uç durumlar 37/37 ve
+  36/36; 2D yedek 11/11 (iki görünüm); erişilebilirlik 21/21; yaşam döngüsü (5× gir-çık, sızıntı yok) 9/9; rastgele
+  8/8; yatay telefon 844/667/740 px 10/10.
+- **Faz B kahraman matrisi:** MATRIX_PLACEHOLDER
+- **Tüm site duman testi** (`build:static` + `vite preview`, 1440×900 ve 390×844 dokunmatik): tüm rotalar, 14 oyun,
+  quizler, galeri (Arena Hikâyesi 10/10 görsel), müze (Salon III 6/6 eser Arena’da), ilk giriş turu, yardım paneli —
+  konsol hatası 0, başarısız istek 0, sayfa taşması 0, içerik kırpması 0, kırık görsel 0 (3 süs kırpması kasıtlı).
+- **Canlı:** LIVE_PLACEHOLDER
+- **Derleme:** `VITE_API_BASE=none vite build` ✓, `vite build --mode artifact` ✓.
 
 ## Hikâye ve ilerleme ajanlarına notlar
 - Görevler `g.start({ mode: 'story', heroId, mission: { waves, objectives, victory, failOnObjective }, modifiers })`

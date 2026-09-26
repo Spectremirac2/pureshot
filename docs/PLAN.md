@@ -110,8 +110,18 @@ ilerlemesi olan bir aksiyon-RPG’ye dönüştü.
 - **Hikâye ve modlar (D):** “Dokuzun Laneti” — 5 bölüm, 15 görev, Kurye anlatıcı, diyalog kartları, yıldızlar, final;
   mod merkezi (Hikâye / Sonsuz / Günlük / Kütüphane / Kodeks), günlük meydan okuma → [oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md).
 - **Görseller (E):** 6 yeni 3D model; galeride “Arena Hikâyesi” grubu (5 bölüm afişi + 5 boss portresi), 3D Müze Salon III.
-- **QA (F):** 13 hata düzeltildi (mobilde +N düğmesinin portreyi örtmesi, dükkân orman yuvası kırpılması, diyalogda
+- **QA (F):** 15 hata düzeltildi (13 Arena + 2 site: Espri Duvarı kart kırpması, yatay telefonda HUD saati; mobilde +N düğmesinin portreyi örtmesi, dükkân orman yuvası kırpılması, diyalogda
   duraklatma, diyalog yarışı, bölümden çıkınca açık kalan pencere, kilitli görevin geri yüklenmesi, yatay telefon ve dar
   pencere HUD’u, library.js’in her açılışta inmesi …) → [oyunlar/arena.md → Test notları (faz F)](oyunlar/arena.md#test-notları-faz-f).
 
-PLAN_TEST_PLACEHOLDER
+**Testler (faz F sonu, `HEAD` üzerinde):**
+
+| Takım | Sonuç |
+|---|---|
+| Node: hikâye / ilerleme / senaryo / varyant | 62/62 · 17/17 · senaryo tümü · 18 varyant, 0 istisna |
+| Görev simülasyonu (görev bilen bot, 6 kahraman × 15 görev × 2) | 174/180 zafer; bulanık test 0 istisna |
+| Playwright Arena (1440×900 + 390×844 dokunmatik) | hikâye 59/59 + 58/58, dokunmatik HUD 11/11 ×2, uç durumlar 37/37 + 36/36, 2D yedek 11/11 ×2, erişilebilirlik 21/21, yaşam döngüsü 9/9, rastgele 8/8, yatay telefon 10/10 ×3 |
+| Faz B kahraman matrisi (6 kahraman × masaüstü + mobil) | MATRIX_PLACEHOLDER |
+| Tüm site duman testi (tüm rotalar, 14 oyun, quizler, galeri, müze, tur) | masaüstü + mobil: konsol hatası 0, başarısız istek 0, sayfa taşması 0, içerik kırpması 0, kırık görsel 0 |
+| Canlı (https://cureshot-dog.netlify.app) | LIVE_PLACEHOLDER |
+| Derleme | `build:static` ✓, `build` (Artifact) ✓ |
