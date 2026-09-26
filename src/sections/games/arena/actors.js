@@ -1311,7 +1311,7 @@ export class TowerRig {
     this.base.position.y = 0.04;
     this.base.scale.setScalar(2.2);
     this.root.add(this.base);
-    this.bar = new HpBar(kit, { w: 1.6, h: 0.14, color: tower.side === 'radiant' ? '#43d6a0' : '#e0354b' });
+    this.bar = new HpBar(kit, { w: 1.5, h: 0.16, color: tower.side === 'radiant' ? '#43d6a0' : '#e0354b' });
     this.barGroup = this.bar.group;
     this.barGroup.position.set(tower.x, 4.1, tower.z);
     if (tower.side === 'dire') {

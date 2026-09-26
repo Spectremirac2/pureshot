@@ -503,7 +503,7 @@ export function createGame(emit, config = {}) {
     }
     let a = amount;
     if (type === DMG.MAG && p.bkb > 0) a *= 0.4;
-    if (type !== DMG.PURE) a *= (1 - g.stat.armor) * (p.callArmor > 0 ? 0.65 : 1);
+    if (type !== DMG.PURE) a *= (1 - g.stat.armor) * (p.callArmor > 0 ? 0.6 : 1);
     a = Math.max(1, Math.round(a));
     p.hp -= a;
     p.hurtT = 0.35;
@@ -1197,7 +1197,7 @@ export function createGame(emit, config = {}) {
     g.player.face = Math.PI * 0.15;
     g.emit('reset', {});
     ['feed', 'farm', 'chat', 'rapier', 'kurye'].forEach((t, i) => {
-      const a = (i / 5) * Math.PI * 2 + 0.4;
+      const a = Math.PI * (0.62 + i * 0.19);
       const d = makeDog(t, { x: Math.sin(a) * 7, z: Math.cos(a) * 7, demo: true });
       g.foes.push(d);
       g.emit('spawn', { foe: d, dog: d, quiet: true });

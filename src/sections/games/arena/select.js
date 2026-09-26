@@ -137,6 +137,7 @@ export function buildSelect(opts) {
       ),
       h('p', { class: 'ar-sel-story small' }, 'Radiant tarafında tek başınasın: dokuz DOG, Dire creep’leri, kuleler ve her 5. dalgada Roshan. Altın topla, eşya al, seviye atla. ', h('b', null, 'DOG DOG DOG.')),
       heroList,
+      h('div', { class: 'ar-start-cta' }, startBtn, bestTxt),
       h('div', { class: 'ar-sel-detail' },
         h('div', { class: 'ar-sel-namebox' }, emblem, h('div', null, name, title)),
         blurb,
@@ -145,7 +146,6 @@ export function buildSelect(opts) {
         tip,
         aghs,
       ),
-      h('div', { class: 'ar-start-cta' }, startBtn, bestTxt),
       opts.extras ? h('details', { class: 'ar-sel-more' }, h('summary', null, icon('keyboard', { size: 16 }), 'Kontroller ve ayarlar'), ...opts.extras) : null,
     ),
   );

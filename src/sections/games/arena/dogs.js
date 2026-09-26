@@ -74,8 +74,9 @@ export function thinkDog(d, g, dt) {
   if (g.state === 'idle' || g.state === 'over') {
     d.t -= dt;
     if (d.t <= 0 || d.tx == null) {
-      const a = Math.random() * Math.PI * 2;
-      const rr = 3 + Math.random() * (R - 5);
+      // tanıtımda köpekler kahramanın arkasında dolaşsın (seçim ekranı yakın planı kapanmasın)
+      const a = d.demo ? Math.PI * (0.6 + Math.random() * 0.8) : Math.random() * Math.PI * 2;
+      const rr = d.demo ? 4.5 + Math.random() * (R - 7) : 3 + Math.random() * (R - 5);
       d.tx = Math.sin(a) * rr;
       d.tz = Math.cos(a) * rr;
       d.t = 2 + Math.random() * 3;

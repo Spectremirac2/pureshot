@@ -205,6 +205,67 @@ export const sound = {
     tone({ type: 'sine', from: 140, to: 50, dur: 0.22, vol: 0.4 });
     noise({ dur: 0.06, vol: 0.25, freq: 1800, q: 0.9 });
   },
+
+  // ---- 1vDOQUZ Arena 2.0: yalnızca eklendi, yukarıdaki seslere dokunulmadı
+  /** Spiker borusu (FIRST BLOOD, Roshan, kule): iki katlı pirinç akor. p: perde çarpanı */
+  horn(p = 1) {
+    [220, 277, 330].forEach((f, i) => tone({ type: 'sawtooth', from: f * p, to: f * p * 1.01, dur: 0.55, vol: 0.07, delay: i * 0.02, attack: 0.04 }));
+    tone({ type: 'sine', from: 110 * p, to: 108 * p, dur: 0.6, vol: 0.18, attack: 0.03 });
+  },
+  /** Roshan kükremesi / Savaş Çağrısı: alçak gürleme + hırıltı. */
+  roar(p = 1) {
+    tone({ type: 'sawtooth', from: 120 * p, to: 55 * p, dur: 0.7, vol: 0.2, attack: 0.05 });
+    noise({ dur: 0.7, vol: 0.28, freq: 380 * p, sweepTo: 140 * p, q: 1.2, type: 'bandpass' });
+  },
+  /** Yere vuruş (Roshan, kule yıkımı). */
+  slam(k = 1) {
+    tone({ type: 'sine', from: 90, to: 30, dur: 0.45, vol: 0.55 * k });
+    noise({ dur: 0.35, vol: 0.4 * k, freq: 220, type: 'lowpass' });
+  },
+  /** Buz: çıtırtılı parıltı. */
+  freeze(k = 1) {
+    noise({ dur: 0.28, vol: 0.18 * k, freq: 5200, sweepTo: 2600, q: 3 });
+    tone({ type: 'triangle', from: 1760, to: 2640, dur: 0.18, vol: 0.06 * k });
+  },
+  /** Kritik vuruş / hançer. */
+  slash() {
+    noise({ dur: 0.16, vol: 0.3, freq: 3400, sweepTo: 900, q: 1.6 });
+    tone({ type: 'square', from: 660, to: 220, dur: 0.1, vol: 0.06 });
+  },
+  /** Helezon dönüşü. */
+  spin() { noise({ dur: 0.38, vol: 0.26, freq: 600, sweepTo: 2400, q: 1.1 }); },
+  /** Işınlanma (Göz Açıp Kapayana, Gölge Adımı). */
+  blink() {
+    tone({ type: 'sine', from: 1400, to: 300, dur: 0.16, vol: 0.12 });
+    tone({ type: 'sine', from: 300, to: 1600, dur: 0.14, vol: 0.08, delay: 0.1 });
+  },
+  /** Kurye kanat çırpışı + zil. */
+  courier(p = 1) {
+    noise({ dur: 0.1, vol: 0.12, freq: 900, q: 0.8 });
+    noise({ dur: 0.1, vol: 0.12, freq: 900, q: 0.8, delay: 0.12 });
+    tone({ type: 'triangle', from: 1320 * p, dur: 0.12, vol: 0.08, delay: 0.2 });
+  },
+  /** Dükkân: kasa. */
+  buy() {
+    tone({ type: 'square', from: 1175, dur: 0.05, vol: 0.08 });
+    tone({ type: 'square', from: 1568, dur: 0.12, vol: 0.08, delay: 0.05 });
+    noise({ dur: 0.06, vol: 0.12, freq: 4000, q: 2, delay: 0.02 });
+  },
+  /** Rün: büyülü çan. */
+  rune(p = 1) {
+    [784, 1175, 1568].forEach((f, i) => tone({ type: 'sine', from: f * p, dur: 0.35, vol: 0.07, delay: i * 0.06 }));
+  },
+  /** Seviye atlama. */
+  levelUp() {
+    [523, 784, 1047].forEach((f, i) => tone({ type: 'triangle', from: f, dur: 0.14, vol: 0.12, delay: i * 0.07 }));
+  },
+  /** Kule atışı. */
+  towerShot() { tone({ type: 'sawtooth', from: 520, to: 180, dur: 0.18, vol: 0.07 }); noise({ dur: 0.1, vol: 0.1, freq: 1500, q: 1 }); },
+  /** Kesin Hüküm / balta darbesi. */
+  chop(k = 1) {
+    noise({ dur: 0.12, vol: 0.4 * k, freq: 1800, sweepTo: 400, q: 1.4 });
+    tone({ type: 'sine', from: 160, to: 45, dur: 0.3, vol: 0.45 * k });
+  },
 };
 
 // İlk etkileşimde ses bağlamını aç

@@ -167,13 +167,14 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   }
   scene.add(moon, moon.target);
 
-  const gateLight = { [GATES.br]: '#ffb070', [GATES.tr]: '#ff4a3a', [GATES.tl]: '#b48cff', [GATES.bl]: '#9dffc4' };
+  const gateLight = { [GATES.br]: '#ffb070', [GATES.tr]: '#ff7a55', [GATES.tl]: '#c0a0ff', [GATES.bl]: '#b8ffd6' };
   const torchLights = [];
   for (const a of GATE_ANGLES) {
-    const L = new THREE.PointLight(new THREE.Color(gateLight[a] || '#ff9a3d'), 34, 15, 1.7);
+    const base = a === GATES.tr ? 22 : 30;
+    const L = new THREE.PointLight(new THREE.Color(gateLight[a] || '#ff9a3d'), base, 15, 1.7);
     L.position.set(Math.sin(a) * (ARENA_R - 0.6), 2.9, Math.cos(a) * (ARENA_R - 0.6));
     scene.add(L);
-    torchLights.push({ L, base: 34, seed: Math.random() * 10 });
+    torchLights.push({ L, base, seed: Math.random() * 10 });
   }
   const heroLight = new THREE.PointLight(new THREE.Color('#ffe2bf'), mobile ? 0 : 7, 7, 2);
   if (!mobile) scene.add(heroLight);
@@ -346,12 +347,14 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   scene.add(chargeLine);
 
   // ---------------------------------------------------------------- kahraman
-  let hero = new HeroRig(kit, heroId);
+  // Kahraman rig'leri kahraman başına bir kez kurulur (seçim ekranında gezinmek yeni malzeme üretmesin)
+  const heroRigs = {};
+  let hero = heroRigs[heroId] = new HeroRig(kit, heroId);
   scene.add(hero.root);
   function setHero(id) {
     if (hero && hero.heroId === id) return;
     if (hero) scene.remove(hero.root);
-    hero = new HeroRig(kit, id);
+    hero = heroRigs[id] || (heroRigs[id] = new HeroRig(kit, id));
     scene.add(hero.root);
     const key = heroModelKey(id);
     if (!(key in models)) want(key);
@@ -440,7 +443,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   // kurye
   let courier = null;
   onModel.push((key, m) => {
-    if (key === heroModelKey(hero.heroId) && hero.procedural) hero.setModel(m);
+    for (const r of Object.values(heroRigs)) if (key === heroModelKey(r.heroId) && r.procedural) r.setModel(m);
     if (key === 'model-courier' && courier) courier.setModel(m);
     if (key.startsWith('model-tower')) for (const r of towerById.values()) if (r.key === key && r.procedural) r.setModel(m);
     if (unitFree[key]) {
@@ -880,8 +883,9 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
       wantYaw = 0;
       const side = frame.side === 'right' ? -1.55 : 0;
       tx = p.x + side;
-      tz = p.z;
-      wantTy = frame.side === 'top' ? -0.15 : 0.95;
+      // 'top': kahraman sahnenin üst kısmında görünsün (kart altta)
+      tz = p.z + (frame.side === 'top' ? 2.6 : 0);
+      wantTy = frame.side === 'top' ? -0.6 : 0.95;
     } else {
       wantYaw = cam.yaw + dt * (reduced ? 0.02 : 0.06);
       wantZoom = 1.06;
@@ -920,7 +924,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     if (flash > 0) flash = Math.max(0, flash - dt * 160);
 
     // kahraman
-    hero.update(p, time, dt, g, g.state !== 'over' || true);
+    hero.update(p, time, dt, g, !lineup);
     heroLight.position.set(p.x, 2.6, p.z + 0.8);
     const showHero = playing;
     playerRing.visible = (showHero || g.state === 'idle') && !p.dead;
@@ -1007,7 +1011,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     // köpekler (etiketler ekranda sabit piksel boyutunda kalsın)
     const pxPerUnit = H / (2 * Math.tan((FOV * Math.PI) / 360) * D);
     const labelScale = Math.max(0.9, Math.min(5, (W < 560 ? 104 : 124) / pxPerUnit));
-    const barK = labelScale * 0.62;
+    const barK = labelScale * 0.3;
     const execThr = g.execThreshold ? g.execThreshold() : 0;
     seen.clear();
     for (const e of g.foes) {
@@ -1257,6 +1261,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     for (const list of Object.values(projFree)) for (const o of list) disposeTree(o.root);
     for (const b of bubbleFree) disposeTree(b);
     for (const r of retired) { disposeTree(r.root); disposeTree(r.barGroup); if (r.range) disposeTree(r.range); }
+    for (const r of Object.values(heroRigs)) if (!r.root.parent) disposeTree(r.root);
     for (const t of [...shared]) bin.items.delete(t);
     bin.dispose();
     try { renderer.renderLists.dispose(); } catch { /* yok say */ }
@@ -1297,17 +1302,17 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
 
   // Geliştirme: model yönü sırası (her model +z'ye, yani kameraya bakmalı)
   let lineup = null;
-  function devLineup(on = true) {
+  function devLineup(on = true, from = 0, count = 5) {
     if (lineup) { scene.remove(lineup); lineup = null; }
-    if (!on) return;
+    if (!on) return [];
     lineup = new THREE.Group();
-    const keys = Object.keys(MODEL_H).filter((k) => models[k] && k !== 'model-aegis');
+    const keys = Object.keys(MODEL_H).filter((k) => models[k] && k !== 'model-aegis').slice(from, from + count);
     keys.forEach((k, i) => {
       const c = cloneModel(models[k], kit, { transparent: false });
       c.obj.rotation.y = MODEL_YAW[k] || 0;
-      const s = k.startsWith('model-tower') ? 0.5 : k === 'model-roshan' ? 0.55 : 1;
+      const s = k.startsWith('model-tower') ? 0.45 : k === 'model-roshan' ? 0.5 : 1;
       c.obj.scale.multiplyScalar(s);
-      c.obj.position.set((i - (keys.length - 1) / 2) * 1.35, 0, 4);
+      c.obj.position.set((i - (keys.length - 1) / 2) * 1.5, 0, 0.3);
       lineup.add(c.obj);
     });
     scene.add(lineup);

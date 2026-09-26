@@ -11,7 +11,7 @@ import { fx as coreFx } from '../../../core/fx.js';
 import { mountLeaderboard } from '../../../components/leaderboard.js';
 import { portraitEl } from '../../../components/portrait.js';
 import { haptic } from '../juice.js';
-import { createGame, STEP, BREAK_T } from './game.js';
+import { createGame, STEP } from './game.js';
 import { DOG_TYPES, TYPE_IDS, archOf } from './dogs.js';
 import { HEROES, HERO_IDS, heroOf, xpFor, MAX_LEVEL } from './heroes.js';
 import { ABILITIES } from './abilities.js';
@@ -220,8 +220,6 @@ export function mountArena(el, ctx = {}) {
   const portraitBox = h('div', { class: 'ar-portrait' }, xpRing, portrait, h('span', { class: 'ar-portrait-lvl' }, lvlNum), talentBtn);
   const goldNum = h('b', { class: 'num' }, '0');
   const goldBtn = h('button', { class: 'ar-gold', type: 'button', 'aria-label': 'Dükkân (B)', title: 'Dükkân (B)' }, h('span', { class: 'ar-coin', html: glyph('coin') }), goldNum, h('span', { class: 'ar-gold-shop', html: glyph('shop') }));
-  const tgoldNum = h('b', { class: 'num' }, '0');
-  const tgoldBtn = h('button', { class: 'ar-tgold', type: 'button', 'aria-label': 'Dükkân' }, h('span', { class: 'ar-coin', html: glyph('coin') }), tgoldNum, h('span', { class: 'ar-gold-shop', html: glyph('shop') }));
   const panel = h('div', { class: 'ar-panel' },
     buffs,
     h('div', { class: 'ar-panel-box' },
@@ -244,12 +242,11 @@ export function mountArena(el, ctx = {}) {
   const joyZone = h('div', { class: 'ar-joyzone', 'aria-hidden': 'true' }, joyBase);
   const tbtns = h('div', { class: 'ar-tbtns' }, tslots.q.btn, tslots.w.btn, tslots.e.btn, tslots.r.btn);
   const titemsEl = h('div', { class: 'ar-titems' }, titems.map((s) => s.btn));
-  const touchLayer = h('div', { class: 'ar-touch' }, joyZone, titemsEl, tgoldBtn, tbtns);
+  const touchLayer = h('div', { class: 'ar-touch' }, joyZone, titemsEl, tbtns);
 
   // --- dükkân ve yetenek ağacı
   const shop = buildShop({
     get game() { return game; },
-    game: null,
     onBuy: (id) => { if (game) game.buy(id); },
     onSell: (i) => { if (game) game.sell(i); },
     onClose: () => closeShop(),
@@ -441,8 +438,9 @@ export function mountArena(el, ctx = {}) {
       heal: () => game.dev.heal(),
       god: (v) => game.dev.god(v),
       models: () => view && view.modelInfo(),
-      lineup: (on) => view && view.devLineup && view.devLineup(on),
+      lineup: (...a) => view && view.devLineup && view.devLineup(...a),
       mode: () => mode,
+      speed: (k = 1) => { devSpeed = Math.max(1, Math.min(40, k)); return devSpeed; },
     };
   }
 
@@ -1188,7 +1186,6 @@ export function mountArena(el, ctx = {}) {
     if (mode === 'playing') focusStage();
   });
   goldBtn.addEventListener('click', () => { toggleShop(); });
-  tgoldBtn.addEventListener('click', () => { toggleShop(); });
   breakShop.addEventListener('click', () => toggleShop());
   breakReady.addEventListener('click', () => readyUp());
   talentBtn.addEventListener('click', () => openTalents());
@@ -1570,7 +1567,7 @@ export function mountArena(el, ctx = {}) {
   const setHidden = (node, v) => { if (node.hidden !== !!v) node.hidden = !!v; };
 
   function updateSlot(s, st) {
-    setVar(s.btn, '--cd', `${(Math.max(0, Math.min(1, st.cdFrac || 0)) * 100).toFixed(1)}%`);
+    setVar(s.btn, '--arcd', `${(Math.max(0, Math.min(1, st.cdFrac || 0)) * 100).toFixed(1)}%`);
     const left = st.cdLeft || 0;
     setText(s.cdText, left > 0 ? (left >= 1 ? String(Math.ceil(left)) : left.toFixed(1)) : '');
     setCls(s.btn, 'cooling', left > 0);
@@ -1605,10 +1602,10 @@ export function mountArena(el, ctx = {}) {
       setCls(s.btn, 'empty', !id);
       setCls(s.btn, 'passive', !!id && !ITEMS[id].active);
     }
-    if (!it) { setText(s.cdText, ''); setVar(s.btn, '--cd', '0%'); setText(s.n, ''); return; }
+    if (!it) { setText(s.cdText, ''); setVar(s.btn, '--arcd', '0%'); setText(s.n, ''); return; }
     const I = ITEMS[it.id];
     const cd = it.cd || 0;
-    setVar(s.btn, '--cd', `${cd > 0 ? ((cd / (it.cdMax || I.active?.cd || 1)) * 100).toFixed(1) : 0}%`);
+    setVar(s.btn, '--arcd', `${cd > 0 ? ((cd / (it.cdMax || I.active?.cd || 1)) * 100).toFixed(1) : 0}%`);
     setText(s.cdText, cd > 0 ? (cd >= 1 ? String(Math.ceil(cd)) : cd.toFixed(1)) : '');
     setCls(s.btn, 'cooling', cd > 0);
     setText(s.n, it.charges != null && (I.charges > 1 || I.maxCharges || it.charges > 1) ? String(it.charges) : '');
@@ -1637,7 +1634,6 @@ export function mountArena(el, ctx = {}) {
     setText(lvlNum, String(p.level));
     setVar(xpRing, '--xp', `${p.level >= MAX_LEVEL ? 100 : Math.round((p.xp / xpFor(p.level)) * 100)}%`);
     setText(goldNum, fmtNum(p.gold));
-    setText(tgoldNum, fmtNum(p.gold));
     setHidden(talentBtn, !p.talentPending.length);
     for (const k of KEYS4) {
       const st = g.slotState(k);
@@ -1731,6 +1727,7 @@ export function mountArena(el, ctx = {}) {
       stageH = hh;
       if (view) view.resize(w, hh);
       stage.classList.toggle('is-narrow', w < 560);
+      stage.classList.toggle('is-mid', w >= 560 && w < 980);
       stage.classList.toggle('is-short', hh < 440 && w >= 560);
       if (view && view.setFrame) view.setFrame({ side: w < 760 || w / Math.max(1, hh) < 1.05 ? 'top' : 'right' });
     }
@@ -1778,6 +1775,7 @@ export function mountArena(el, ctx = {}) {
   let lastRender = 0;
   let stopLoop = null;
 
+  let devSpeed = 1; // yalnızca geliştirme hook'u değiştirir (yazılımsal WebGL testlerinde simülasyonu hızlandırır)
   let perfAcc = 0;
   let perfN = 0;
   function watchPerf(dt) {
@@ -1799,15 +1797,16 @@ export function mountArena(el, ctx = {}) {
     let simDt = 0;
     if (mode === 'playing' || mode === 'start' || mode === 'over') {
       const input = mode === 'playing' ? readInput() : { mx: 0, mz: 0, aimX: null, aimZ: null, auto: true };
-      acc += dt;
+      acc += dt * devSpeed;
       let n = 0;
-      while (acc >= STEP && n < 5) {
+      const maxN = 5 * devSpeed;
+      while (acc >= STEP && n < maxN) {
         game.step(STEP, input);
         acc -= STEP;
         n += 1;
         simDt += STEP;
       }
-      if (n >= 5) acc = 0;
+      if (n >= maxN) acc = 0;
       const p = game.player;
       if (mode === 'playing' && p.charging) {
         chargeSndT -= dt;
@@ -1898,4 +1897,3 @@ export function mountArena(el, ctx = {}) {
   };
 }
 
-export { BREAK_T };

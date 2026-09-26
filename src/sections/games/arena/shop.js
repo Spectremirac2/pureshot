@@ -35,9 +35,10 @@ export function buildShop(opts) {
     b.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') select(id); });
     b.addEventListener('focus', () => select(id));
     b.addEventListener('click', (e) => {
-      const touchy = e.pointerType === 'touch' || e.pointerType === 'pen' || (e.detail === 0 ? false : matchCoarse());
-      if (touchy && selected !== id) { select(id); return; }
+      // dokunmada yalnızca seç (alım "Satın al" düğmesiyle); farede ve klavyede (Enter) tıkla = al
+      const touchy = e.pointerType === 'touch' || e.pointerType === 'pen' || (e.detail !== 0 && !e.pointerType && matchCoarse());
       select(id);
+      if (touchy) { try { buyBtn.focus({ preventScroll: true }); } catch { /* yok say */ } return; }
       opts.onBuy(id);
       update(true);
     });

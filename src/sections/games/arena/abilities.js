@@ -170,8 +170,8 @@ export const ABILITIES = {
   // ================================================================== BALTA
   balta_call: {
     id: 'balta_call', hero: 'balta', slot: 'q', icon: 'call', name: 'Savaş Çağrısı', targeting: 'none',
-    desc: 'Çevredeki düşmanları üstüne çeker ve 2,4 sn sana kilitler (kaçanlar da döner). 3 sn %35 hasar azaltma.',
-    levels: [{ mana: 55, cd: 11, radius: 3.4, taunt: 2.4, armor: 0.35, armorDur: 3 }],
+    desc: 'Çevredeki düşmanları üstüne çeker ve 2,4 sn sana kilitler (kaçanlar da döner). 3,5 sn %40 hasar azaltma.',
+    levels: [{ mana: 55, cd: 11, radius: 3.4, taunt: 2.4, armor: 0.4, armorDur: 3.5 }],
     cast(g, c) {
       const p = g.player;
       const L = c.L;
@@ -198,8 +198,8 @@ export const ABILITIES = {
   },
   balta_helix: {
     id: 'balta_helix', hero: 'balta', slot: 'w', icon: 'helix', name: 'Helezon', targeting: 'none',
-    desc: 'Aktif: baltayla dönüp çevreye hasar ver. Pasif: vurulunca %18 şansla kendiliğinden döner.',
-    levels: [{ mana: 20, cd: 3.5, radius: 2.5, dmg: 78, proc: 0.18, icd: 0.5 }],
+    desc: 'Aktif: baltayla dönüp çevreye hasar ver. Pasif: vurulunca %24 şansla kendiliğinden döner.',
+    levels: [{ mana: 20, cd: 3.5, radius: 2.5, dmg: 90, proc: 0.24, icd: 0.45 }],
     spin(g, L, free) {
       const p = g.player;
       const dmg = (L.dmg + (has(g, 'baSpin') ? 60 : 0)) * g.dmgMul(true);
@@ -294,8 +294,8 @@ export const ABILITIES = {
   },
   buz_chain: {
     id: 'buz_chain', hero: 'buz', slot: 'w', icon: 'chain', name: 'Buz Zinciri', targeting: 'unit',
-    desc: 'Hedefi 2 sn dondurur (yürüyemez, ısıramaz) ve saniyede hasar verir.',
-    levels: [{ mana: 55, cd: 9, range: 6.5, dur: 2, dps: 32 }],
+    desc: 'Hedefi 2,2 sn dondurur (yürüyemez, ısıramaz) ve saniyede hasar verir.',
+    levels: [{ mana: 55, cd: 9, range: 6.5, dur: 2.2, dps: 34 }],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
     cast(g, c) {
       const e = c.target;
@@ -312,7 +312,7 @@ export const ABILITIES = {
   buz_aura: {
     id: 'buz_aura', hero: 'buz', slot: 'e', icon: 'aura', name: 'Mana Aurası', targeting: 'none',
     desc: 'Pasif: +3 mana/sn. Aktif: 3 sn boyunca hızlı mana ve can akışı.',
-    levels: [{ mana: 0, cd: 18, regen: 3, dur: 3, mps: 36, hps: 16 }],
+    levels: [{ mana: 0, cd: 18, regen: 3, dur: 3, mps: 36, hps: 26 }],
     stats(g, st, c) { st.manaRegen += c.L.regen; },
     cast(g, c) { g.player.auraT = c.L.dur; g.emit('fx', { kind: 'aura', x: g.player.x, z: g.player.z }); return true; },
     step(g, dt, c) {
@@ -409,8 +409,8 @@ export const ABILITIES = {
   },
   golge_crit: {
     id: 'golge_crit', hero: 'golge', slot: 'e', icon: 'crit', name: 'Kan Kokusu', targeting: 'passive',
-    desc: 'Pasif: saldırıların %20 şansla ×2,6 kritik vurur ve vurduğun hasarın %10’u kadar can çalarsın. Gölge Adımı ve Ölüm Dansı da faydalanır.',
-    levels: [{ chance: 0.2, mul: 2.6, lifesteal: 0.1 }],
+    desc: 'Pasif: saldırıların %20 şansla ×2,6 kritik vurur ve vurduğun hasarın %12’si kadar can çalarsın. Gölge Adımı ve Ölüm Dansı da faydalanır.',
+    levels: [{ chance: 0.2, mul: 2.6, lifesteal: 0.12 }],
     stats(g, st, c) { st.crit += c.L.chance; st.critMul = Math.max(st.critMul, c.L.mul); st.lifesteal = (st.lifesteal || 0) + c.L.lifesteal; },
     hud() { return { passive: true }; },
   },

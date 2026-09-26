@@ -91,8 +91,13 @@ function overlayCanvas(S) {
   };
   riverPath((RIVER_HALF + 0.7) * 2, 'rgba(118,98,68,0.55)');
   riverPath((RIVER_HALF + 0.25) * 2, 'rgba(24,40,52,0.85)');
-  // ada: mühür çevresi taş halka
-  g.fillStyle = 'rgba(40,34,52,0.0)';
+  // ada: mühür temiz kalsın (boya yok), çevresine taş halka
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath();
+  g.arc(X(0), Z(0), U(ISLAND_R + 0.35), 0, Math.PI * 2);
+  g.fill();
+  g.restore();
   g.strokeStyle = 'rgba(160,150,130,0.35)';
   g.lineWidth = U(0.25);
   g.beginPath();
@@ -100,8 +105,8 @@ function overlayCanvas(S) {
   g.stroke();
   // çeşme meydanı
   const plaza = g.createRadialGradient(X(FOUNTAIN.x), Z(FOUNTAIN.z), 0, X(FOUNTAIN.x), Z(FOUNTAIN.z), U(FOUNTAIN.r + 0.8));
-  plaza.addColorStop(0, 'rgba(190,200,180,0.5)');
-  plaza.addColorStop(0.75, 'rgba(150,170,140,0.4)');
+  plaza.addColorStop(0, 'rgba(170,185,165,0.32)');
+  plaza.addColorStop(0.75, 'rgba(140,160,130,0.26)');
   plaza.addColorStop(1, 'rgba(150,170,140,0)');
   g.fillStyle = plaza;
   g.beginPath();
@@ -315,7 +320,7 @@ export function buildMap(scene, { bin, mobile, shadows, glowTex, ringTex }) {
   {
     const stone = bin.add(new THREE.MeshStandardMaterial({ color: '#c9c3b2', roughness: 0.85 }));
     const gold = bin.add(new THREE.MeshStandardMaterial({ color: '#e9b949', roughness: 0.3, metalness: 0.8 }));
-    const waterF = bin.add(new THREE.MeshStandardMaterial({ color: '#2fd9a0', emissive: '#1fbf8a', emissiveIntensity: 0.9, roughness: 0.2, transparent: true, opacity: 0.85 }));
+    const waterF = bin.add(new THREE.MeshStandardMaterial({ color: '#1f9f7a', emissive: '#1a9f74', emissiveIntensity: 0.6, roughness: 0.2, transparent: true, opacity: 0.85 }));
     const crystal = bin.add(new THREE.MeshStandardMaterial({ color: '#b9ffe4', emissive: '#43d6a0', emissiveIntensity: 2.2, roughness: 0.2 }));
     const f = new THREE.Group();
     f.position.set(FOUNTAIN.x, 0, FOUNTAIN.z);
@@ -355,7 +360,7 @@ export function buildMap(scene, { bin, mobile, shadows, glowTex, ringTex }) {
       cr.position.y = 2.25 + Math.sin(t * 2) * 0.08;
       const on = g && g.player && g.player.inFountain;
       ringMat.opacity = (on ? 0.75 : 0.35) + 0.12 * Math.sin(t * 3);
-      waterF.emissiveIntensity = 0.8 + 0.25 * Math.sin(t * 2.4);
+      waterF.emissiveIntensity = 0.55 + 0.2 * Math.sin(t * 2.4);
     });
   }
 

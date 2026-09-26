@@ -34,7 +34,7 @@ export const UNITS = {
   },
   tower_dire: {
     id: 'tower_dire', kind: 'tower', side: 'dire', name: 'Dire Kulesi', hp: 1300, armor: 0.3, magicResist: 0.5,
-    attackType: 'ranged', range: 5.0, dmg: 42, atkRate: 1.4, proj: 'tower-d', model: 'model-tower-dire', height: 3.6,
+    attackType: 'ranged', range: 5.0, dmg: 34, atkRate: 1.5, lockOn: 0.8, proj: 'tower-d', model: 'model-tower-dire', height: 3.6,
     bounty: { gold: 220, xp: 150, score: 500 },
   },
 };
@@ -88,7 +88,7 @@ export function makeTowers(g, wave = 1) {
     const U = UNITS[s.side === 'radiant' ? 'tower_radiant' : 'tower_dire'];
     const hp = Math.round(U.hp * (1 + 0.12 * (wave - 1)));
     return {
-      id: g.nextId(), kind: 'tower', spot: s.id, side: s.side, def: U, x: s.x, z: s.z, r: TOWER_R,
+      id: `tw-${s.id}`, kind: 'tower', spot: s.id, side: s.side, def: U, x: s.x, z: s.z, r: TOWER_R,
       hp, maxHp: hp, armor: U.armor, magicResist: U.magicResist, st: newStatus(),
       cd: 1, tgt: null, dead: false, deadT: 0, hitFlash: 0, shotT: 0,
     };
@@ -285,13 +285,15 @@ export function stepTowers(g, dt) {
         }
       }
     } else {
+      // Dire kulesi kahramana kilitlenmek için kısa bir süre ister (menzil halkası uyarır)
       const ok = g.heroVisible && !p.dead && Math.hypot(p.x - t.x, p.z - t.z) <= R + 0.3;
-      t.tgt = ok ? p : null;
+      t.lock = ok ? (t.lock || 0) + dt : 0;
+      t.tgt = ok && t.lock >= (U.lockOn || 0) ? p : null;
     }
     if (t.tgt && t.cd <= 0) {
       t.cd = U.atkRate;
       t.shotT = 0.25;
-      const dmg = U.dmg * (1 + 0.14 * (g.wave - 1)) * (t.side === 'dire' ? g.mods.enemyDmg || 1 : 1);
+      const dmg = U.dmg * (1 + (t.side === 'dire' ? 0.1 : 0.14) * (g.wave - 1)) * (t.side === 'dire' ? g.mods.enemyDmg || 1 : 1);
       g.fireProj({ from: t, kind: U.proj, target: t.tgt, dmg, type: DMG.PHYS, speed: 15, y: 3.1 });
       g.emit('towerShot', { tower: t, target: t.tgt });
     }
