@@ -39,7 +39,7 @@ const ARENA = {
   icon: 'bow',
   color: 'var(--aegis)',
   kind: 'Ultimate · R',
-  blurb: 'Okçu kahramanınla dalga dalga gelen DOG sürülerine karşı tek başına. Q W E R senin, dokuz DOG karşında.',
+  blurb: 'Dört kahramandan birini seç; DOG sürüleri, Dire creep’leri ve Roshan’a karşı tek başına. Kuleler, dükkân, kurye, rünler: 1vDOQUZ.',
   time: 'Dalga dalga',
   diff: 3,
   unit: 'puan',
