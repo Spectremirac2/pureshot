@@ -121,7 +121,7 @@ ilerlemesi olan bir aksiyon-RPG’ye dönüştü.
 | Node: hikâye / ilerleme / senaryo / varyant | 62/62 · 17/17 · senaryo tümü · 18 varyant, 0 istisna |
 | Görev simülasyonu (görev bilen bot, 6 kahraman × 15 görev × 2) | 174/180 zafer; bulanık test 0 istisna |
 | Playwright Arena (1440×900 + 390×844 dokunmatik) | hikâye 59/59 + 58/58, dokunmatik HUD 11/11 ×2, uç durumlar 37/37 + 36/36, 2D yedek 11/11 ×2, erişilebilirlik 21/21, yaşam döngüsü 9/9, rastgele 8/8, yatay telefon 10/10 ×3 |
-| Faz B kahraman matrisi (6 kahraman × masaüstü + mobil) | MATRIX_PLACEHOLDER |
+| Faz B kahraman matrisi (6 kahraman × masaüstü + mobil) | 12/12 koşu geçti (masaüstünde Gölge/Ağaç BKB ve mobil meta koşularında gece kontrolü düzenek yarışıydı → düzenek düzeltildi, yeniden koşuldu) |
 | Tüm site duman testi (tüm rotalar, 14 oyun, quizler, galeri, müze, tur) | masaüstü + mobil: konsol hatası 0, başarısız istek 0, sayfa taşması 0, içerik kırpması 0, kırık görsel 0 |
-| Canlı (https://cureshot-dog.netlify.app) | LIVE_PLACEHOLDER |
+| Canlı (https://cureshot-dog.netlify.app) | masaüstü + mobil: konsol hatası 0, başarısız istek 0, taşma 0, kırık görsel 0; hikâye akışı (harita → görev → Kurye diyaloğu) canlıda doğrulandı |
 | Derleme | `build:static` ✓, `build` (Artifact) ✓ |

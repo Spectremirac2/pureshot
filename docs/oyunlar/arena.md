@@ -468,11 +468,11 @@ Tümü `HEAD` üzerinde, düzenek düzeltmeleriyle; tek şerit (iki paralel yaz�
 - **Playwright Arena:** hikâye masaüstü 59/59, mobil 58/58; dokunmatik HUD 390 ve 844 px 11/11; uç durumlar 37/37 ve
   36/36; 2D yedek 11/11 (iki görünüm); erişilebilirlik 21/21; yaşam döngüsü (5× gir-çık, sızıntı yok) 9/9; rastgele
   8/8; yatay telefon 844/667/740 px 10/10.
-- **Faz B kahraman matrisi:** MATRIX_PLACEHOLDER
+- **Faz B kahraman matrisi:** 12/12 koşu (6 kahraman × 1440 masaüstü + 390 dokunmatik; 20–25 kontrol/koşu) geçti. İlk koşuda 4 kontrol düştü, ikisi de düzenek yarışıydı: (1) mobil meta koşularında düzenek molayı bitirip hemen `D.night(true)` çağırıyordu, yeni dalga başlangıcı `forceNight`’ı dalga tanımına göre sıfırladığı için gece görüşü 99 okunuyordu → önce `state === 'playing'` beklenir; (2) masaüstü Gölge/Ağaç’ta BKB tuşuna Gölge Ulusu’nun sersemletmesi sürerken basılıyordu (`canAct: false`; Dota’daki gibi sersemken BKB kullanılamaz) → her basıştan önce eylem beklenir, en çok 3 deneme, her denemenin durumu günlüğe yazılır (Gölge ikinci basışta, Ağaç ilkinde etkinleşti). Oyun kodunda değişiklik gerekmedi.
 - **Tüm site duman testi** (`build:static` + `vite preview`, 1440×900 ve 390×844 dokunmatik): tüm rotalar, 14 oyun,
   quizler, galeri (Arena Hikâyesi 10/10 görsel), müze (Salon III 6/6 eser Arena’da), ilk giriş turu, yardım paneli —
   konsol hatası 0, başarısız istek 0, sayfa taşması 0, içerik kırpması 0, kırık görsel 0 (3 süs kırpması kasıtlı).
-- **Canlı:** LIVE_PLACEHOLDER
+- **Canlı:** https://cureshot-dog.netlify.app üzerinde aynı duman testi (tüm rotalar, 14 oyun, galeri, müze, tur; masaüstü + mobil): konsol hatası 0, başarısız istek 0, sayfa taşması 0, içerik kırpması 0, kırık görsel 0. Hikâye akışı canlıda: mod merkezi → bölüm haritası → görev → kahraman seçimi → Kurye’nin giriş diyaloğu (1/5), konsol hatası 0.
 - **Derleme:** `VITE_API_BASE=none vite build` ✓, `vite build --mode artifact` ✓.
 
 ## Hikâye ve ilerleme ajanlarına notlar
