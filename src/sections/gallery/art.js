@@ -237,7 +237,7 @@ export function mountArt(el, ctx, { onHow } = {}) {
       img.src = it.url;
       img.alt = `${it.title} — ${it.kicker}`;
       img.style.aspectRatio = it.ratio;
-      kicker.textContent = (GROUPS.find((g) => g.id === it.group) || GROUPS[4]).label;
+      kicker.textContent = (GROUPS.find((g) => g.id === it.group) || GROUPS[GROUPS.length - 1]).label;
       counter.textContent = `${idx + 1} / ${items.length}`;
       title.textContent = it.title;
       desc.textContent = it.desc;

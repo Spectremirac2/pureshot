@@ -5,7 +5,7 @@ Sitenin yapım aşamasında fal.ai ile üretilmiş görsellerinin ve 3D modeller
 | Alt sayfa | Adres | Dosya | İçerik |
 |---|---|---|---|
 | 3D Müze (varsayılan) | `#galeri--muze` | `museum3d.js` | Üç salonda 18 eser, taş kaide, spot ışık, beğen/DOG’la |
-| Sanat Galerisi | `#galeri--sanat` | `art.js` | 15 fal.ai görseli, lightbox, yorumlar, en çok beğenilenler |
+| Sanat Galerisi | `#galeri--sanat` | `art.js` | 25 fal.ai görseli (afişler, DOG portreleri, Arena hikâyesi: 5 bölüm afişi + 5 boss portresi, doku), lightbox, yorumlar, en çok beğenilenler |
 | Nasıl yapıldı? | `#galeri--nasil` | `howto.js` | Üretim hattı (5 adım) ve varlık envanteri |
 
 Kod `src/sections/gallery/` altındadır. `gallery.js` sekmeleri ve başlıktaki sayaçları (görsel, **3D model n/n**,

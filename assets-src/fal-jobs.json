@@ -285,5 +285,65 @@
     "request_id": "01a0daed-3e97-7191-a4ac-a2e93c6956a9",
     "url": "https://v3b.fal.media/files/b/0aabe6f4/7k_Z4fSmoB0AIbKXyc9jk_trellis2_81cdf151a66b47daa34e85e07905b969.glb",
     "source": "src3d-hero-treant"
+  },
+  "story-ch1": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba2-e409-7850-96a0-9057d1cb53ee",
+    "url": "https://v3b.fal.media/files/b/0aabeb98/duvjTUot4czeB_612GmyC_IebMsDPp.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-ch2": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba2-ef70-7de3-8a60-55f44b61ccc7",
+    "url": "https://v3b.fal.media/files/b/0aabeb98/HbiPDyV0iGZ_4YYW0F8X8_v3FOEayw.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-ch3": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba2-f947-7e53-945a-5737a5f8c9f0",
+    "url": "https://v3b.fal.media/files/b/0aabeb98/4SVJAbfXZn8uYMu56YuNw_t1Hhpnpo.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-ch4": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-043f-79f2-87bf-51d210036c7f",
+    "url": "https://v3b.fal.media/files/b/0aabeb98/EzBI94M6NaIQmVrClxCVv_wcsF1hgI.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-ch5": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-1065-7353-af5c-aa1476b56e16",
+    "url": "https://v3b.fal.media/files/b/0aabeb99/cxrfCvsajq9pDsQurREbU_IBN4jab3.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-boss-feedalfa": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-1a5c-7333-b6dc-6f9336b84e70",
+    "url": "https://v3b.fal.media/files/b/0aabeb99/dqZBBA7geam7Ys56-OaTk_Qggb4iKd.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-boss-shadow": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-2392-7753-bfe2-4df69e946204",
+    "url": "https://v3b.fal.media/files/b/0aabeb99/qywUytVBIAJDNaWEPPDhJ_y5qZPEtF.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-boss-general": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-2dfd-7f80-9a74-eb502fcd98f0",
+    "url": "https://v3b.fal.media/files/b/0aabeb99/0JMcbkLywtgk5JlvRVGIz_O4grxOEz.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-boss-roshan": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-37d8-79e2-ba33-d4d1422f720e",
+    "url": "https://v3b.fal.media/files/b/0aabeb9a/VqsvSkj-hhTvfZzhR2yCs_LT1utUxO.jpg",
+    "reference": "portrait-kurye"
+  },
+  "story-boss-ancient": {
+    "endpoint": "fal-ai/nano-banana-2/edit",
+    "request_id": "01a0dba3-4362-7a83-a89f-383836ceb3be",
+    "url": "https://v3b.fal.media/files/b/0aabeb9a/HW65_MAGyHSeTLSLN64jQ_8rsqPEj9.jpg",
+    "reference": "portrait-kurye"
   }
 }

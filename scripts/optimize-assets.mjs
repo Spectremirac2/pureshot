@@ -27,6 +27,9 @@ const rules = [
   { test: /^poster-/, width: 1600, quality: 80 },
   { test: /^portrait-/, width: 768, quality: 80 },
   { test: /^texture-/, width: 1024, quality: 80 },
+  // Arena hikâyesi: bölüm afişleri (16:9) ve diyalog kartlarındaki boss portreleri (küçük gösterilir)
+  { test: /^story-boss-/, width: 512, quality: 78 },
+  { test: /^story-ch/, width: 1280, quality: 76 },
 ];
 
 const kb = (f) => (statSync(f).size / 1024).toFixed(0) + ' KB';

@@ -9,6 +9,7 @@ import { EXHIBITS } from './exhibit-data.js';
 export const GROUPS = [
   { id: 'afis', label: 'Afişler', lore: 'Salon duvarı' },
   { id: 'portre', label: 'DOG Portreleri', lore: 'Arşiv koridoru' },
+  { id: 'hikaye', label: 'Arena Hikâyesi', lore: 'Dokuzun Laneti' },
   { id: 'doku', label: 'Dokular', lore: 'Zemin ustası' },
   { id: 'ref', label: '3D Referans Görselleri', lore: 'Atölye masası' },
   { id: 'diger', label: 'Diğer', lore: 'Depo' },
@@ -17,8 +18,9 @@ export const GROUPS = [
 export const PRO = 'Nano Banana Pro';
 export const NB2 = 'Nano Banana 2';
 
+const STORY_KEYS = ['story-ch1', 'story-ch2', 'story-ch3', 'story-ch4', 'story-ch5', 'story-boss-feedalfa', 'story-boss-shadow', 'story-boss-general', 'story-boss-roshan', 'story-boss-ancient'];
 /** Beklenen görsel anahtarları (sıra = galeri sırası). */
-export const IMAGE_KEYS = ['hero-keyart', 'poster-dogdogdog', 'poster-1vdoquz', ...ALL_TYPES.map((a) => 'portrait-' + a.id), 'texture-arena'];
+export const IMAGE_KEYS = ['hero-keyart', 'poster-dogdogdog', 'poster-1vdoquz', ...ALL_TYPES.map((a) => 'portrait-' + a.id), ...STORY_KEYS, 'texture-arena'];
 /** 3D model anahtarları: müzedeki eser sırasıyla (exhibit-data.js tek kaynak). */
 export const MODEL_KEYS = EXHIBITS.map((e) => e.key);
 
@@ -41,9 +43,28 @@ const FIXED = {
   },
 };
 
+const chapter = (n, title, desc) => ({
+  group: 'hikaye', title, kicker: `Bölüm ${n} afişi · 16:9`, model: NB2, ratio: '16 / 9', spec: '16:9 · 1K',
+  desc: desc + ' Kurye portresi stil referansı olarak verildi; hepsi aynı fırçadan çıksın diye.',
+});
+const boss = (title, desc) => ({ group: 'hikaye', title, kicker: 'Boss portresi · 1:1', model: NB2, ratio: '1 / 1', spec: '1:1 · 1K', desc });
+const STORY = {
+  'story-ch1': chapter('I', 'Nehir Kıyısı', 'İlk DOG’lar nehirden çıkıyor, Kurye tepeden iksir taşıyor.'),
+  'story-ch2': chapter('II', 'Wardsız Orman', 'Tek fener, yüzlerce mor göz. Ward alınmadıysa orman böyle görünür.'),
+  'story-ch3': chapter('III', 'Kule Kuşatması', 'Radiant kulesi tepede, Dire ordusu yamaçta.'),
+  'story-ch4': chapter('IV', 'Roshan’ın İni', 'Kaya Canavarı altın kalkanın üstünde uyuyor; köpekler kapıdan bakıyor.'),
+  'story-ch5': chapter('V', '1vDOQUZ', 'Bir kahraman, dokuz DOG lordu ve Sonsuz Pub’ın kalbi.'),
+  'story-boss-feedalfa': boss('Feed Alfa', 'I. bölümün bossu: sürünün en iri, en çok ölen ve bununla en çok övünen köpeği.'),
+  'story-boss-shadow': boss('Gölge Ulusu', 'II. bölümün bossu: ward alınmayan her gece biraz daha büyüyen duman köpek.'),
+  'story-boss-general': boss('Dire Generali', 'III. bölümün bossu: kuleye yürüyen ordunun zırhlı komutanı.'),
+  'story-boss-roshan': boss('Kaya Canavarı', 'IV. bölümün bossu: çukurun sahibi, Aegis’in bekçisi.'),
+  'story-boss-ancient': boss('Sonsuz Pub’ın Kalbi', 'Son boss: 24 saatlik yayınları da kısa bulan lanetin çekirdeği.'),
+};
+
 /** Anahtardan katalog bilgisi. */
 export function metaFor(key) {
   if (FIXED[key]) return { key, ...FIXED[key] };
+  if (STORY[key]) return { key, ...STORY[key] };
   if (key.startsWith('portrait-')) {
     const a = byId(key.slice(9));
     return {
