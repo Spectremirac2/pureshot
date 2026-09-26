@@ -3,7 +3,7 @@
 
 import { ARENA_R, GATE_ANGLES, RIVER_HALF, ISLAND_R, riverPoint, FOUNTAIN, ROSHAN_PIT, TREES, TOWER_R } from './map.js';
 import { DOG_TYPES, archOf } from './dogs.js';
-import { RUNES } from './items.js';
+import { RUNES, NEUTRALS } from './items.js';
 import { tok, hexA } from './textures.js';
 
 export function createView2D({ reduced = false } = {}) {
@@ -76,6 +76,11 @@ export function createView2D({ reduced = false } = {}) {
     if (type === 'fx' && (d.kind === 'spin' || d.kind === 'taunt')) burst(d.x, d.z, col.dire, 18);
     if (type === 'fx' && d.kind === 'iceBlast') burst(d.x, d.z, col.ice, 4);
     if (type === 'towerDown') { burst(d.tower.x, d.tower.z, col.gold, 30); shake(0.5); }
+    if (type === 'bossAct' && d.foe) { burst(d.x ?? d.foe.x, d.z ?? d.foe.z, (d.foe.def && d.foe.def.color) || col.dire, 24); shake(0.35); }
+    if (type === 'bossPhase' && d.foe) { burst(d.foe.x, d.foe.z, col.gold, 30); shake(0.4); }
+    if (type === 'fx' && (d.kind === 'remnantBoom' || d.kind === 'overload' || d.kind === 'vortex' || d.kind === 'pulse')) burst(d.x ?? p.x, d.z ?? p.z, '#5fb8ff', 18);
+    if (type === 'fx' && (d.kind === 'growth' || d.kind === 'leech' || d.kind === 'bloom' || d.kind === 'grove')) burst(d.x ?? p.x, d.z ?? p.z, '#8fd16a', 16);
+    if (type === 'neutralDrop' && d.pickup) burst(d.pickup.x, d.pickup.z, col.jade, 16);
   }
 
   function ring(x, z, r, color, w = 2, dash = null) {
@@ -146,6 +151,51 @@ export function createView2D({ reduced = false } = {}) {
     for (const t of TREES) disc(t.x, t.z, 0.55 * t.s, t.dire ? '#4a1f2a' : '#2f7d4a');
   }
 
+  const ZONE_COL = { rain: col.gold, blizzard: col.ice, bloom: '#8fd16a', grove: '#43d66a', decoy: '#b18cff' };
+  const TELE_COL = { blood: col.dire, gold: col.gold, arcane: '#8b7cff' };
+  /** Boss telgrafları: circle / ring / line / cone / mark. */
+  function tele(e, c, p) {
+    const k = Math.max(0, Math.min(1, 1 - c.t / (c.dur || 1)));
+    const colr = TELE_COL[c.color] || col.dire;
+    const x = c.shape === 'mark' ? p.x : c.fixed || c.shape === 'line' ? c.x ?? e.x : e.x;
+    const z = c.shape === 'mark' ? p.z : c.fixed || c.shape === 'line' ? c.z ?? e.z : e.z;
+    g.save();
+    g.globalAlpha = 0.2 + 0.45 * k;
+    g.fillStyle = colr;
+    g.strokeStyle = colr;
+    g.lineWidth = 2;
+    if (c.shape === 'line') {
+      const len = c.len || 6;
+      const w = (c.w || 1) * scale;
+      g.translate(sx(x), sy(z));
+      g.rotate(Math.atan2(Math.cos(c.ang), Math.sin(c.ang)));
+      g.fillRect(0, -w, len * scale, w * 2);
+    } else if (c.shape === 'cone') {
+      const mid = Math.atan2(Math.cos(c.ang), Math.sin(c.ang));
+      const half = (c.arc || 1.9) / 2;
+      g.beginPath();
+      g.moveTo(sx(x), sy(z));
+      g.arc(sx(x), sy(z), c.r * scale, mid - half, mid + half);
+      g.closePath();
+      g.fill();
+    } else if (c.shape === 'ring') {
+      g.beginPath();
+      g.arc(sx(x), sy(z), c.r * scale, 0, Math.PI * 2);
+      g.arc(sx(x), sy(z), Math.max(0, (c.inner || 0) * scale), 0, Math.PI * 2, true);
+      g.fill('evenodd');
+    } else if (c.r > 0) {
+      g.beginPath();
+      g.arc(sx(x), sy(z), c.r * scale, 0, Math.PI * 2);
+      g.globalAlpha = 0.12 + 0.2 * k;
+      g.fill();
+      g.globalAlpha = 0.7;
+      g.beginPath();
+      g.arc(sx(x), sy(z), Math.max(0.5, c.r * scale * k), 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.restore();
+  }
+
   function render(game, dt, simDt) {
     time += dt;
     const p = game.player;
@@ -181,16 +231,38 @@ export function createView2D({ reduced = false } = {}) {
     }
     // eşyalar
     for (const k of game.pickups) {
-      g.fillStyle = k.kind === 'cheese' ? '#ffd84a' : col.gold;
+      const N = k.kind === 'neutral' ? NEUTRALS[k.item] : null;
+      const c = N ? N.color || col.jade : k.kind === 'cheese' ? '#ffd84a' : col.gold;
+      g.fillStyle = c;
       g.font = `900 ${Math.round(scale * 0.8)}px Unbounded, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      ring(k.x, k.z, 0.7 + Math.sin(time * 4) * 0.05, k.kind === 'rapierItem' ? col.dire : col.gold, 3);
-      g.fillText(k.kind === 'aegis' ? 'A' : k.kind === 'cheese' ? 'P' : 'R', sx(k.x), sy(k.z));
+      ring(k.x, k.z, 0.7 + Math.sin(time * 4) * 0.05, k.kind === 'rapierItem' ? col.dire : N ? col.jade : col.gold, 3);
+      g.fillText(k.kind === 'aegis' ? 'A' : k.kind === 'cheese' ? 'P' : N ? String(k.tier || 1) : 'R', sx(k.x), sy(k.z));
+    }
+    // alan etkileri (varyantlar), ward'lar, kalıntılar
+    for (const z of game.zones || []) {
+      const zc = ZONE_COL[z.kind] || col.gold;
+      const fade = Math.max(0, Math.min(1, ((z.dur || 1) - z.t) * 2));
+      g.globalAlpha = 0.18 * fade;
+      disc(z.x, z.z, z.kind === 'decoy' ? 0.8 : z.r, zc);
+      g.globalAlpha = 0.7 * fade;
+      ring(z.x, z.z, z.kind === 'decoy' ? 0.8 : z.r, zc, 2, [6, 5]);
+      g.globalAlpha = 1;
+    }
+    for (const w of game.wards || []) {
+      disc(w.x, w.z, 0.28, '#f6d98a');
+      ring(w.x, w.z, 8, 'rgba(246,217,138,0.18)', 1, [4, 6]);
+    }
+    for (const r of game.remnants || []) {
+      disc(r.x, r.z, 0.38 + Math.sin(time * 9) * 0.04, '#5fb8ff');
+      ring(r.x, r.z, r.radius || 1.2, 'rgba(95,184,255,0.35)', 1.5, [3, 4]);
     }
     // düşmanlar
     for (const d of game.foes) {
-      let a = d.type === 'ward' ? d.vis : 1;
+      if (d.seen === false && !d.dead && playing) continue; // gece: görüş dışında
+      if (d.cast && !d.dead) tele(d, d.cast, p);
+      let a = d.type === 'ward' || d.kind === 'boss' ? Math.max(0.25, d.vis ?? 1) : 1;
       if (d.dead) a = Math.max(0, 1 - d.deathT);
       g.globalAlpha = a;
       if (d.kind === 'dog') {
@@ -218,11 +290,22 @@ export function createView2D({ reduced = false } = {}) {
         const s = d.r * scale * 1.6;
         g.fillRect(sx(d.x) - s / 2, sy(d.z) - s / 2, s, s);
         if (!d.dead && d.hp < d.maxHp) hpBar(d.x, d.z, d.hp / d.maxHp, col.dire, 0.9, 0.75);
+      } else if (d.kind === 'neutral') {
+        const nc = (d.def && d.def.color) || '#b9a27a';
+        disc(d.x, d.z, d.r * (d.scale || 1), d.hitFlash > 0 ? '#fff' : nc);
+        ring(d.x, d.z, d.r * (d.scale || 1), d.st && d.st.root > 0 ? col.ice : '#6b5b3e', 2);
+        if (!d.dead && d.hp < d.maxHp) hpBar(d.x, d.z, d.hp / d.maxHp, '#d9b25a', 1, 0.85);
       } else {
+        const bc = (d.def && d.def.color) || col.gold;
         disc(d.x, d.z, d.r, d.hitFlash > 0 ? '#fff' : '#6c6377');
-        ring(d.x, d.z, d.r, col.gold, 3);
-        if (d.cast) ring(d.x, d.z, d.cast.r * (1 - d.cast.t / d.cast.dur), d.cast.kind === 'slam' ? col.dire : col.gold, 3);
-        if (!d.dead) hpBar(d.x, d.z, d.hp / d.maxHp, col.gold, 2.4, 1.6);
+        ring(d.x, d.z, d.r, bc, d.invuln > 0 ? 5 : 3);
+        if (!d.dead) {
+          hpBar(d.x, d.z, d.hp / d.maxHp, bc, 2.4, 1.6);
+          g.fillStyle = bc;
+          g.font = `800 ${Math.max(9, Math.round(scale * 0.4))}px Unbounded, sans-serif`;
+          g.textAlign = 'center';
+          g.fillText((d.def && d.def.short) || 'BOSS', sx(d.x), sy(d.z) - scale * 1.85);
+        }
       }
       g.globalAlpha = 1;
     }
@@ -242,7 +325,7 @@ export function createView2D({ reduced = false } = {}) {
       g.fillText('REPORT!', sx(b.x), sy(b.z));
     }
     // mermiler
-    for (const pr of game.projs) disc(pr.x, pr.z, pr.kind.startsWith('tower') ? 0.25 : 0.15, pr.kind === 'tower-r' ? col.jade : pr.kind === 'ice' ? col.ice : col.dire);
+    for (const pr of game.projs) disc(pr.x, pr.z, pr.kind.startsWith('tower') ? 0.25 : 0.15, pr.kind === 'tower-r' ? col.jade : pr.kind === 'ice' ? col.ice : pr.kind === 'spark' ? '#5fb8ff' : col.dire);
     // oyuncu
     const heroCol = game.H ? game.H.color : col.jade;
     if (playing || game.state === 'idle') {
@@ -285,6 +368,15 @@ export function createView2D({ reduced = false } = {}) {
       g.moveTo(sx(a.x), sy(a.z));
       g.lineTo(sx(a.x - a.dx * 0.8), sy(a.z - a.dz * 0.8));
       g.stroke();
+    }
+    // gece: görüş dairesi dışını karart
+    if (game.isNight && playing) {
+      const vr = (game.visionR ? game.visionR() : 8.5) * scale;
+      const gr = g.createRadialGradient(sx(p.x), sy(p.z), vr * 0.6, sx(p.x), sy(p.z), vr * 1.15);
+      gr.addColorStop(0, 'rgba(6,8,22,0)');
+      gr.addColorStop(1, 'rgba(6,8,22,0.62)');
+      g.fillStyle = gr;
+      g.fillRect(-20, -20, W + 40, H + 40);
     }
     // kıvılcımlar
     const sd = simDt || 0;

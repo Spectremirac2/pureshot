@@ -12,7 +12,7 @@
 import { buildWave, waveScale, thinkDog, tryBite, archOf, TYPE_IDS, DOG_TYPES } from './dogs.js';
 import { heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, HERO_IDS, ATTR, HERO_MR, ABILITY_MAX, STATS_MAX, abilityCap, attrAt } from './heroes.js';
 import { ITEMS, SLOTS, RUNES, RUNE_IDS, NEUTRALS, NEUTRAL_IDS, neutralTier, NEUTRAL_PER_TIER, totalCost, isRecipe } from './items.js';
-import { ABILITIES, abilityCtx, STATS_BONUS } from './abilities.js';
+import { ABILITIES, abilityCtx, STATS_BONUS, targetingOf } from './abilities.js';
 import { DMG, applyStatus, dealDamage, newStatus, tickStatus, slowMul, dispel, cantCast, cantAttack } from './combat.js';
 import { UNITS, CAMP_UNITS, unitId, makeCreep, makeBoss, makeNeutral, makeTowers, THINK, stepTowers, collide } from './units.js';
 import { ARENA_R, PLAY_R, DOG_GATES, FOUNTAIN, RUNE_SPOTS, DIRE_GATE, TOWER_R, ROSHAN_PIT, CAMPS, pushOut, steerAround } from './map.js';
@@ -131,6 +131,9 @@ export function createGame(emit, config = {}) {
     runes: [],
     remnants: [],
     wards: [],
+    zones: [],
+    neutralOffer: null,
+    rerollsLeft: 0,
     camps: [],
     courier: { state: 'home', x: FOUNTAIN.x, z: FOUNTAIN.z, y: 0, face: 0, items: [], t: 0 },
     queue: [],
@@ -205,6 +208,17 @@ export function createGame(emit, config = {}) {
   };
   /** Simülasyon zamanında gecikmeli iş (yetenek yankıları, boss dalgaları). */
   g.later = (t, fn) => { g.timers.push({ t, fn }); };
+  /**
+   * Alan etkisi (yetenek varyantları: ok yağmuru, gezgin tipi, çiçek alanı, koru, yem ikiz).
+   * o: { kind, x, z, r, dur, every (sn), follow: 'hero'?, now (hemen bir kez), tick(g, zone) }
+   */
+  g.addZone = (o) => {
+    const z = { id: nextId++, t: 0, acc: 0, every: 0.25, ...o };
+    g.zones.push(z);
+    if (z.now && z.tick) { try { z.tick(g, z); } catch (err) { console.error(err); } }
+    g.emit('zone', { zone: z });
+    return z;
+  };
 
   // Boss'lara ek hasar (orman eşyası), yakın dövüş kahramanına blok dengesi
   g.hooks.beforeDamage.push((gg, s, t, a) => (s === gg.player && t.kind === 'boss' && gg.stat.bossDmg ? a * (1 + gg.stat.bossDmg) : undefined));
@@ -228,7 +242,7 @@ export function createGame(emit, config = {}) {
       invis: 0, smokeT: 0, smokeK: 0, smokeBonus: null, guiseT: 0, guiseK: 0, guiseBonus: null, guiseHeal: 0,
       bkb: 0, haste: 0, hasteBuff: 0, hasteBuffK: 1, dd: 0, regenRune: 0, cyclone: 0, lsBuff: 0, lsBuffK: 1,
       callArmor: 0, callArmorK: 0, barkT: 0, barkArmor: 0, barkRegen: 0, barkBlock: 0, mekT: 0, mekArmor: 0,
-      bonusArmor: 0, blockBuff: 0, shield: 0, magShield: 0, magShieldT: 0,
+      bonusArmor: 0, blockBuff: 0, shield: 0, shieldT: 0, magShield: 0, magShieldT: 0, eclipse: null,
       cullHaste: 0, auraT: 0, spinT: 0, helixIcd: 0, swing: 0, overload: false,
       channel: null, dance: null, ball: null,
       atkCd: 0, atkWind: 0, atkTarget: null,
@@ -440,9 +454,10 @@ export function createGame(emit, config = {}) {
     const c = abilityCtx(g, key);
     if (!c) { if (g.canAct()) g.emit('unlearned', { key }); return false; }
     const { A, L } = c;
-    if (A.targeting === 'charge') { g.chargeStart(); return true; }
+    const tg = targetingOf(g, key);
+    if (tg === 'charge') { g.chargeStart(); return true; }
     if (!g.canAct()) return false;
-    if (A.targeting === 'passive') { g.emit('passive', { key }); return false; }
+    if (tg === 'passive') { g.emit('passive', { key }); return false; }
     if (cantCast(p)) { g.emit('silenced', { key }); return false; }
     if (p.channel) return false;
     if (g.cds[key] > 0) { g.emit('notReady', { key }); return false; }
@@ -465,6 +480,7 @@ export function createGame(emit, config = {}) {
     const p = g.player;
     const c = abilityCtx(g, 'q');
     if (!c || c.A.targeting !== 'charge') return g.cast('q');
+    if (c.A.tap && c.A.tap(g, c)) return true;
     if (!g.canAct() || p.charging) return false;
     if (cantCast(p)) { g.emit('silenced', { key: 'q' }); return false; }
     p.charging = true;
@@ -515,8 +531,8 @@ export function createGame(emit, config = {}) {
       cdFrac: g.cds[key] / (g.cdMax[key] || 1),
       cdLeft: g.cds[key],
       noMana: !A.ownCost && (L.mana || 0) > p.mana,
-      extra: A.targeting === 'passive' ? '' : String(L.mana || ''),
-      passive: A.targeting === 'passive',
+      extra: targetingOf(g, key) === 'passive' ? '' : String(L.mana || ''),
+      passive: targetingOf(g, key) === 'passive',
       silenced: cantCast(p),
     };
     return A.hud ? { ...base, ...A.hud(g, c) } : base;
@@ -587,7 +603,7 @@ export function createGame(emit, config = {}) {
     });
     if (!isTower) {
       if (ambush && !target.dead) { applyStatus(g, target, 'stun', ambush.stun); g.emit('fx', { kind: 'ambush', foe: target }); }
-      if (guise && !target.dead) { applyStatus(g, target, 'root', guise.root); g.emit('fx', { kind: 'leech', foe: target, dur: guise.root }); }
+      if (guise && !target.dead) { if (applyStatus(g, target, 'root', guise.root)) target.rootFx = 'vine'; g.emit('fx', { kind: 'leech', foe: target, dur: guise.root }); }
       if (g.stat.cleave > 0 && dealt > 0) {
         for (const e of g.foes) {
           if (e === target || e.dead || e.spawnT > 0) continue;
@@ -696,7 +712,7 @@ export function createGame(emit, config = {}) {
           const dealt = dealDamage(g, pr.from, t, pr.dmg, pr.type, opts);
           if (pr.kind === 'ice' && !t.dead && t !== p) applyStatus(g, t, 'slow', 0.8, { k: 0.15 });
           if (hero && t !== p) {
-            if (pr.guise && !t.dead) { applyStatus(g, t, 'root', pr.guise.root); g.emit('fx', { kind: 'leech', foe: t, dur: pr.guise.root }); }
+            if (pr.guise && !t.dead) { if (applyStatus(g, t, 'root', pr.guise.root)) t.rootFx = 'vine'; g.emit('fx', { kind: 'leech', foe: t, dur: pr.guise.root }); }
             afterHeroAttack(t, dealt, {});
           }
         }
@@ -1541,12 +1557,47 @@ export function createGame(emit, config = {}) {
     if (!pool.length) return null;
     const item = pool[Math.floor(g.rand() * pool.length)];
     g.neutralDrops[tier] = (g.neutralDrops[tier] || 0) + 1;
-    const pk = { id: nextId++, kind: 'neutral', item, tier, x, z, t: 0, life: Infinity };
+    // Kütüphane: Orman Sandığı / Harpi Hazinesi → 2–3 seçenek
+    const nChoice = Math.max(1, Math.min(3, (g.pools && g.pools.neutralChoice) || 1));
+    const choices = [item];
+    const rest = pool.filter((id) => id !== item);
+    while (choices.length < nChoice && rest.length) choices.push(rest.splice(Math.floor(g.rand() * rest.length), 1)[0]);
+    const pk = { id: nextId++, kind: 'neutral', item, tier, x, z, t: 0, life: Infinity, choices: choices.length > 1 ? choices : null };
     g.pickups.push(pk);
     g.emit('neutralDrop', { pickup: pk, item: NEUTRALS[item] });
     return pk;
   }
   g.dropNeutral = dropNeutral;
+  function takeNeutral(id, k = {}) {
+    const p = g.player;
+    if (!p.neutral) { p.neutral = { id }; recalc(); k.equipped = true; }
+    else { g.neutralStash.push(id); k.stashed = true; }
+    g.emit('neutralEquip', { item: NEUTRALS[id], stashed: !!k.stashed });
+  }
+  /** Seçenekli orman düşüşünde seçim (arayüz ya da test). */
+  g.chooseNeutral = (id) => {
+    const o = g.neutralOffer;
+    if (!o || !o.choices.includes(id)) return false;
+    g.neutralOffer = null;
+    takeNeutral(id);
+    return true;
+  };
+  /** Kütüphane: Yaşlı Koru Takası — molada, takılı orman eşyasını aynı kademeden başka biriyle değiştir. */
+  g.canRerollNeutral = () => g.state === 'break' && g.rerollsLeft > 0 && !!g.player.neutral;
+  g.rerollNeutral = () => {
+    if (!g.canRerollNeutral()) return false;
+    const p = g.player;
+    const tier = NEUTRALS[p.neutral.id].tier;
+    const owned = new Set([p.neutral.id, ...g.neutralStash]);
+    const pool = NEUTRAL_IDS.filter((id) => NEUTRALS[id].tier === tier && !owned.has(id));
+    if (!pool.length) return false;
+    const old = p.neutral.id;
+    p.neutral = { id: pool[Math.floor(g.rand() * pool.length)] };
+    g.rerollsLeft -= 1;
+    recalc();
+    g.emit('neutralReroll', { from: NEUTRALS[old], item: NEUTRALS[p.neutral.id] });
+    return true;
+  };
   /** Stash'teki orman eşyasını tak (yuvadaki stash'e geçer). */
   g.equipNeutral = (id) => {
     const p = g.player;
@@ -1893,6 +1944,7 @@ export function createGame(emit, config = {}) {
     }
     g.bubbles.length = 0;
     g.forceNight = null;
+    g.rerollsLeft = Math.max(0, Math.min(3, (g.pools && g.pools.neutralReroll) || 0));
     progress('waves', 1);
     g.emit('waveClear', { wave: g.wave, bonus, accBonus: effBonus, effBonus, acc: eff, eff, gold, boss: g.bossWave });
     g.emit('waveEnd', { wave: g.wave, bonus, effBonus, gold, boss: g.bossWave, bossId: g.bossId });
@@ -1924,7 +1976,9 @@ export function createGame(emit, config = {}) {
     g.runes.length = 0;
     g.remnants.length = 0;
     g.wards.length = 0;
+    g.zones.length = 0;
     g.timers.length = 0;
+    g.neutralOffer = null;
     g.neutralStash = [];
     g.neutralDrops = { 1: 0, 2: 0, 3: 0 };
     g.courier = { state: 'home', x: FOUNTAIN.x, z: FOUNTAIN.z, y: 0, face: 0, items: [], t: 0 };
@@ -1937,6 +1991,8 @@ export function createGame(emit, config = {}) {
     g.config = { ...g.config, ...cfg };
     g.mission = g.config.mission || null;
     g.meta = g.config.meta || null;
+    g.pools = (g.meta && g.meta.pools) || {};
+    g.cosmetics = (g.meta && g.meta.cosmetics) || null;
     g.mods = { ...curseMods(g.config.curse), ...(g.config.modifiers || {}) };
     g.rng = g.config.seed != null ? seeded(Number(g.config.seed) || 1) : Math.random;
     resetWorld();
@@ -1954,6 +2010,7 @@ export function createGame(emit, config = {}) {
     p.z = FOUNTAIN.z - 1.6;
     p.face = Math.PI * 0.75;
     if (g.mods.startGold) p.gold = g.mods.startGold;
+    else if (g.meta && g.meta.startGold > 0) p.gold = g.meta.startGold;
     if (g.mods.startLevel > 1) g.addXp(Array.from({ length: g.mods.startLevel - 1 }, (_, i) => xpFor(i + 1)).reduce((a, b) => a + b, 0));
     for (const id of (g.meta && g.meta.startItems) || []) if (ITEMS[id]) addItem(id);
     initObjectives();
@@ -1969,6 +2026,9 @@ export function createGame(emit, config = {}) {
     g.state = 'idle';
     resetWorld();
     g.isNight = false;
+    g.meta = null;
+    g.pools = {};
+    g.cosmetics = null;
     if (heroId) g.config.heroId = heroId;
     g.setHero(g.config.heroId || g.heroId);
     g.player.face = Math.PI * 0.15;
@@ -2110,7 +2170,7 @@ export function createGame(emit, config = {}) {
       sp *= slowMul(p);
       if (p.charging) sp *= 0.45;
       if (p.channel) sp *= p.tal.has('buWalk') ? 0.6 : 0;
-      if (stunned || p.st.root > 0 || p.dance || p.ball) sp = 0;
+      if (stunned || p.st.root > 0 || p.dance || p.ball || p.eclipse) sp = 0;
       const k = Math.min(1, dt * 14);
       p.vx += (mx * sp - p.vx) * k;
       p.vz += (mz * sp - p.vz) * k;
@@ -2166,10 +2226,11 @@ export function createGame(emit, config = {}) {
       }
       p.hp = Math.min(p.maxHp, p.hp + hpr * dt);
       p.mana = Math.min(p.maxMana, p.mana + mpr * dt);
-      for (const key of ['windrun', 'rapier', 'invuln', 'haste', 'dd', 'regenRune', 'bkb', 'callArmor', 'cullHaste', 'spinT', 'helixIcd', 'smokeT', 'barkT', 'mekT', 'magShieldT', 'cyclone', 'hasteBuff', 'lsBuff']) {
+      for (const key of ['windrun', 'rapier', 'invuln', 'haste', 'dd', 'regenRune', 'bkb', 'callArmor', 'cullHaste', 'spinT', 'helixIcd', 'smokeT', 'barkT', 'mekT', 'magShieldT', 'shieldT', 'cyclone', 'hasteBuff', 'lsBuff']) {
         if (p[key] > 0) p[key] = Math.max(0, p[key] - dt);
       }
       if (p.magShieldT <= 0) p.magShield = 0;
+      if (p.shieldT <= 0) p.shield = 0;
       p.evadeBuff = p.windrun > 0 ? p.windrunEv : 0;
       p.bonusArmor = (p.callArmor > 0 ? p.callArmorK : 0) + (p.barkT > 0 ? p.barkArmor : 0) + (p.mekT > 0 ? p.mekArmor : 0);
       p.blockBuff = p.barkT > 0 ? p.barkBlock : 0;
@@ -2247,6 +2308,11 @@ export function createGame(emit, config = {}) {
       if (w.t >= w.life) { g.wards.splice(i, 1); g.emit('wardGone', { ward: w }); }
     }
     stepRemnants(dt);
+    stepZones(dt);
+    if (g.neutralOffer && live) {
+      g.neutralOffer.t -= dt;
+      if (g.neutralOffer.t <= 0) g.chooseNeutral(g.neutralOffer.choices[0]);
+    }
 
     updateVision(dt);
     stepFoes(dt);
@@ -2283,6 +2349,22 @@ export function createGame(emit, config = {}) {
     }
   }
 
+  function stepZones(dt) {
+    const p = g.player;
+    for (let i = g.zones.length - 1; i >= 0; i--) {
+      const z = g.zones[i];
+      z.t += dt;
+      if (z.follow === 'hero' && !p.dead) { z.x = p.x; z.z = p.z; }
+      z.acc += dt;
+      let guard = 30;
+      while (z.acc >= z.every && guard-- > 0) {
+        z.acc -= z.every;
+        if (z.tick) { try { z.tick(g, z); } catch (err) { console.error(err); } }
+      }
+      if (z.t >= z.dur || (z.follow === 'hero' && p.dead)) { g.zones.splice(i, 1); g.emit('zoneEnd', { zone: z }); }
+    }
+  }
+
   function stepRemnants(dt) {
     const p = g.player;
     for (let i = g.remnants.length - 1; i >= 0; i--) {
@@ -2290,6 +2372,21 @@ export function createGame(emit, config = {}) {
       r.t += dt;
       if (r.t >= r.life) { g.remnants.splice(i, 1); g.emit('remnantGone', { rem: r }); continue; }
       if (r.t < r.arm) continue;
+      if (r.seek) {
+        // Gezgin Kalıntı: en yakın düşmana süzülür
+        let best = null;
+        let bd = 11;
+        for (const e of g.foes) {
+          if (e.dead || e.spawnT > 0 || e.demo || e.seen === false) continue;
+          const d = Math.hypot(e.x - r.x, e.z - r.z);
+          if (d < bd) { bd = d; best = e; }
+        }
+        if (best) {
+          const step = Math.min(bd, 7 * dt);
+          r.x += ((best.x - r.x) / (bd || 1)) * step;
+          r.z += ((best.z - r.z) / (bd || 1)) * step;
+        }
+      }
       let trig = false;
       for (const e of g.foes) {
         if (e.dead || e.spawnT > 0 || e.demo) continue;
@@ -2541,8 +2638,11 @@ export function createGame(emit, config = {}) {
           if (!addItem('cheese')) { g.cheese(); k.eaten = true; }
         }
         if (k.kind === 'neutral') {
-          if (!p.neutral) { p.neutral = { id: k.item }; recalc(); k.equipped = true; }
-          else { g.neutralStash.push(k.item); k.stashed = true; }
+          if (k.choices && k.choices.length > 1) {
+            // seçenekli düşme: oyuncu seçer (arayüz) — seçmezse 25 sn sonra ilki alınır
+            g.neutralOffer = { choices: k.choices.slice(), t: 25, tier: k.tier };
+            g.emit('neutralChoice', { choices: k.choices.map((id) => NEUTRALS[id]), tier: k.tier });
+          } else takeNeutral(k.item, k);
         }
         g.emit('pickup', { pickup: k });
       }

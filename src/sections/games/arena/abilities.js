@@ -17,6 +17,8 @@
 import { DMG, applyStatus, dealDamage } from './combat.js';
 
 const has = (g, id) => g.player.tal.has(id);
+/** Yetenek varyantı (progression.js ustalık seçimi: runConfig.meta.variants[yetenekKimliği]). */
+const V = (g, abilityId, variantId) => !!(g.variant && g.variant(abilityId) === variantId);
 const inR = (a, b, r) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2 <= r * r;
 const live = (e) => !e.dead && e.spawnT <= 0 && !e.demo;
 
@@ -38,6 +40,37 @@ export const ABILITIES = {
       if (has(g, 'okCharge')) t *= 0.7;
       if (g.hasItem('butterfly')) t *= 0.8;
       return t;
+    },
+    /** Yaylım Ateşi varyantı: şarj yok, dokununca üç okluk yelpaze. true: tuş basışı burada tüketildi. */
+    tap(g, c) {
+      if (!V(g, this.id, 'okcu_volley')) return false;
+      const p = g.player;
+      if (!g.canAct() || g.cds.q > 0) return true;
+      if (p.st.silence > 0 || p.st.hex > 0) { g.emit('silenced', { key: 'q' }); return true; }
+      const L = c.L;
+      const cost = (L.manaMin + L.manaMax) / 2;
+      if (p.mana < cost) { g.emit('noMana', { key: 'q' }); return true; }
+      p.mana -= cost;
+      let dx = p.aimX - p.x;
+      let dz = p.aimZ - p.z;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.3) { dx = Math.sin(p.face); dz = Math.cos(p.face); } else { dx /= len; dz /= len; }
+      p.face = Math.atan2(dx, dz);
+      p.recoil = 1;
+      const full = (L.base + L.charge + g.stat.atkDmg * 0.7) * g.dmgMul(false) * (has(g, 'okDmg') ? 1.15 : 1);
+      let main = null;
+      for (const sgn of [-1, 0, 1]) {
+        const ang = Math.atan2(dx, dz) + sgn * 0.22;
+        const a = { id: g.nextId(), x: p.x + Math.sin(ang) * 0.55, z: p.z + Math.cos(ang) * 0.55, dx: Math.sin(ang), dz: Math.cos(ang), speed: 32, range: 13, traveled: 0, dmg: full * 0.45, pierce: 0, charge: 0.55, full: false, hits: 0, kills: 0, hitSet: new Set(), alive: true, rapier: g.doubleDmg() };
+        g.arrows.push(a);
+        if (sgn === 0) main = a;
+      }
+      g.shots += 1;
+      g.waveShots += 1;
+      g.setCd('q', 0.5);
+      g.breakInvis();
+      g.emit('shoot', { arrow: main, charge: 0.55, volley: true });
+      return true;
     },
     step(g, dt, c) {
       const p = g.player;
@@ -95,6 +128,7 @@ export const ABILITIES = {
     hud(g, c) {
       const p = g.player;
       const L = c.L;
+      if (V(g, this.id, 'okcu_volley')) return { cdFrac: g.cds.q / 0.5, cdLeft: 0, noMana: p.mana < (L.manaMin + L.manaMax) / 2, extra: String(Math.round((L.manaMin + L.manaMax) / 2)) };
       return { cdFrac: g.cds.q / L.cd, cdLeft: 0, noMana: p.mana < L.manaMin, charging: p.charging, charge: p.charge, full: p.charging && p.charge >= 0.97, extra: String(Math.round(L.manaMin + (L.manaMax - L.manaMin) * (p.charging ? p.charge : 0))) };
     },
   },
@@ -110,10 +144,25 @@ export const ABILITIES = {
     show: [['Süre', 'dur', ' sn'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     cast(g, c) {
       const p = g.player;
-      p.windrun = c.L.dur;
+      const gale = V(g, this.id, 'okcu_gale');
+      p.windrun = c.L.dur - (gale ? 0.5 : 0);
       p.windrunK = c.L.speed;
-      p.windrunEv = c.L.evade;
+      p.windrunEv = gale ? 0 : c.L.evade;
       if (has(g, 'okWind')) c.cd = c.L.cd - 4;
+      if (gale) {
+        // Kasırga Adımı: kaçınma yok; çevreyi iter ve yavaşlatır
+        for (const e of g.foes) {
+          if (!live(e) || !inR(e, p, 3 + e.r)) continue;
+          const dx = e.x - p.x;
+          const dz = e.z - p.z;
+          const len = Math.hypot(dx, dz) || 1;
+          const k = e.kind === 'boss' ? 0.2 : 1;
+          e.kx += (dx / len) * 7 * k;
+          e.kz += (dz / len) * 7 * k;
+          applyStatus(g, e, 'slow', 1, { k: 0.4 });
+        }
+        g.emit('fx', { kind: 'gale', x: p.x, z: p.z, r: 3 });
+      }
       g.emit('windrun', {});
       return true;
     },
@@ -174,6 +223,21 @@ export const ABILITIES = {
       const p = g.player;
       const L = c.L;
       const aghs = g.stat.aghs;
+      if (V(g, this.id, 'okcu_rain')) {
+        // Ok Yağmuru: korku/sersemletme yok; seçilen alana 3 sn ok (toplam %140), Aghanım +1 sn
+        const pt = g.aimPoint(9);
+        const r = L.radius * 0.55 + (has(g, 'okUlt') ? 1.5 : 0);
+        const dur = 3 + (aghs ? 1 : 0);
+        const per = (L.dmg * 1.4 * g.dmgMul(true)) / 12;
+        c.cd = Math.max(8, L.cd - (has(g, 'okUltCd') ? 12 : 0));
+        g.addZone({ kind: 'rain', x: pt.x, z: pt.z, r, dur, every: 0.25, tick(gg, zn) {
+          for (const e of gg.foes) if (live(e) && inR(e, zn, zn.r + e.r)) dealDamage(gg, gg.player, e, per, DMG.MAG, { src: 'rain', quiet: e.kind === 'creep' });
+        } });
+        p.face = Math.atan2(pt.x - p.x, pt.z - p.z);
+        g.emit('fx', { kind: 'rainStart', x: pt.x, z: pt.z, r });
+        g.emit('ultHit', { n: 1, rain: true });
+        return true;
+      }
       const radius = L.radius + (has(g, 'okUlt') ? 3 : 0);
       let cd = aghs ? 18 : L.cd;
       if (has(g, 'okUltCd')) cd -= 12;
@@ -217,7 +281,8 @@ export const ABILITIES = {
     cast(g, c) {
       const p = g.player;
       const L = c.L;
-      const R = L.radius + (has(g, 'baCall') ? 1.2 : 0);
+      const roar = V(g, this.id, 'balta_roar');
+      const R = (L.radius + (has(g, 'baCall') ? 1.2 : 0)) * (roar ? 0.7 : 1);
       let n = 0;
       for (const e of g.foes) {
         if (!live(e) || !inR(e, p, R + e.r)) continue;
@@ -233,8 +298,8 @@ export const ABILITIES = {
         e.kx += (dx / len) * pull;
         e.kz += (dz / len) * pull;
       }
-      p.callArmor = L.armorDur;
-      p.callArmorK = L.armor;
+      p.callArmor = L.armorDur + (roar ? 1 : 0);
+      p.callArmorK = L.armor * (roar ? 1.5 : 1);
       g.emit('fx', { kind: 'taunt', x: p.x, z: p.z, r: R, n });
       return true;
     },
@@ -253,19 +318,28 @@ export const ABILITIES = {
     spin(g, L, free) {
       const p = g.player;
       const dmg = (L.dmg + (has(g, 'baSpin') ? 60 : 0)) * g.dmgMul(true);
+      const blood = V(g, this.id, 'balta_blood');
       p.spinT = 0.42;
+      let hits = 0;
       for (const e of g.foes) {
         if (!live(e) || !inR(e, p, L.radius + e.r)) continue;
         const dx = e.x - p.x;
         const dz = e.z - p.z;
         const len = Math.hypot(dx, dz) || 1;
-        dealDamage(g, p, e, dmg, DMG.PURE, { src: 'helix', dirX: dx / len, dirZ: dz / len, knock: 0.9 });
+        if (dealDamage(g, p, e, dmg, DMG.PURE, { src: 'helix', dirX: dx / len, dirZ: dz / len, knock: 0.9 }) > 0) hits += 1;
       }
-      g.emit('fx', { kind: 'spin', x: p.x, z: p.z, r: L.radius, free });
+      if (blood && hits) g.heal(hits * (12 + p.maxHp * 0.012));
+      g.emit('fx', { kind: 'spin', x: p.x, z: p.z, r: L.radius, free, blood });
     },
-    cast(g, c) { this.spin(g, c.L, false); return true; },
+    cast(g, c) {
+      this.spin(g, c.L, false);
+      // Kanlı Helezon: ikinci tur
+      if (V(g, this.id, 'balta_blood')) g.later(0.36, () => { if (!g.player.dead) this.spin(g, c.L, true); });
+      return true;
+    },
     onHurt(g, dmg, source, c) {
       const p = g.player;
+      if (V(g, this.id, 'balta_blood')) return;
       if (p.dead || p.helixIcd > 0 || !source || typeof source !== 'object' || source.kind === 'tower') return;
       const chance = c.L.proc + (has(g, 'baProc') ? 0.12 : 0);
       if (g.rand() < chance) { p.helixIcd = c.L.icd; this.spin(g, c.L, true); }
@@ -304,8 +378,15 @@ export const ABILITIES = {
       { mana: 130, cd: 16, range: 2.3, base: 500, perLevel: 14, dmg: 300 },
     ],
     show: [['Eşik', 'base'], ['Hasar', 'dmg'], ['Bekleme', 'cd', ' sn']],
-    threshold(g, L) { return L.base + L.perLevel * (g.player.level - 1) + (has(g, 'baCull') ? 120 : 0); },
+    threshold(g, L) { return (L.base + L.perLevel * (g.player.level - 1) + (has(g, 'baCull') ? 120 : 0)) * (V(g, this.id, 'balta_mass') ? 0.75 : 1); },
     canCast(g, c) {
+      if (V(g, this.id, 'balta_mass')) {
+        const p = g.player;
+        const R = 2.5 + (g.stat.aghs ? 1 : 0);
+        c.list = g.foes.filter((e) => live(e) && e.seen !== false && inR(e, p, R + e.r));
+        if (!c.list.length) g.emit('noTarget', { key: c.key });
+        return c.list.length > 0;
+      }
       const range = c.L.range + (g.stat.aghs ? 1.5 : 0);
       c.target = g.pickTarget(range);
       if (!c.target) g.emit('noTarget', { key: c.key });
@@ -313,6 +394,21 @@ export const ABILITIES = {
     },
     cast(g, c) {
       const p = g.player;
+      if (c.list) {
+        // Toplu Hüküm: 2,5 yarıçapta eşiğin altındakilerin hepsi; bekleme sıfırlanmaz
+        const thr = this.threshold(g, c.L);
+        let kills = 0;
+        for (const e of c.list) {
+          if (e.dead) continue;
+          if (e.hp <= thr && !(e.invuln > 0)) { dealDamage(g, p, e, e.hp + (e.shield || 0) + 1, DMG.PURE, { src: 'execute' }); kills += 1; }
+          else dealDamage(g, p, e, c.L.dmg * 0.6 * g.dmgMul(true), DMG.MAG, { src: 'cull' });
+        }
+        p.swing = 1;
+        g.emit('fx', { kind: 'massCull', x: p.x, z: p.z, r: 2.5 + (g.stat.aghs ? 1 : 0), n: kills });
+        if (kills) { p.cullHaste = 3; g.emit('fx', { kind: 'execute', x: p.x, z: p.z }); }
+        g.emit('cull', { kill: kills > 0, mass: true, n: kills });
+        return true;
+      }
       const e = c.target;
       const thr = this.threshold(g, c.L);
       p.face = Math.atan2(e.x - p.x, e.z - p.z);
@@ -354,10 +450,24 @@ export const ABILITIES = {
       }
       g.emit('fx', { kind: 'nova', x: pt.x, z: pt.z, r: L.radius });
     },
+    shards(g, pt, L) {
+      // Buz Kıymıkları: yavaşlatmaz; en yakına %160, çevredeki 4 düşmana %40
+      const list = g.foes.filter((e) => live(e) && inR(e, pt, L.radius + 1 + e.r)).sort((a, b) => ((a.x - pt.x) ** 2 + (a.z - pt.z) ** 2) - ((b.x - pt.x) ** 2 + (b.z - pt.z) ** 2));
+      const dmg = L.dmg * g.dmgMul(true);
+      list.slice(0, 5).forEach((e, i) => dealDamage(g, g.player, e, dmg * (i === 0 ? 1.6 : 0.4), DMG.MAG, { src: 'shards' }));
+      g.emit('fx', { kind: 'shards', x: pt.x, z: pt.z, r: L.radius, targets: list.slice(0, 5).map((e) => ({ x: e.x, z: e.z })) });
+    },
     cast(g, c) {
       const L = c.L;
       const pt = g.aimPoint(L.range);
       if (has(g, 'buNova')) c.cd = L.cd - 2;
+      if (V(g, this.id, 'buz_shards')) {
+        this.shards(g, pt, L);
+        if (has(g, 'buNova2')) g.later(0.6, () => this.shards(g, pt, L));
+        g.player.face = Math.atan2(pt.x - g.player.x, pt.z - g.player.z);
+        g.player.swing = 1;
+        return true;
+      }
       this.blast(g, pt, L, 1);
       if (has(g, 'buNova2')) g.later(0.6, () => this.blast(g, pt, L, 0.6));
       g.player.face = Math.atan2(pt.x - g.player.x, pt.z - g.player.z);
@@ -377,7 +487,7 @@ export const ABILITIES = {
     show: [['Süre', 'dur', ' sn'], ['Saniyede', 'dps'], ['Bekleme', 'cd', ' sn']],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
     bind(g, e, dur, L) {
-      applyStatus(g, e, 'root', dur);
+      if (applyStatus(g, e, 'root', dur)) e.rootFx = 'ice';
       applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true), src: g.player, key: 'frost' });
       e.windup = 0;
       g.emit('fx', { kind: 'frost', foe: e, dur });
@@ -405,8 +515,23 @@ export const ABILITIES = {
       { mana: 0, cd: 14, regen: 5, dur: 3, mps: 48, hps: 42 },
     ],
     show: [['Pasif mana/sn', 'regen'], ['Aktif mana/sn', 'mps'], ['Aktif can/sn', 'hps'], ['Bekleme', 'cd', ' sn']],
-    stats(g, st, c) { st.manaRegen += c.L.regen; },
-    cast(g, c) { g.player.auraT = c.L.dur; g.emit('fx', { kind: 'aura', x: g.player.x, z: g.player.z }); return true; },
+    stats(g, st, c) { if (!V(g, this.id, 'buz_ward')) st.manaRegen += c.L.regen; },
+    cast(g, c) {
+      const p = g.player;
+      if (V(g, this.id, 'buz_ward')) {
+        // Kış Kalkanı: 4 sn, manan kadar (%60'ı harcanır) hasar emen kalkan
+        const amt = Math.round(p.mana * 0.6);
+        if (amt < 20) { g.emit('noMana', { key: c.key }); return false; }
+        p.mana -= amt;
+        p.shield = amt;
+        p.shieldT = 4;
+        g.emit('fx', { kind: 'iceWard', x: p.x, z: p.z, amount: amt });
+        return true;
+      }
+      p.auraT = c.L.dur;
+      g.emit('fx', { kind: 'aura', x: p.x, z: p.z });
+      return true;
+    },
     step(g, dt, c) {
       const p = g.player;
       if (p.auraT > 0) {
@@ -415,7 +540,7 @@ export const ABILITIES = {
         p.hp = Math.min(p.maxHp, p.hp + c.L.hps * dt);
       }
     },
-    hud(g) { return { active: g.player.auraT > 0 }; },
+    hud(g) { return { active: g.player.auraT > 0 || g.player.shieldT > 0 }; },
   },
   buz_field: {
     id: 'buz_field', hero: 'buz', slot: 'r', icon: 'field', name: 'Donduran Alan', targeting: 'channel', ult: true,
@@ -426,7 +551,46 @@ export const ABILITIES = {
       { mana: 320, cd: 26, dur: 4.2, radius: 4.8, rate: 14, blast: 1.35, dmg: 110, slow: 0.35 },
     ],
     show: [['Patlama hasarı', 'dmg'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
+    /** Tek buz patlaması dalgası (kanal ve Gezgin Tipi ortak). */
+    blasts(g, cx, cz, R, L, n) {
+      const p = g.player;
+      const dmg = L.dmg * g.dmgMul(true) * (has(g, 'buField') ? 1.4 : 1);
+      const center = { x: cx, z: cz };
+      for (let k = 0; k < n; k++) {
+        let x;
+        let z;
+        const near = [];
+        for (const e of g.foes) if (live(e) && inR(e, center, R)) near.push(e);
+        if (near.length && g.rand() < 0.55) {
+          const e = near[Math.floor(g.rand() * near.length)];
+          x = e.x + (g.rand() - 0.5) * 1.4;
+          z = e.z + (g.rand() - 0.5) * 1.4;
+        } else {
+          const a = g.rand() * Math.PI * 2;
+          const r = Math.sqrt(g.rand()) * R;
+          x = cx + Math.sin(a) * r;
+          z = cz + Math.cos(a) * r;
+        }
+        for (const e of near) if (inR(e, { x, z }, L.blast + e.r)) dealDamage(g, p, e, dmg, DMG.MAG, { src: 'field', quiet: e.kind === 'creep' });
+        g.emit('fx', { kind: 'iceBlast', x, z, r: L.blast });
+      }
+      for (const e of g.foes) if (!e.dead && inR(e, center, R)) applyStatus(g, e, 'slow', 0.3, { k: L.slow });
+    },
     cast(g, c) {
+      if (V(g, this.id, 'buz_blizzard')) {
+        // Gezgin Tipi: kanal yok, seni izleyen −%35 yarıçaplı fırtına, 6 sn
+        const L = c.L;
+        const R = L.radius * 0.65;
+        g.addZone({ kind: 'blizzard', follow: 'hero', x: g.player.x, z: g.player.z, r: R, dur: 6, every: 1 / L.rate, frz: 0, tick: (gg, zn) => {
+          this.blasts(gg, zn.x, zn.z, zn.r, L, 1);
+          if (gg.stat.aghs) {
+            zn.frz -= zn.every;
+            if (zn.frz <= 0) { zn.frz = 1.5; for (const e of gg.foes) if (!e.dead && inR(e, zn, zn.r)) applyStatus(gg, e, 'root', 0.6); }
+          }
+        } });
+        g.emit('fx', { kind: 'blizzardStart', x: g.player.x, z: g.player.z, r: R });
+        return true;
+      }
       g.player.channel = { id: this.id, key: 'r', t: 0, dur: c.L.dur, acc: 0, frz: 0 };
       g.emit('channelStart', { key: 'r', dur: c.L.dur });
       return true;
@@ -464,7 +628,7 @@ export const ABILITIES = {
         ch.frz -= dt;
         if (ch.frz <= 0) {
           ch.frz = 1.5;
-          for (const e of g.foes) if (!e.dead && inR(e, p, L.radius)) applyStatus(g, e, 'root', 0.6);
+          for (const e of g.foes) if (!e.dead && inR(e, p, L.radius) && applyStatus(g, e, 'root', 0.6)) e.rootFx = 'ice';
         }
       }
     },
@@ -482,10 +646,19 @@ export const ABILITIES = {
       { mana: 55, cd: 5, range: 7.5, extra: 130 },
     ],
     show: [['Ek hasar', 'extra'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
-    canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
+    canCast(g, c) { c.target = g.pickTarget(c.L.range * (V(g, this.id, 'golge_mark') ? 0.5 : 1)); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
     cast(g, c) {
       const p = g.player;
       const e = c.target;
+      if (V(g, this.id, 'golge_mark')) {
+        // Av İşareti: ışınlanmaz; 4 sn +%25 alınan hasar, bekleme −2 sn
+        applyStatus(g, e, 'amp', 4, { k: 0.25, pierce: true });
+        e.markT = 4;
+        c.cd = c.L.cd - 2 - (has(g, 'goStep') ? 2 : 0);
+        p.face = Math.atan2(e.x - p.x, e.z - p.z);
+        g.emit('fx', { kind: 'mark', foe: e });
+        return true;
+      }
       const x0 = p.x;
       const z0 = p.z;
       g.blinkNextTo(e);
@@ -507,11 +680,20 @@ export const ABILITIES = {
     show: [['Süre', 'dur', ' sn'], ['İlk vuruş', 'bonus', '%'], ['Sersemletme', 'stun', ' sn'], ['Bekleme', 'cd', ' sn']],
     cast(g, c) {
       const p = g.player;
+      if (has(g, 'goSmoke')) c.cd = c.L.cd - 6;
+      if (V(g, this.id, 'golge_decoy')) {
+        // Gölge İkizi: görünmezlik yerine 4 sn yem; DOG'lar ona üşüşür
+        g.addZone({ kind: 'decoy', x: p.x, z: p.z, r: 7, dur: 4, every: 0.5, now: true, tick(gg, zn) {
+          const left = zn.dur - zn.t;
+          for (const e of gg.foes) if (live(e) && e.kind === 'dog' && inR(e, zn, zn.r)) applyStatus(gg, e, 'taunt', Math.max(0.2, left), { x: zn.x, z: zn.z });
+        } });
+        g.emit('fx', { kind: 'decoy', x: p.x, z: p.z });
+        return true;
+      }
       p.invis = Math.max(p.invis, c.L.dur);
       p.smokeT = c.L.dur;
       p.smokeK = c.L.haste;
       p.smokeBonus = { mul: 1 + c.L.bonus, stun: c.L.stun };
-      if (has(g, 'goSmoke')) c.cd = c.L.cd - 6;
       g.emit('fx', { kind: 'smoke', x: p.x, z: p.z });
       g.emit('invis', { t: c.L.dur });
       return true;
@@ -546,6 +728,11 @@ export const ABILITIES = {
     show: [['Sıçrama', 'count'], ['Ek hasar', 'extra'], ['Bekleme', 'cd', ' sn']],
     canCast(g, c) {
       const p = g.player;
+      if (V(g, this.id, 'golge_eclipse')) {
+        const any = g.foes.some((e) => live(e) && e.seen !== false && inR(e, p, 3.2 + e.r));
+        if (!any) g.emit('noTarget', { key: c.key });
+        return any;
+      }
       const list = g.foes.filter((e) => live(e) && e.seen !== false && inR(e, p, c.L.range + e.r));
       if (!list.length) { g.emit('noTarget', { key: c.key }); return false; }
       list.sort((a, b) => ((a.x - p.x) ** 2 + (a.z - p.z) ** 2) - ((b.x - p.x) ** 2 + (b.z - p.z) ** 2));
@@ -553,6 +740,12 @@ export const ABILITIES = {
       return true;
     },
     cast(g, c) {
+      if (V(g, this.id, 'golge_eclipse')) {
+        // Tutulma: sıçrama yok, 3 sn yerinde saniyede üç kritik; dokunulmazlık yok
+        g.player.eclipse = { t: 3 + (g.stat.aghs ? 1 : 0), acc: 0, L: c.L, R: 3.2 + (has(g, 'goDance') ? 0.8 : 0) };
+        g.emit('fx', { kind: 'eclipse', x: g.player.x, z: g.player.z, r: g.player.eclipse.R });
+        return true;
+      }
       const n = c.L.count + (has(g, 'goDance') ? 3 : 0) + (g.stat.aghs ? 3 : 0);
       g.player.dance = { list: c.list, n, i: 0, t: 0, hit: new Set() };
       g.emit('danceStart', {});
@@ -560,6 +753,25 @@ export const ABILITIES = {
     },
     step(g, dt, c) {
       const p = g.player;
+      const E = p.eclipse;
+      if (E) {
+        E.t -= dt;
+        E.acc += dt;
+        while (E.acc >= 1 / 3 && E.t > -0.01) {
+          E.acc -= 1 / 3;
+          const dmg = (g.stat.atkDmg + E.L.extra) * g.dmgMul(false);
+          let hit = 0;
+          for (const e of g.foes) {
+            if (!live(e) || !inR(e, p, E.R + e.r)) continue;
+            dealDamage(g, p, e, dmg, DMG.PHYS, { attack: true, forceCrit: true, src: 'eclipse', lifesteal: (g.stat.lifesteal || 0) * 0.5, trueStrike: true });
+            hit += 1;
+          }
+          p.spinT = 0.3;
+          if (hit) g.emit('fx', { kind: 'eclipseHit', x: p.x, z: p.z, r: E.R });
+        }
+        if (E.t <= 0 || p.dead) { p.eclipse = null; g.emit('danceEnd', {}); }
+        return;
+      }
       const D = p.dance;
       if (!D) return;
       p.invuln = Math.max(p.invuln, 0.2);
@@ -603,8 +815,10 @@ export const ABILITIES = {
     show: [['Hasar', 'dmg'], ['Yarıçap', 'radius'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     place(g, x, z, L, max = 3) {
       const mine = g.remnants;
+      const drift = V(g, this.id, 'simsek_drift');
+      if (drift) max = 1;
       while (mine.length >= max) { const old = mine.shift(); g.emit('remnantGone', { rem: old }); }
-      const r = { id: g.nextId(), x, z, t: 0, life: L.life, arm: L.arm, dmg: (L.dmg + (has(g, 'siRem') ? 50 : 0)), radius: L.radius, trigger: L.trigger };
+      const r = { id: g.nextId(), x, z, t: 0, life: L.life, arm: L.arm, dmg: (L.dmg + (has(g, 'siRem') ? 50 : 0)) * (drift ? 1.4 : 1), radius: L.radius, trigger: L.trigger, seek: drift };
       mine.push(r);
       g.emit('fx', { kind: 'remnant', x, z });
       return r;
@@ -632,21 +846,31 @@ export const ABILITIES = {
       const pt = g.aimPoint(L.range);
       const R = L.radius + (has(g, 'siVortexR') ? 1.5 : 0);
       const root = L.root + (has(g, 'siVortex') ? 0.6 : 0);
+      const pulse = V(g, this.id, 'simsek_pulse');
       for (const e of g.foes) {
         if (!live(e) || !inR(e, pt, R + e.r)) continue;
         const dx = pt.x - e.x;
         const dz = pt.z - e.z;
         const len = Math.hypot(dx, dz) || 1;
         const k = e.kind === 'boss' ? 0.15 : 1;
-        e.kx += (dx / len) * Math.min(len, R) * 6 * k;
-        e.kz += (dz / len) * Math.min(len, R) * 6 * k;
-        e.windup = 0;
+        if (pulse) {
+          // Girdap Darbesi: dışarı it, 1,5 sn yavaşlat; çekme ve kök yok
+          e.kx -= (dx / len) * 8 * k;
+          e.kz -= (dz / len) * 8 * k;
+        } else {
+          e.kx += (dx / len) * Math.min(len, R) * 6 * k;
+          e.kz += (dz / len) * Math.min(len, R) * 6 * k;
+          e.windup = 0;
+        }
         dealDamage(g, p, e, L.dmg * g.dmgMul(true), DMG.MAG, { src: 'vortex' });
-        if (!e.dead) applyStatus(g, e, 'root', root);
+        if (!e.dead) {
+          if (pulse) applyStatus(g, e, 'slow', 1.5, { k: 0.4 });
+          else if (applyStatus(g, e, 'root', root)) e.rootFx = 'shock';
+        }
       }
       p.face = Math.atan2(pt.x - p.x, pt.z - p.z);
       p.swing = 1;
-      g.emit('fx', { kind: 'vortex', x: pt.x, z: pt.z, r: R });
+      g.emit('fx', { kind: pulse ? 'pulse' : 'vortex', x: pt.x, z: pt.z, r: R });
       return true;
     },
   },
@@ -691,8 +915,11 @@ export const ABILITIES = {
     canCast(g, c) {
       const p = g.player;
       const L = c.L;
+      const short = V(g, this.id, 'simsek_short');
       const per = this.unitCost(g, L);
-      const maxD = Math.max(0, (p.mana - L.mana) / per);
+      const fixed = Math.round((L.mana + 3 * per) * (has(g, 'siBall') ? 0.8 : 1));
+      if (short && p.mana < fixed) { g.emit('noMana', { key: c.key }); return false; }
+      const maxD = short ? 5 : Math.max(0, (p.mana - L.mana) / per);
       if (maxD < 1.2) { g.emit('noMana', { key: c.key }); return false; }
       const pt = g.aimPoint(Math.min(L.range, maxD));
       let dx = pt.x - p.x;
@@ -707,14 +934,15 @@ export const ABILITIES = {
       c.tx = tx;
       c.tz = tz;
       c.dist = d;
-      c.cost = L.mana + per * d;
+      c.cost = short ? fixed : L.mana + per * d;
+      c.short = short;
       return true;
     },
     cast(g, c) {
       const p = g.player;
       const L = c.L;
       p.mana -= c.cost;
-      p.ball = { x0: p.x, z0: p.z, tx: c.tx, tz: c.tz, dist: c.dist, t: 0, traveled: 0, hit: new Set(), L, remAcc: 0 };
+      p.ball = { x0: p.x, z0: p.z, tx: c.tx, tz: c.tz, dist: c.dist, t: 0, traveled: 0, hit: new Set(), L, remAcc: 0, short: !!c.short };
       p.invuln = Math.max(p.invuln, c.dist / L.speed + 0.1);
       if (p.charging) g.chargeCancel();
       g.emit('fx', { kind: 'ballStart', x: p.x, z: p.z });
@@ -750,6 +978,7 @@ export const ABILITIES = {
         }
       }
       if (B.traveled >= B.dist - 1e-3 || p.dead) {
+        if (B.short) p.overload = true; // Kısa Devre: varışta Aşırı Yük hazır
         p.ball = null;
         p.invuln = Math.min(p.invuln, 0.15);
         g.emit('fx', { kind: 'ballEnd', x: p.x, z: p.z });
@@ -773,6 +1002,16 @@ export const ABILITIES = {
     cast(g, c) {
       const p = g.player;
       const L = c.L;
+      if (V(g, this.id, 'agac_bloom')) {
+        // Çiçek Açan Örtü: görünmezlik yok; 5 sn seni izleyen %30 yavaşlatan alan, iyileşme ×2
+        const heal = L.heal * 2;
+        g.addZone({ kind: 'bloom', follow: 'hero', x: p.x, z: p.z, r: 3.5, dur: 5, every: 0.25, tick(gg, zn) {
+          gg.heal(heal * zn.every, { quiet: true });
+          for (const e of gg.foes) if (live(e) && inR(e, zn, zn.r + e.r)) applyStatus(gg, e, 'slow', 0.4, { k: 0.3 });
+        } });
+        g.emit('fx', { kind: 'bloom', x: p.x, z: p.z, r: 3.5 });
+        return true;
+      }
       p.invis = Math.max(p.invis, L.dur);
       p.guiseT = L.dur;
       p.guiseK = L.haste + (has(g, 'agGuise') ? 0.2 : 0);
@@ -812,15 +1051,23 @@ export const ABILITIES = {
     ],
     show: [['Kök', 'root', ' sn'], ['Saniyede', 'dps'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
-    bind(g, e, L) {
+    bind(g, e, L, thorns = false) {
       const dur = L.root + (has(g, 'agLeech') ? 1 : 0);
-      applyStatus(g, e, 'root', dur);
-      applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true), src: g.player, key: 'leech', lifesteal: 1 });
+      if (applyStatus(g, e, 'root', dur)) e.rootFx = 'vine';
+      applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true) * (thorns ? 0.7 : 1), src: g.player, key: 'leech', lifesteal: thorns ? 0 : 1 });
       e.windup = 0;
-      g.emit('fx', { kind: 'leech', foe: e, dur });
+      g.emit('fx', { kind: 'leech', foe: e, dur, thorns });
     },
     cast(g, c) {
       const p = g.player;
+      if (V(g, this.id, 'agac_thorns')) {
+        // Dikenli Kökler: can emmez; hedefin 2 birim çevresi de köklenir, hasar −%30
+        const t = c.target;
+        for (const e of g.foes) if (live(e) && (e === t || inR(e, t, 2 + e.r))) this.bind(g, e, c.L, true);
+        p.face = Math.atan2(t.x - p.x, t.z - p.z);
+        p.swing = 1;
+        return true;
+      }
       this.bind(g, c.target, c.L);
       p.face = Math.atan2(c.target.x - p.x, c.target.z - p.z);
       p.swing = 1;
@@ -870,11 +1117,24 @@ export const ABILITIES = {
       const p = g.player;
       const L = c.L;
       const R = L.radius + (has(g, 'agGrowthR') ? 2 : 0);
+      if (V(g, this.id, 'agac_grove')) {
+        // Kutsal Koru: kök yok; 6 sn içinde durana %3/sn can, düşmanlara %40 yavaşlatma
+        const r = R * 0.7;
+        g.addZone({ kind: 'grove', x: p.x, z: p.z, r, dur: 6 + (g.stat.aghs ? 2 : 0), every: 0.25, tick(gg, zn) {
+          const hp = gg.player;
+          if (inR(hp, zn, zn.r)) gg.heal(hp.maxHp * 0.03 * zn.every, { quiet: true });
+          for (const e of gg.foes) if (live(e) && inR(e, zn, zn.r + e.r)) applyStatus(gg, e, 'slow', 0.4, { k: 0.4 });
+        } });
+        g.emit('fx', { kind: 'grove', x: p.x, z: p.z, r });
+        g.emit('ultHit', { n: 1, grove: true });
+        return true;
+      }
       const dps = L.dps * (has(g, 'agGrowthDmg') ? 2 : 1) * g.dmgMul(true);
       let n = 0;
       for (const e of g.foes) {
         if (!live(e) || !inR(e, p, R + e.r)) continue;
         if (applyStatus(g, e, 'root', L.root)) {
+          e.rootFx = 'vine';
           applyStatus(g, e, 'dot', L.root, { dps, src: p, key: 'growth' });
           e.windup = 0;
           n += 1;
@@ -886,6 +1146,46 @@ export const ABILITIES = {
     },
   },
 };
+
+/**
+ * Yetenek varyantları (Aghanım Kütüphanesi / ustalık, progression.js VARIANTS ile aynı kimlikler).
+ * targeting: varyant yeteneğin hedefleme biçimini değiştiriyorsa.
+ */
+export const VARIANT_INFO = {
+  okcu_volley: { name: 'Yaylım Ateşi', desc: 'Şarj yok: dokununca üç okluk yelpaze. Ok başına %45 hasar, delip geçmez.' },
+  okcu_gale: { name: 'Kasırga Adımı', desc: 'Kaçınma vermez; başlarken 3 birimdeki düşmanları iter ve 1 sn yavaşlatır. Süre −0,5 sn.' },
+  okcu_rain: { name: 'Ok Yağmuru', desc: 'Korkutmaz, sersemletmez: seçtiğin alana 3 sn ok yağdırır (toplam %140). Aghanım +1 sn.', targeting: 'point' },
+  balta_roar: { name: 'Meydan Okuma', desc: 'Yarıçap %30 küçük; zırh bonusu ×1,5 ve süre +1 sn.' },
+  balta_blood: { name: 'Kanlı Helezon', desc: 'Vurulunca dönmez; aktif iki tur döner ve isabet başına can yeniler.' },
+  balta_mass: { name: 'Toplu Hüküm', desc: '2,5 yarıçapta eşiğin altındaki herkesi infaz eder; eşik %25 düşük, bekleme sıfırlanmaz.', targeting: 'none' },
+  buz_shards: { name: 'Buz Kıymıkları', desc: 'Yavaşlatmaz; en yakın hedefe %160, çevredeki dört düşmana %40.' },
+  buz_ward: { name: 'Kış Kalkanı', desc: 'Pasif mana yok; aktif: 4 sn manan kadar (%60’ı harcanır) hasar emen kalkan.' },
+  buz_blizzard: { name: 'Gezgin Tipi', desc: 'Kanal yok: seni izleyen −%35 yarıçaplı fırtına, 6 sn.', targeting: 'none' },
+  golge_mark: { name: 'Av İşareti', desc: 'Işınlanmaz; hedefi 4 sn işaretler (+%25 alınan hasar). Menzil ½, bekleme −2 sn.' },
+  golge_decoy: { name: 'Gölge İkizi', desc: 'Görünmezlik yerine 4 sn yem ikiz; DOG’lar ona üşüşür. İlk vuruş bonusu yok.' },
+  golge_eclipse: { name: 'Tutulma', desc: 'Sıçramaz: 3 sn yerinde döner, çevredeki herkese saniyede üç kritik. Dokunulmaz değilsin.' },
+  simsek_drift: { name: 'Gezgin Kalıntı', desc: 'Kalıntı en yakın düşmana süzülüp çarpar. Tek kalıntı ama hasar +%40.' },
+  simsek_pulse: { name: 'Girdap Darbesi', desc: 'Çekmez, köklemez: düşmanları dışarı iter ve 1,5 sn yavaşlatır.' },
+  simsek_short: { name: 'Kısa Devre', desc: 'En çok 5 birim, sabit mana; varınca Aşırı Yük hazır.' },
+  agac_bloom: { name: 'Çiçek Açan Örtü', desc: 'Görünmezlik yok: 5 sn çevrendekileri %30 yavaşlatan çiçek alanı, iyileşme ×2.' },
+  agac_thorns: { name: 'Dikenli Kökler', desc: 'Can emmez; hedefin 2 birim çevresi de köklenir. Hasar −%30.' },
+  agac_grove: { name: 'Kutsal Koru', desc: 'Köklemez: 6 sn içinde durana %3/sn can, düşmanlara %40 yavaşlatma.', targeting: 'none' },
+};
+/** Arayüz: tuşun görünen adı/açıklaması (varyant etkinse onunki). */
+export function abilityDisplay(g, key) {
+  const A = ABILITIES[g.H.abilities[key]];
+  if (!A) return null;
+  const vid = g.variant ? g.variant(A.id) : null;
+  const VI = vid && VARIANT_INFO[vid];
+  return { A, name: VI ? VI.name : A.name, desc: VI ? VI.desc : A.desc, variant: VI ? vid : null };
+}
+/** Etkin hedefleme biçimi (varyant değiştirebilir). */
+export function targetingOf(g, key) {
+  const A = ABILITIES[g.H.abilities[key]];
+  if (!A) return 'none';
+  const vid = g.variant ? g.variant(A.id) : null;
+  return (vid && VARIANT_INFO[vid] && VARIANT_INFO[vid].targeting) || A.targeting;
+}
 
 /** Özellik bonusu (Dota'daki gibi): yetenekler dolunca kalan puanlar +2 güç/çeviklik/zekâ verir. */
 export const STATS_BONUS = { id: 'stats', name: 'Özellik Bonusu', desc: 'Her seviyede +2 güç, +2 çeviklik, +2 zekâ.', per: 2 };

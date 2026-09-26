@@ -1,206 +1,387 @@
-# 1vDOQUZ Arena 2.0 (`arena`)
+# 1vDOQUZ Arena 3.0 (`arena`)
 
-**Rota:** `#oyunlar--arena` (kısayol **R**) · **Tür:** Ultimate · 3D · mini Dota · **Skor:** puan (yüksek iyi, tek skor tablosu)
+**Rota:** `#oyunlar--arena` (kısayol **R**) · **Tür:** Ultimate · 3D · mini Dota · **Skor:** puan (yüksek iyi, tek skor tablosu `scores.arena`, yalnızca Sonsuz mod yazar)
 **Dosyalar:** `src/sections/games/arena/` (ayrıntı: [Mimari](#mimari--genişletme-noktaları)). Salon, arenayı ilk açılışta tembel yükler.
+**İlgili:** kalıcı ilerleme (Aghanım Kütüphanesi, ustalık, varyantlar, lanetler) → [../ARENA-ILERLEME.md](../ARENA-ILERLEME.md).
 
 ## Fikir
 Radiant tarafında tek başınasın. Nehrin ikiye böldüğü küçük bir Dota savaş alanında dokuz DOG, Dire creep’leri,
-Dire kuleleri ve her 5. dalgada Roshan (Kaya Canavarı) üstüne gelir. Dört kahramandan birini seç, öldürdükçe
-**altın** ve **XP** topla, molada **dükkândan** eşya al (kurye getirir), 5/10/15. seviyede **yetenek ağacından**
-seç, nehirdeki **rünleri** kap. Dokuz DOG’u indirmek bir dalgayı temizler: **1vDOQUZ**.
+Dire kuleleri, orman kampları, gece ve her 5. dalgada bir boss üstüne gelir. Altı kahramandan birini seç; **Güç /
+Çeviklik / Zekâ** ile büyü, seviye başına **yetenek puanı** harca (Q W E 4 seviye, R 6/12/18), 10/15/20/25’te
+**yetenek ağacından** seç, bileşenlerden **tarif eşyaları** birleştir, kamplardan **orman eşyası** düşür, geceyi
+ward’la, ölünce **geri al** (buyback). Dokuz DOG’u indirmek bir dalgayı temizler: **1vDOQUZ**.
 
 Kahramanlar Dota arketiplerinden esinlenen özgün karakterlerdir; arayüzde yalnızca Türkçe lakaplarıyla anılırlar.
 
 ## Kahramanlar
-Seçim ekranında sahnenin kendisi döner tabladır: kamera seçili kahramanın 3D modeline yaklaşır. Seçim
-`csk:arena:v2` içinde saklanır; her kahramanın **kendi en iyi skoru** yerel olarak tutulur ve kartında görünür.
+Seçim ekranında sahne döner tabladır. Kart: ad, rol, zorluk, en iyi skor, özellik satırı (1. seviye + seviye başı
+artış, ana özellik vurgulu), dört yetenek (ipucunda seviye tablosu), Aghanım metni, yetenek ağacı özeti.
+**Şimşek Ruhu** ve **Ağaç Bekçisi** `locked: true`: Kütüphane’den açılır (kilitliyken incelenir, “Kilitli” düğmesi);
+geliştirmede `devUnlock` düğmesi ve `__arenaDebug.unlock()` açar.
 
-| Kahraman | Rol · Zorluk | Can / Mana / Hız | Temel saldırı |
+| Kahraman | Ana | Güç | Çev. | Zekâ | 1. sv can / mana / zırh | Hız | Saldırı |
+|---|---|---|---|---|---|---|---|
+| **Okçu** (`okcu`, model-archer) | Çev. | 18 +1,8 | 24 +2,8 | 17 +1,3 | 640 / 300 / 0,4 | 5,3 | Yok: Q (CureShot) onun saldırısı; ok hasarı + saldırı gücü |
+| **Balta** (`balta`, model-hero-brute) | Güç | 25 +3,4 | 16 +1,6 | 16 +1,2 | 940 / 240 / 3,1 | 5,05 | Yakın 46, 1,55 menzil, BAT 1,1 |
+| **Buz Cadısı** (`buz`, model-hero-frost) | Zekâ | 18 +2 | 16 +1,6 | 25 +3,2 | 630 / 440 / 0,4 | 4,95 | Menzilli 37, 6,2 menzil, BAT 1,16 |
+| **Gölge** (`golge`, model-hero-shadow) | Çev. | 20 +2,2 | 24 +3,1 | 16 +1,2 | 700 / 270 / −0,1 · %15 kaçınma | 5,65 | Yakın 39, 1,45 menzil, BAT 0,89 |
+| **Şimşek Ruhu** (`simsek`, model-hero-storm ≈1,6 yük.) 🔒 | Zekâ | 18 +2 | 20 +1,8 | 24 +3 | 600 / 400 / 0,5 | 5,2 | Menzilli 40 (kıvılcım), 6 menzil, BAT 1,26 |
+| **Ağaç Bekçisi** (`agac`, model-hero-treant ≈1,8 yük.) 🔒 | Güç | 26 +3,6 | 14 +1,4 | 17 +1,6 | 1.000 / 260 / 3,9 | 4,75 | Yakın 55, 1,7 menzil, BAT 1,37 |
+
+### Özellikler (Güç / Çeviklik / Zekâ)
+`attrAt(H, k, L) = taban + artış × (L − 1)` + eşya/yetenek ağacı/Özellik Bonusu. `ATTR` (heroes.js):
+
+| Özellik | Etki |
+|---|---|
+| Güç | +20 can, +0,1 can/sn |
+| Çeviklik | +0,1 zırh (10 çeviklik = 1 zırh), +0,75 saldırı hızı |
+| Zekâ | +12 mana, +0,05 mana/sn, +%0,2 büyü güçlendirme |
+| Ana özellik | her puan +1 saldırı hasarı |
+
+- Can = `taban + Güç×20 + eşya` (× `modifiers.heroHp`), Mana = `taban + Zekâ×12 + eşya`.
+- Saldırı aralığı = `BAT / (1 + saldırı hızı / 100)` (en az 0,25 sn); saldırı hızı = `Çev×0,75 + eşya`.
+- Büyü direnci: kahraman tabanı %25; kaynaklar çarpımsal (`1 − 0,75 × Π(1 − x)`). Kaçınma, kritik şansı,
+  statü direnci de çarpımsal; kritik çarpanı ve blok şansı en yüksek olan geçerli.
+- HUD’da portrenin yanında G/Ç/Z sayıları (ana özellik altın); **C** ya da portreye dokunmak kahraman sayfasını açar
+  (tüm statlar: saldırı hasarı, zırh (azaltma %), kaçınma, büyü direnci/güçlendirme, statü direnci, kritik, can
+  çalma, blok, hız, yenilenme, güvenilir/güvenilmez altın, geri alma bedeli).
+
+### Yetenekler ve seviyeleri
+Her seviyede **1 yetenek puanı**. Q W E en çok 4 (seviye sınırı `⌊(L+1)/2⌋`: 1/3/5/7), R en çok 3 (6/12/18. seviye).
+Q 1. seviyede öğrenilmiş başlar. Puanlar istenirse **Özellik Bonusu**na da harcanır (+2 tüm özellik, 10 kez; otomatik
+öğrenme önce yetenekleri doldurur) — 25. seviyedeki 24 puanın hepsi bir yere gider, harcanamayan puan kalınca rozet gizlenir.
+Öğrenme: slotların üstündeki **+** (masaüstü), portredeki **+N** rozeti → öğrenme kipi (**L**; sonra Q/␣/E/R ya da
+dokun), **Ctrl+Q/W/E/R**, kahraman sayfasındaki **+** düğmeleri. Ayarlardan “otomatik öğren” de açılabilir.
+Öğrenilmemiş yetenek kilitli görünür; slotun altındaki noktalar seviyeyi gösterir.
+
+| | Q | W | E | R |
+|---|---|---|---|---|
+| **Okçu** | **CureShot** (şarj): taban 26/34/42/50 + şarj 86/106/128/150, şarj 1,2→1,05 sn, delip geçer | **Rüzgâr Koşusu**: 2,5/3/3,5/4 sn hız + %80 kaçınma, 14→11 sn | **Tango**: 2/3/3/4 şarj, 110/150/190/230 can (6 sn) | **DOG DOG DOG**: 160/260/360 büyü, 8/8,5/9 yarıçap, korku 2/2,4/2,8 sn, 34/30/26 sn |
+| **Balta** | **Savaş Çağrısı**: 3,2→3,8 yarıçap çek + kilit 1,8→2,7 sn, +8→14 zırh | **Helezon**: 70/100/130/160 saf; pasif %17→26 vurulunca döner | **Savaş Açlığı** (hedef): 18/26/34/42 dps 8 sn, %20→35 yavaş, ölürse sıçrar | **Kesin Hüküm** (hedef): eşik 220/360/500 (+seviye) altını infaz, bekleme sıfırlanır; üstüne 150/225/300 büyü |
+| **Buz Cadısı** | **Buz Novası** (nokta): 100/150/200/250, 2,4→3 yarıçap, %30→45 yavaş 3 sn | **Buz Zinciri** (hedef): 1,6→2,8 sn kök + 30→60 dps | **Mana Aurası**: pasif +2→5 mana/sn; aktif 3 sn hızlı mana/can | **Donduran Alan** (kanal 4,2 sn): 50/80/110 patlamalar |
+| **Gölge** | **Gölge Adımı** (hedef): ışınlan + 40/70/100/130 ek vuruş | **Duman Perdesi**: 3→6 sn görünmezlik; ilk vuruş +%50→110 ve 0,4→1 sn sersem | **Kan Kokusu** (pasif): %12→24 kritik ×2→×2,6, %5→11 can çalma | **Ölüm Dansı**: 4/6/8 sıçrama, garanti kritik, dokunulmaz |
+| **Şimşek Ruhu** | **Durgun Kalıntı**: yerine kalıntı (0,5 sn’de kurulur, en çok 3), yaklaşan düşmanda 90/140/190/240 büyü patlaması | **Elektrik Girdabı** (nokta): merkeze çek + kök 1→1,9 sn + 40→100 | **Aşırı Yük** (pasif): her büyüden sonra sonraki saldırı alanda 40/65/90/115 büyü + %30→40 yavaş | **Yıldırım Topu** (nokta): uç, yolda dokunulmaz; birim başı 8/12/16 hasar ve 7/6/5 mana (+40 sabit) |
+| **Ağaç Bekçisi** | **Doğanın Örtüsü**: 4→7 sn görünmezlik + 10→28 can/sn; ilk vuruş kök 0,8→1,7 sn | **Sömürücü Kökler** (hedef): kök 1,4→2,3 sn, 30→75 dps, hasarın tamamı can | **Canlı Zırh**: +4→10 zırh, 6→18 can/sn, 15→30 blok; yakındaki Radiant kulesine de | **Aşırı Büyüme**: 6/7/8 yarıçapta herkes kök 2,2→3,4 sn + 25/40/55 dps |
+
+Aghanım Asası: Okçu ulti 18 sn + korku +1 sn · Balta infaz menzili +1,5, her infazda Helezon · Buz alan içindekiler
+her 1,5 sn 0,6 sn donar · Gölge dans +3 sıçrama, sonunda 2 sn görünmezlik · Şimşek topu her 3 birimde kalıntı
+bırakır · Ağaç örtüdeyken her 2,5 sn yakın düşmanı Sömürücü Köklerle bağlar.
+
+### Yetenek ağacı (10 / 15 / 20 / 25)
+Seviye 10’da bir kademe açılır (sol / sağ). Portrede **T** rozeti yanar; sayfa açıkken oyun durur (1 / 2 ile seç).
+
+| | 10 | 15 | 20 | 25 |
+|---|---|---|---|---|
+| Okçu | +%15 ok hasarı · +220 can | Rüzgâr −4 sn · CureShot %30 hızlı şarj | Ulti +3 yarıçap · tam şarjda üçlü ok | +30 çeviklik · Ulti −12 sn |
+| Balta | +20 hasar · +250 can | Helezon +60 · Çağrı +1,2 yarıçap | İnfaz eşiği +120 · %45 yarma | +10 zırh · Helezon şansı +%12 |
+| Buz Cadısı | +150 mana · +%12 büyü | Zincir +1 sn · Nova −2 sn | Kanalda yürü · alan +%40 | Nova iki kez · Zincir ikinci hedef |
+| Gölge | +%8 kritik · +0,5 hız | Adım −2 sn · +%15 kaçınma | Dans +3 hedef · Yıkım (+%20 alınan hasar 4 sn) | +%18 can çalma · Duman −6 sn |
+| Şimşek | +%10 büyü · +200 can | Kalıntı +50 · Girdap kökü +0,6 sn | Aşırı Yük +1 alan, %50 fazla yavaş · Top mana −%40 | Girdap +1,5 yarıçap · Kalıntı −1,5 sn |
+| Ağaç | +300 can · +%15 statü direnci | Kökler +1 sn · Örtü hızı +%20 | Canlı Zırh +6 · Büyüme +2 yarıçap | Büyüme hasarı ×2 · +30 güç |
+
+### Yetenek varyantları (Kütüphane, 18 adet)
+`runConfig.meta.variants = { <yetenek kimliği>: <varyant kimliği> }` → `g.variant(abilityId)`. Hepsi yan seçenek
+(ham güç değil, oynanış değişir); seviye tabloları aynı kalır. HUD, sayfa ve ipuçları varyant adını/açıklamasını
+gösterir (`abilityDisplay`, `targetingOf`), slotta mor elmas işareti, sayfada **VARYANT** etiketi.
+
+| Yetenek | Varyant | Değişim |
+|---|---|---|
+| okcu_shot | `okcu_volley` Yaylım Ateşi | Şarj yok: dokununca 3 okluk yelpaze, ok başı %45, delmez, 0,5 sn bekleme |
+| okcu_windrun | `okcu_gale` Kasırga Adımı | Kaçınma yok; başta 3 birimi iter + 1 sn yavaş; süre −0,5 |
+| okcu_dog | `okcu_rain` Ok Yağmuru | Nokta hedefli 3 sn ok yağmuru (toplam %140), korku/sersem yok; Aghanım +1 sn |
+| balta_call | `balta_roar` Meydan Okuma | Yarıçap ×0,7, zırh ×1,5, süre +1 sn |
+| balta_helix | `balta_blood` Kanlı Helezon | Pasif dönme yok; aktif iki tur + isabet başı can |
+| balta_cull | `balta_mass` Toplu Hüküm | Hedefsiz: 2,5 yarıçapta eşik ×0,75 altındaki herkesi infaz; bekleme sıfırlanmaz |
+| buz_nova | `buz_shards` Buz Kıymıkları | Yavaşlatma yok; en yakına %160, çevredeki 4 düşmana %40 |
+| buz_aura | `buz_ward` Kış Kalkanı | Pasif mana yok; aktif 4 sn mananın %60’ı kadar kalkan |
+| buz_blizzard | `buz_blizzard` Gezgin Tipi | Kanal yok: 6 sn seni izleyen fırtına, yarıçap ×0,65 |
+| golge_step | `golge_mark` Av İşareti | Işınlanma yok; hedef 4 sn +%25 hasar alır; menzil ½, bekleme −2 |
+| golge_smoke | `golge_decoy` Gölge İkizi | 4 sn yem ikiz: DOG’lar ona saldırır (taunt-konum); ilk vuruş bonusu yok |
+| golge_dance | `golge_eclipse` Tutulma | Yerinde 3 sn, 3,2 yarıçapta saniyede 3 kritik; köklü, dokunulmaz değil |
+| simsek_remnant | `simsek_drift` Gezgin Kalıntı | Tek kalıntı, en yakın düşmana süzülür, hasar +%40 |
+| simsek_vortex | `simsek_pulse` Girdap Darbesi | Çekme/kök yok: dışa iter + 1,5 sn yavaş |
+| simsek_ball | `simsek_short` Kısa Devre | En çok 5 birim, sabit mana, varışta Aşırı Yük hazır |
+| agac_guise | `agac_bloom` Çiçek Açan Örtü | Görünmezlik yok: 5 sn %30 yavaşlatan çiçek alanı, iyileşme ×2 |
+| agac_leech | `agac_thorns` Dikenli Kökler | Can emme yok; hedef + 2 birim çevresi köklenir, hasar −%30 |
+| agac_growth | `agac_grove` Kutsal Koru | Kök yok: 6 sn alan, içinde %3/sn can, düşmanlara %40 yavaş |
+
+## Savaş sistemi (`combat.js`)
+**Tek hasar girişi:** `dealDamage(g, source, target, amount, type, opts)` → verilen hasar. Türler `DMG.PHYS`
+(`'physical'`), `DMG.MAG` (`'magical'`), `DMG.PURE` (`'pure'`). Sıra:
+
+1. `g.hooks.beforeDamage` (dönen sayı yeni miktar; Dokuzun Mührü boss bonusu burada).
+2. Vurulabilirlik: kule kuralları (magic binalara işlemez, `opts.structure` hariç); kahraman kendi Radiant kulesini
+   can ≤ %12 iken saldırıyla **deny** edebilir.
+3. **Büyü bağışıklığı** (kahramanda BKB/dokunulmazlık, düşmanda `spellImmune`): büyü hasarı 0 (`opts.pierce` hariç).
+   Saf hasar geçer. Dokunulmazlık (`invuln`) her şeyi keser.
+4. **Kaçınma** (yalnızca saldırı + fiziksel; `trueStrike` geçer) → “ISKA/MISS”.
+5. **Kritik**: `opts.forceCrit` ya da saldırıda kaynağın kritik şansı (kahraman `g.stat.crit/critMul`, düşman `crit/critMul`).
+6. **Zırh / büyü direnci**: fiziksel × `1 − 0,06a / (1 + 0,06|a|)` (10 zırh → ×0,625, −5 → ×1,23); büyü × `1 − MR`.
+7. **Güçlendirme** (`amp`/İşaret/Yıkım), sonra **blok** (saldırı + fiziksel, şansla sabit miktar; menzillide yarı).
+8. **Kalkanlar**: önce büyü kalkanı (Ruh Başlığı, yalnız büyü), sonra genel kalkan (Kış Kalkanı). “KALKAN”.
+9. Yuvarla (en az 1) → `hurtHero` / `hurtFoe` / `hurtTower`.
+10. **Can çalma** (saldırı + fiziksel) / **büyü can çalma** (saldırı olmayan; DoT yarım, `dotLs` açıkça verilirse tam).
+11. `g.hooks.afterDamage`, `dmgNum` olayı → **yüzen sayılar**: fiziksel kırmızı/turuncu, büyü mavi, saf beyaz;
+    kritik büyük ve “!”; kahramana gelen “−N”; ISKA, BAĞIŞIK, BLOK, KALKAN.
+
+**Durumlar** (`applyStatus(g, target, kind, dur, data)`; `target.st` sayaçları): `stun`, `root`, `slow` (k: en güçlü
+geçerli), `silence`, `fear` (kaynaktan kaçış), `hex` (dönüşüm: yavaş, yetenek/saldırı yok), `disarm`, `taunt`
+(birime ya da x/z konumuna), `dot` (en güçlü tutulur, `dotType`, `dotLs`), `amp`, `shred` (zırh azaltma), `sleep`,
+`blind`. **Statü direnci** olumsuz süreleri kısaltır (en çok %80). **Bosslarda `ccCap`**: tek bir kontrolün süresi
+sınırlı (Roshan 0,35 sn, Kalp 0,2 sn …). BKB / dokunulmazlık olumsuzları engeller (`data.pierce` hariç).
+**Dispel** `dispel(g, target, { strong, negative, positive })`: zayıf dispel yavaş/kök/susturma/dönüşüm/DoT’u, güçlü
+dispel sersemletmeyi de siler (BKB, Kasırga Asası güçlü).
+
+## Eşyalar (`items.js`)
+Dükkân (**B**, altın düğmesi): **Temel** ve **Gelişmiş** sekmeleri, seçilen eşyada “Şuna dönüşür” ve “Bileşenler”
+ağacı (sahip olunanlar ✓, tarif ücreti çipi). Sahip olduğun bileşenler fiyattan düşülür (“Al ve birleştir”); eksik
+bileşenler + tarif tek seferde alınır. Bedava tarifler çantada **kendiliğinden birleşir**. Satış **%50** (tarif
+toplamının yarısı). 6 yuva; etkin eşyalar **1–6**. Çeşmedeysen anında, değilsen **kurye** getirir (yolda bileşenler
+“rezerve”). Fiyatlar `modifiers.shopCost` ile çarpılır (Lanet 3).
+
+**Tüketim / temel:** Tango Paketi 90 · Peri Ateşi 70 · Görüş Tozu 90 (görünmezleri açar) · Gözcü Ward’ı 80 (2 şarj,
+90 sn, gece 8 birim görüş) · Bilgi Kitabı 300 (anında XP) · Demir Dal 60 (+2 tümü) · Sihirli Sopa 200 · Koşu Botları
+350 · Yenilenme Yüzüğü 250 · Kuvvet Kemeri / Çevik Eşarp / Bilge Cübbesi 400 (+7 özellik) · Hız Eldiveni 450 ·
+Zincir Yelek 500 · Büyü Pelerini 500 · Vampir Maskesi 700 · Can Taşı 900 · Mana Küresi 800 · Pala 900 ·
+Göz Açıp Kapayana 950.
+
+| Tarif | Bileşenler + tarif | Toplam | Etki |
 |---|---|---|---|
-| **Okçu** (`okcu`, model-archer) | Menzilli nişancı · ★★ | 640 / 300 / 5,3 | Yok: Q onun saldırısı |
-| **Balta** (`balta`, model-hero-brute) | Yakın dövüş tank · ★ | 940 / 240 / 5,05 · %20 zırh | 46 hasar, 1,55 menzil, 0,95 sn |
-| **Buz Cadısı** (`buz`, model-hero-frost) | Menzilli büyücü · ★★ | 630 / 440 / 4,95 | Buz mermisi 37, 6,2 menzil, hafif yavaşlatma |
-| **Gölge** (`golge`, model-hero-shadow) | Suikastçı · ★★★ | 700 / 270 / 5,65 · %20 kaçınma | 39 hasar, 1,45 menzil, 0,72 sn |
+| Sihirli Değnek | Sopa + 2 Dal + 150 | 470 | +3 tümü, 18 şarj × 16 can/mana |
+| Faz Botları | Botlar + Zincir Yelek (bedava) | 850 | +0,85 hız, +5 zırh; aktif 3 sn %25 hız, birimlerden geç |
+| Güç Nalları | Botlar + Eldiven (bedava) | 800 | +0,8 hız, +25 sald. hızı, +8 ana özellik |
+| Kaya Kalkanı | Can Taşı + Yüzük + 250 | 1.400 | +250 can, +5 yenilenme, %60 34 blok |
+| Ruh Başlığı | Pelerin + Yüzük + Kemer + 300 | 1.450 | +%25 büyü direnci; aktif 400 büyü kalkanı 8 sn |
+| Kutsal Tılsım | Yüzük + Yelek + Cübbe + 450 | 1.600 | aktif 260 can + 6 sn +4 zırh, kuleleri onarır |
+| Kara Kral Asası | Kemer + Pala + 450 | 1.750 | aktif 5 sn büyü bağışıklığı + güçlü dispel |
+| Şimşek Tırpanı | Eldiven + Pala + 350 | 1.700 | %25 şansla 4 hedefe 110 büyü şimşeği |
+| Zırh Kıran | Pala + Yelek + 500 | 1.900 | saldırı 6 sn −6 zırh |
+| Kasırga Asası | Cübbe + Küre + 400 | 1.600 | aktif 2,2 sn havada: dokunulmaz + dispel |
+| Güneş Tacı | Pala + Can Taşı + 500 | 2.300 | 3,2 birimde 42 büyü yanması/sn |
+| Kelebek | 2 Eşarp + Pala + 300 | 2.000 | +20 çev., +%30 kaçınma, +25 sald. hızı |
+| Aghanım Asası | Kemer + Eşarp + Cübbe + Küre + 300 | 2.300 | +10 tümü, ulti yükseltmesi |
+| Tazeleme Küresi | Yüzük + Küre + Cübbe + 550 | 2.000 | aktif tüm beklemeleri sıfırlar |
+| Kan Emici | Maske + Kemer + Pala + 400 | 2.400 | %20 can çalma; aktif 5 sn ×3 |
+| İlahi Kılıç | 2 Pala + 1.800 | 3.600 | tüm hasar +%80; Aegis’le dirilince düşer, Kurye Köpeği kaçırır |
 
-### Yetenekler (Q W E R)
-| | Okçu | Balta | Buz Cadısı | Gölge |
-|---|---|---|---|---|
-| **Q** | **CureShot**: basılı tut, 1,2 sn şarj, delip geçen ok | **Savaş Çağrısı**: 3,4 yarıçapta düşmanları çeker ve 2,4 sn kendine kilitler; 3,5 sn %40 hasar azaltma | **Buz Novası**: noktaya alan hasarı + 3 sn %40 yavaşlatma | **Gölge Adımı**: hedefin yanına ışınlan + anında saldırı |
-| **W** | **Rüzgâr Koşusu**: 3 sn %60 hız, %80 kaçınma | **Helezon**: çevreye saf hasar; pasif %24 şansla vurulunca döner | **Buz Zinciri**: 2,2 sn dondur (yürüyemez, ısıramaz) + DoT | **Duman Perdesi**: 4 sn görünmezlik, +%15 hız; ilk vuruş +%80 ve 0,6 sn sersemletme |
-| **E** | **Tango**: 3 şarj, 6 sn’de 150 can | **Savaş Açlığı**: 8 sn DoT + %30 yavaşlatma; hedef ölürse sıçrar | **Mana Aurası**: pasif +3 mana/sn; aktif 3 sn hızlı mana/can | **Kan Kokusu** (pasif): %20 ×2,6 kritik, %12 can çalma |
-| **R** | **DOG DOG DOG**: 8 yarıçap hasar, sersemletme, korku | **Kesin Hüküm**: eşiğin (200 + 24/seviye) altını infaz eder, bekleme sıfırlanır | **Donduran Alan**: 4,2 sn kanal, art arda buz patlamaları | **Ölüm Dansı**: 5 düşmana sıçra, garanti kritik; dans boyunca dokunulmaz |
+İkonlar `itemIconUrl` (src/assets/items) varsa oradan, yoksa glif + eşya rengi (`--ic`) ile çizilir.
 
-Balta’nın ultisi hazırken infaz edilebilecek düşmanların etiketinde **İNFAZ** yazar (Roshan dahil).
-Pasif yetenekler (Gölge E) “P” işaretiyle görünür; tuşa basınca yalnızca uyarır.
+### Orman eşyaları (tek ayrı yuva)
+Kamp temizleyince %50 (ilk kampta kesin) düşer; bosslar (Roshan hariç) kesin bırakır. Kademe dalgaya göre (1–5: 1,
+6–10: 2, 11+: 3), kademe başına en çok 3 düşme. Yuva doluysa **orman sandığına** (stash) gider; dükkândan takılır.
 
-### Yetenek ağacı (5 / 10 / 15. seviye) ve Aghanım yükseltmesi
-| | 5 | 10 | 15 | Aghanım Asası |
-|---|---|---|---|---|
-| Okçu | +%15 ok hasarı · +180 can | Rüzgâr −4 sn · şarj %30 hızlı | DOG DOG DOG +3 yarıçap · tam şarjda üçlü ok | Ulti 18 sn, korku +1 sn |
-| Balta | +14 hasar · +220 can | Helezon +60 · Çağrı +1,2 yarıçap | İnfaz eşiği +120 · %45 yarma | İnfaz menzili +1,5, her infazda Helezon |
-| Buz Cadısı | +120 mana · +%15 büyü hasarı | Zincir +1 sn · Nova −2 sn | Kanalda yürü · alan hasarı +%40 | Alandakiler her 1,5 sn 0,6 sn donar |
-| Gölge | +%8 kritik · +0,5 hız | Adım −2 sn · +%15 kaçınma | Dans +3 hedef · “Yıkım”: vurulan 4 sn %20 fazla hasar alır | Dans +3 sıçrama, sonunda 2 sn görünmezlik |
+| Kademe | Eşyalar |
+|---|---|
+| 1 | Kurt Dişi Kolye (+8 hasar, %5 can çalma) · Harpi Tüyü (+0,35 hız, +10 sald. hızı) · Ormancı Tılsımı (+2,5 can/sn, +1,5 mana/sn) |
+| 2 | Gece Feneri (gece +3,5 görüş, +3 zırh) · Kopuk Zincir (%15 statü direnci, +200 can) · Öfke Kolyesi (%15 ×1,7 kritik) |
+| 3 | Titan Pulu (+6 zırh, %15 büyü direnci, +300 can) · Yıldız Kırığı (+%15 büyü, +5 mana/sn, %10 büyü can çalma) · Dokuzun Mührü (+10 tümü, bosslara +%15) |
 
-Seviye atlayınca portrede ağaç düğmesi yanar (**T**). Seçici açıkken oyun durur; molada kendiliğinden açılır.
+**Kütüphane havuzları** (`meta.pools`): `neutralChoice: 2|3` → düşen sandık 2–3 seçenek sunar (oyun durmadan kart,
+F1–F3 / dokun; 25 sn’de seçilmezse ilki), `neutralReroll: n` → her molada n kez (en çok 3) “Orman takası”
+(dükkânda, takılı eşyayı aynı kademeden rastgele değiştirir).
 
 ## Düşmanlar
-- **10 DOG türü** (değişmedi): Feed, Farm, Pause, AFK, Kurye, Rapier, Mid, Wardsız, Smurf, Chat. Her dalga 9 DOG;
-  4. dalgadan sonra elitler. Yeni: görünmez kahramanı kaybeder (“?”), Savaş Çağrısı’na kilitlenir (“!”), donunca
-  buz kütlesi. Kurye Köpeği Okçu’dan Tango, diğerlerinden Tango Paketi ya da altın çalar.
-- **Dire creep’leri**: Piyade (yakın, kalkanlı) ve Büyücü (menzilli küre). Dalga başına 1–3 manga, Dire kapısından
-  çıkıp en yakın Radiant kulesine yürür; 3,6 birime girersen ya da vurursan sana döner. Dalga bitince geri çekilir.
-- **Roshan (Kaya Canavarı)**: her 5. dalgada çukurundan çıkar (+5 DOG). Yere vuruş (kırmızı halka, 1,1 sn uyarı,
-  hasar + itme + yavaşlatma), kükreme (sarı halka, 1,25 sn sersemletme; BKB korur). Çukurdan uzaklaşırsan geri döner ve
-  iyileşir. Düşünce **Aegis** ve **Peynir** bırakır: ROSHAN KATLEDİLDİ.
-- **Kuleler**: 2 Radiant (menzile giren düşmanlara ateş eder, creep’ler onlara saldırır), 2 Dire (0,8 sn kilitlenip
-  kahramana ateş eder, kırmızı menzil halkası). Dire kulesini yıkmak +500 puan, +220 altın. Roshan dalgasından sonraki
-  dalgada yıkılan kuleler yeniden dikilir.
+- **10 DOG türü**: Feed, Farm, Pause, AFK, Kurye, Rapier, Mid, Wardsız, Smurf, Chat. Her dalga 9 DOG, 4. dalgadan
+  sonra elitler. DOG’lar durumları okur (korkuda kaçar, dönüşümde amaçsız, kökte ısırır ama yürümez, taunt’ta hedefe).
+  **Wardsız DOG** gece daha görünmez ve %18 hızlı; ward/Toz/Gece Feneri açığa çıkarır. **Kurye Köpeği** Tango ya da
+  altın çalar; kaçmadan indirirsen geri gelir (“GERİ ALINDI”).
+- **Dire creep’leri**: Piyade (250 can, 2,5 zırh) ve Büyücü (175 can, %10 MR, menzilli). Dalga başına 1–3 manga.
+  Radiant kulesi düşerse creep’ler coşar (+%15 hasar/kule); kendi kuleni son vuruşla yıkarsan (**deny**) coşmazlar ve
+  80 XP alırsın.
+- **Kuleler**: 2 Radiant (5,5 zırh, görüş verir, nötr ve görünmeyenlere ateş etmez), 2 Dire (7 zırh, kahramana
+  kilitlenir). Dire kulesi: 220 güvenilir altın, 150 XP, 500 puan.
+- **Orman kampları** (`map.js CAMPS`): **Kurt** (sol alt orman: Alfa + 2 kurt), **Harpi** (Roshan çukuru yanı: 2 harpi),
+  **Koru** (sağ orta: Alfa + harpi + kurt). İlk dolum 18. sn, sonra her dakika başı boşsa dolar (üstündeysen
+  dolmaz). Uyuyan kamp vurulunca uyanır, 5,2 birimden uzağa kovalamaz (leash) ve dönüp iyileşir. Alfa kurt %20
+  ×1,8 kritik, harpi zincir şimşek. Modeller `model-neutral-wolf` (≈0,9) / `model-neutral-harpy` (≈1,1), yoksa prosedürel.
+- **Bosslar** (`units.js`; hepsi `g.spawnUnit(id)` ile görevden doğurulabilir). Üstte ad + can çubuğu + evre metni;
+  saldırıları yerde **telgraf** (daire / halka / çizgi / koni / işaret) ile önceden gösterilir.
+
+| Boss | Can · zırh · MR | Mekanikler | Ödül |
+|---|---|---|---|
+| **Roshan** `boss_roshan` | 2.600 · 6,5 · %25 | Yere vuruş (kırmızı daire 3,3), kükreme (sarı 5,4, 1,25 sn sersem); çukurdan uzaklaşınca döner/iyileşir | Aegis + Peynir, 350 altın |
+| **Feed Alfa** `boss_feedalfa` | 3.000 · 3 · %15 | Çizgi boyunca dalış (kırmızı şerit, sersem), %66/%33’te yavru Feed’ler, <%50 öfke (hızlanır) | orman eşyası, 380 |
+| **Gölge Ulusu** `boss_shadow` | 3.400 · 4 · %30 | Karanlığa karışıp kaybolur (Toz açar), sıçrama (daire), uluma (5,5 korku 1,3 sn); gece güçlü | orman eşyası, 420 |
+| **Dire Generali** `boss_general` (model-boss-general ≈2,6) | 4.600 · 6 · %25 | Koni yarma, Savaş Narası (kendine + creep’lere hasar/zırh), creep takviyesi | orman eşyası, 480 |
+| **Sonsuz Pub’ın Kalbi** `boss_ancient` (model-boss-ancient ≈3,2, sabit) | 7.000 · 8 · %35 | İç (4,2) / dış (4,2–9,5) nabız halkaları sırayla, DOG doğurur, %70 ve %35’te kalkan: 4 muhafızı indir | orman eşyası, 800 |
+
+Sonsuz modda her 5. dalga bossludur: tek sıradakiler Roshan, çiftler sırayla Feed Alfa → Gölge Ulusu → Dire Generali →
+Pub’ın Kalbi. Boss gücü `k` (kaçıncı boss dalgası): can ×`1 + 0,55(k−1)`, hasar ×`1 + 0,28(k−1)`.
 
 ## Harita
-Nehir sol üstten sağ alta akar (animasyonlu su shader’ı), ortadaki mühür adasının çevresinden dolanır. Sol alt
-Radiant (yeşil, çam ağaçları, çeşme), sağ üst Dire (kül, kızıl ölü ağaçlar). Nehrin iki kıvrımında **rün kaideleri**,
-sol üst uçta **Roshan çukuru**. Çeşme: molada saniyede %14, dalgada %3,5 can/mana; çeşmedeyken alınan eşya anında
-gelir. DOG’lar Radiant kapısı dışındaki üç kapıdan, creep’ler Dire kapısından girer.
+Nehir sol üstten sağ alta akar, ortada mühür adası. Sol alt Radiant (çeşme, yeşil), sağ üst Dire. Nehirde iki rün
+kaidesi, sol üstte Roshan çukuru, üç orman kampı. Çeşme molada %14/sn, dalgada %3,5/sn can/mana.
 
-## Ekonomi ve dükkân
-- **Altın:** DOG 38 (+elit 20) + 2/dalga; **son vuruş bonusu** +10+dalga (kahraman öldürürse). Kule ya da başka
-  kaynak öldürürse %35 pay. Creep 30/36, Roshan 350+, Dire kulesi 220, dalga sonu 90+15×dalga, pasif 1,2/sn, Ödül rünü.
-- **Dükkân (B):** molada kendiliğinden açılır (ayar), her an açılabilir. Fareyle tıkla = al; dokunmada seç → “Satın
-  al”. Çantaya tıkla + onayla = yarı fiyatına sat. 6 yuva, etkin eşyalar **1–6** tuşları / dokunmatik düğmeler.
-- **Kurye:** çeşmede değilsen eşya kuryeye yüklenir; kanatlı eşek çeşmeden sana uçar ve teslim eder.
+## Gün / gece
+~2 dk gündüz, ~2 dk gece (`DAY_LEN`/`NIGHT_LEN` 120; Lanet 4’te 60/180, Lanet 9 hep gece; dalga `night` ile
+zorlanabilir). Üst şeritte güneş/ay + kalan süre; gece sahne mavileşir, meşaleler parlar, kahramanın çevresi dışında
+karartma. **Gece görüşü 8,5 birim** (+Gece Feneri); Radiant kuleleri 6, ward’lar 8 birim görür. Görüş dışındaki
+düşmanlar çizilmez, mini haritada ve kenar oklarında görünmez, hedeflenemez (son 2 sayılan düşman hep görünür —
+dalga kilitlenmesin). Wardsız DOG’lar gece güçlenir.
 
-| Eşya | Fiyat | Etki |
-|---|---|---|
-| Koşu Botları | 350 | +0,7 hız |
-| Tango Paketi | 90 | 3 şarj, 8 sn’de 130 can (üst üste biner) |
-| Sihirli Değnek | 250 | Öldürme başına şarj (15); aktif: şarj × 16 can/mana |
-| Göz Açıp Kapayana | 950 | 7 birim ışınlanma (hareket yönü ya da nişan); hasar alınca 2 sn kilit |
-| Kara Kral Asası | 1500 | +10 hasar; 5 sn büyü bağışıklığı (yavaşlatma/sersemletme/REPORT/kükreme), büyü hasarı −%60 |
-| Güneş Tacı | 2100 | +14 hasar; 3,2 birimde saniyede 38 yanma |
-| Kelebek | 2300 | +%30 kaçınma, +%25 saldırı hızı, +12 hasar (Okçu’da şarj %20 hızlı) |
-| Aghanım Asası | 2400 | +180 can/mana, ulti yükseltmesi |
-| Tazeleme Küresi | 2000 | +4 mana/sn; aktif: tüm bekleme sürelerini sıfırlar |
-| İlahi Kılıç | 3600 | Tüm hasar +%80; Aegis’le dirilirsen düşer, Kurye Köpeği kaçırır: 8 sn içinde indir, geri al |
-| Peynir | — | Roshan’dan düşer; aktif: tam can ve mana (çanta doluysa hemen yenir) |
-
-Eşya ikonları `src/assets/items/` (itemIconUrl) dosyalarıdır; adlar Türkçe ve oyunbazdır.
+## Ekonomi
+- **Güvenilir altın** (ölünce kaybolmaz): boss, kule, dalga sonu `90 + 15×dalga`, seri ödülü `20 × (seri − 2)`,
+  Ödül rünü `55 + 15×dalga`. **Güvenilmez**: DOG/creep son vuruşu `ödül + 2(dalga−1) + 10 + dalga`, nötr `ödül + 5`,
+  başkası öldürürse %35, pasif 1,2/sn. Harcama önce güvenilmezden düşer.
+- **Ölüm**: güvenilmez altının %40’ı düşer. **Geri alma** (buyback): 6 sn pencere, bedel `150 + 25×seviye + 12×dalga`,
+  150 sn bekleme; çeşmede dirilirsin (**Enter**). Aegis önce kullanılır. `modifiers.noBuyback` kapatır.
+- **Deny**: yalnızca kendi Radiant kulen (≤ %12 canda son vuruş) — DOG deny yok (tasarım gereği; DOG’lar kahramana ait
+  birim değil). Kurye Köpeği ganimetini geri almak da “deny” sayılır.
+- Seri duyuruları: KILLING SPREE … BEYOND GODLIKE; çoklu öldürme +50/150/300/500 puan.
 
 ## Seviye ve XP
-XP: DOG 45+5/dalga, creep 22/26, Roshan 500+, kule 150, Ödül rünü. Seviye L→L+1: `100 + 55 × (L−1)`, en çok 25.
-Seviye başına kahraman hasar çarpanı (%4–5,8), can, mana ve yenilenme artar.
+XP L→L+1: `110 + 60 × (L − 1)`, en çok 25. DOG `45 + 5(dalga−1)`, creep 22/26, nötr 30–52, boss 500–1.200, kule 150,
+deny 80, Bilgi Kitabı. İyi bir koşu 10. dalgada 15–17, 12. dalgada 18–20. seviyededir; 20+ ancak geç dalgalarda.
 
 ## Rünler
-Nehirde iki noktadan birinde, ilki 14 sn’de, sonra her 40 sn’de (eskisinin yerine) çıkar; mini haritada ve ekran
-kenarında görünür. **Hız** (8 sn ×1,45 hız), **Çift Hasar** (12 sn), **Yenilenme** (8 sn %7/sn), **Görünmezlik**
-(10 sn; saldırı/büyü bozar), **Ödül** (altın + XP).
+Nehirde iki noktadan birinde, ilki 14 sn’de, sonra her 40 sn’de: Hız, Çift Hasar, Yenilenme, Görünmezlik, Ödül.
 
 ## Puan (tek skor tablosu, anlamı değişmedi)
-DOG 100 · creep 30/40 · Roshan 1000 (+500/kez) · Dire kulesi 500 · çoklu öldürme +50/150/300/500 ·
-dalga temizleme `300 × dalga` + **verim bonusu** `verim × 400` (Okçu: isabet; diğerleri: `1 − dalga hasarı / (1,5 × azami can)`).
-Kabaca: ilk dalga ≈ 1.300 (rozet **1vDOQUZ**), 4–5 dalga ≈ 6.000–8.000 (rozet **Arena Efsanesi**).
+DOG 100 · creep 30/40 · nötr 25–45 · boss 1.000–3.000 · Dire kulesi 500 · çoklu öldürme +50/150/300/500 ·
+dalga temizleme `300 × dalga` + verim bonusu `verim × 400`. Lanet çarpanı `1 + 0,12 × lanet`. Salon tablosuna
+(`scores.arena`) ve kahraman en iyilerine yalnızca **Sonsuz** mod yazar; hikâye/günlük koşular kendi ödülünü alır.
 
 ## Kontroller
 - **Klavye:** WASD + Boşluk (W yeteneği Boşluk) ya da ok tuşları + QWER · **1–6** eşyalar · **B** dükkân ·
-  **T** yetenek ağacı · molada **Enter** “Hazırım” · **Esc/P** duraklat. Fare nişanı (otomatik nişan kapalıyken);
-  saldıran kahramanlarda tıklanan düşman odak hedefi olur.
-- **Dokunmatik:** sol başparmak joystick; Q W E R düğmeleri (dokun = en yakın hedef; basılı tut + sürükle = yön);
-  etkin eşyalar yetenek kümesinin üstünde; portre panelindeki altın düğmesi dükkânı açar.
-- Temel saldırı kendiliğinden (menzildeki en yakın düşman, yoksa Dire kulesi). Görünmezken yürürsen saldırmazsın
-  (pusu için dur).
+  **C** kahraman sayfası · **T** yetenek ağacı · **L** öğrenme kipi · **Ctrl+Q/W/E/R** (ya da Ctrl+Boşluk) öğren ·
+  ölünce **Enter** geri al · orman seçimi **F1–F3** · molada **Enter** “Hazırım” · **Esc/P** duraklat.
+- **Dokunmatik:** sol joystick; Q W E R düğmeleri (dokun = en yakın hedef, basılı tut + sürükle = yön); portredeki
+  **+N** rozeti öğrenme kipini açar (sonra yetenek düğmesine dokun); portreye dokun = kahraman sayfası; altın düğmesi
+  dükkân. Dokunmatik düğmeler 44 px’ten küçük değildir.
 
 ## Arayüz (HUD)
-Alt ortada Dota paneli: portre + XP halkası + seviye, Q W E R, can/mana, 6 eşya yuvası, altın. Sol altta mini harita
-(kahraman, DOG’lar, creep’ler, Roshan, kuleler, rünler, kurye, Aegis), sağ üstte öldürme akışı, üstte dalga/DOG/öldürme,
-spiker duyuruları (FIRST BLOOD, DOUBLE/TRIPLE/ULTRA KILL, RAMPAGE, KILLING SPREE … BEYOND GODLIKE, ROSHAN UYANDI,
-ROSHAN KATLEDİLDİ, AEGIS ALINDI, KULE YIKILDI, Rün: …). 390 px’te panel sol üste, mini harita sağ üste taşınır.
+Alt ortada Dota paneli: portre + XP halkası + seviye + yetenek puanı rozeti, G/Ç/Z, Q W E R (seviye noktaları,
+bekleme, mana, “+”), can/mana, 6 eşya yuvası + orman yuvası, altın. Üstte dalga/DOG/öldürme + gün/gece hücresi;
+boss varken tepede boss çubuğu (ad, evre, kalkan). Sağda görev hedefleri listesi (varsa). Sol altta mini harita
+(kamplar dolu/boş, ward, orman eşyası, boss rengi, gece karartması). Buyback kartı, orman seçimi kartı, kahraman sayfası.
+390 px’te panel sıkışır (G/Ç/Z tek satır, eşyalar yetenek kümesinin üstünde), yatay taşma yok.
 
 ## 2D yedek
-WebGL yoksa `view2d.js` aynı simülasyonu üstten çizer: nehir, ağaçlar, kuleler (menzil halkası), çeşme, çukur, rünler,
-creep (kare), Roshan (altın halka + saldırı uyarısı), kurye, mermiler, kahraman rengi.
+WebGL yoksa `view2d.js`: nehir, ağaçlar, kuleler, çeşme, çukur, rünler, DOG/creep/nötr/boss (renk, ad, telgraf
+şekilleri), kalıntı/ward/alan etkileri, orman eşyası (kademe numarası), gece karartması, kurye, mermiler.
 
 ## Mimari / genişletme noktaları
-Hikâye modu, meta ilerleme ve derin savaş sistemi bu yapının üstüne kurulacak şekilde ayrıldı.
 
 | Dosya | Görev |
 |---|---|
-| `heroes.js` | Kahraman verisi: `attr` (str/agi/int, ileride özellik sistemi), `base`/`grow` statlar, `attack`, `abilities` (tuş → yetenek kimliği), `talents` (5/10/15; `stat` ya da yetenek kodunun okuduğu kimlik), `aghs`, model/yükseklik/renk |
-| `abilities.js` | Yetenek kayıt defteri: `targeting` (none/point/unit/passive/charge/channel), `levels: [{ mana, cd, … }]` (şimdilik 1. seviye), `cast(g, c)`, `canCast`, `step`, `stats`, `onAttack`, `onHurt`, `onKill`, `hud` |
-| `items.js` | Eşyalar: `cost`, `stat`, `active { cd, mana, use(g, slot) }`, `charges`, `components: []` (tarif sistemi için ayrıldı); `SHOP`, `RUNES` |
-| `units.js` | `UNITS` tablosu: DOG’lar (dogs.js’ten), creep’ler, `boss_roshan`, kuleler — can, hız, hasar, `armor`, `magicResist`, `attackType`, menzil, `bounty {gold,xp,score}`, model; creep/Roshan/kule yapay zekâsı |
-| `combat.js` | **Tek hasar girişi** `dealDamage(g, source, target, amount, type, opts)` (`'physical'`: zırh + kaçınma, `'magical'`: büyü direnci, BKB azaltır, `'pure'`), `applyStatus(g, target, 'stun'|'root'|'slow'|'silence'|'fear'|'taunt'|'dot'|'amp', dur, data)`, `tickStatus`, `mitigation` |
-| `game.js` | Simülasyon: `createGame(emit, config)`, dalga akışı, kahraman, ekonomi, kurye, rünler, olay veri yolu |
-| `dogs.js` | DOG türleri, dalga dizilimi, DOG yapay zekâsı (durumları `d.st` üzerinden okur) |
-| `map.js` · `map3d.js` | Harita yerleşimi (nehir, kuleler, çeşme, çukur, rün, ağaç, çarpışma) · 3D çevre (zemin boyası, su shader’ı, instanced ağaçlar, çeşme, çukur) |
-| `actors.js` · `view3d.js` · `fx3d.js` · `textures.js` | Rig’ler (DogRig, HeroRig, UnitRig, TowerRig, CourierRig, rün/mermi/peynir), sahne, efekt havuzları, canvas dokuları |
-| `view2d.js` | WebGL’siz yedek |
-| `arena.js` · `select.js` · `shop.js` · `minimap.js` · `glyphs.js` · `arena.css` | Arayüz: akış, HUD, girdi, kahraman seçimi, dükkân, mini harita, SVG glifleri |
+| `heroes.js` | Kahraman verisi (`attr`, `attrs {str:[taban,artış]…}`, `base`, `attack`, `abilities`, `build`, `talents` 10/15/20/25, `aghs`, `locked`), `ATTR`, `HERO_MR`, `xpFor`, `abilityCap`, `attrAt`, `isHeroUnlocked` / `registerUnlockCheck` / `devUnlock` |
+| `abilities.js` | 24 yetenek: `targeting`, `levels[]` (4 ya da 3), `show` (tablo satırları), `cast/fire/tap/step/stats/onAttack/onHurt/onKill/hud`; `VARIANT_INFO` (18), `abilityDisplay`, `targetingOf`, `abilityCtx`, `abilityInfo`, `levelValues`, `STATS_BONUS` |
+| `combat.js` | `dealDamage`, `applyStatus`, `dispel`, `tickStatus`, `armorFactor`, `isImmune`, `hasStatus`, `cantMove/cantAttack/cantCast`, `STATUS_NAMES`, `DMG` |
+| `items.js` | `ITEMS` (tüketim, bileşen, tarif: `components`, `cost` = tarif ücreti), `SHOP_TABS`, `totalCost`, `buildsInto`, `isRecipe`, `NEUTRALS`, `neutralTier`, `RUNES` |
+| `units.js` | `UNITS` (DOG’lar, creep’ler, nötrler, 5 boss, kuleler), `BOSS_IDS`, `CAMP_UNITS`, `unitId` (kısa ad → kimlik), `makeBoss/makeNeutral/makeCreep`, `THINK` yapay zekâları, `stepTowers` |
+| `game.js` | Simülasyon (DOM’suz): `createGame(emit, config)`, dalga/görev akışı, kahraman, ekonomi, geri alma, kamplar, gece, varyant/havuz uygulaması, `g.dev` |
+| `dogs.js` · `map.js` | DOG türleri/yapay zekâ/dalga ölçeği · harita (kamplar, `steerAround` engel kaçınma) |
+| `actors.js` · `view3d.js` · `fx3d.js` · `map3d.js` · `textures.js` | Rig’ler (`UnitRig` + `UNIT_LOOK`), telgraf havuzu, gece ışığı/karartma, alan/kalıntı/ward görselleri, kozmetik aura/iz/kurye |
+| `view2d.js` · `minimap.js` | WebGL’siz yedek · mini harita |
+| `arena.js` · `select.js` · `shop.js` · `glyphs.js` · `arena.css` | Arayüz |
+| `progression.js` · `library.js` · `mastery.js` · `codex.js` | Kalıcı ilerleme (İlerleme ajanı; bkz. ARENA-ILERLEME.md) |
 
-**Koşu ayarı** — `createGame(emit, config)` ve `g.start(config)`:
+### Koşu ayarı (`g.start(config)` / `createGame(emit, config)`)
 ```js
-{ mode: 'endless' | 'story', heroId: 'okcu', seed: null /* sayı: tekrarlanabilir dalga/rün */,
-  modifiers: { startGold, startLevel, heroHp, heroDmg, enemyHp, enemyDmg, gold, xp },
-  waves: null | [{ dogs: ['feed', …], elites: 0, creepSquads: 1, boss: null | 'roshan' }],
-  objectives: [] /* hikâye modu için ayrıldı */ }
+{
+  mode: 'endless' | 'story' | 'daily', heroId, seed /* sayı: tekrarlanabilir */, curse: 0–10,
+  modifiers: { startGold, startLevel, heroHp, heroDmg, enemyHp, enemyDmg, enemySpeed, bossHp, gold, xp, shopCost,
+               noCourier, alwaysNight, dayLen, nightLen, roshanEvery, extraElites, noBuyback, noCamps, scoreMul, autoLearn },
+  meta: { startItems: ['tango'], startGold, variants: { okcu_shot: 'okcu_volley' }, pools: { neutralChoice, neutralReroll },
+          cosmetics: { aura: {color}, trail: {color}, courier: {color}, stamp: bool, title }, mastery: { title }, bonus: { stat… } },
+  mission: { waves: [dalga…], objectives: [hedef…], victory: 'objectives' | 'waves', failOnObjective: true },
+  waves: null | [dalga…],   objectives: [hedef…],
+}
 ```
-`waves` verilirse n. dalga oradan okunur; `mode: 'story'` ve liste bitince koşu zaferle biter (`runEnd.victory`).
-Liste yoksa `defaultWave(n)` (her 5. dalga Roshan) kullanılır.
+`curseMods(level)` lanet değiştiricilerini üretir (açık `modifiers` ezer): 1 DOG %10 hızlı · 2 düşman canı +%15 ·
+3 dükkân +%20 · 4 uzun geceler · 5 kurye yok · 6 düşman hasarı +%20 · 7 Roshan her 4 dalga · 8 +2 elit · 9 hep gece ·
+10 altın −%25; skor ×`1 + 0,12n`.
 
-**Olay veri yolu** — `g.on(type, fn)` (çıkış fonksiyonu döner), `g.off`, `'*'` hepsini dinler:
-`runStart {heroId, config}`, `waveStart {wave, boss}`, `waveEnd {wave, bonus, effBonus, gold, boss}`,
-`unitKilled {unit, type, kind, by}`, `bossKilled {boss, k, by}`, `itemBought {item, cost}`, `levelUp {level}`,
-`runEnd {score, wave, heroId, stats, victory}`; ayrıca görsel olaylar (`hit`, `kill`, `fx`, `cast`, `towerDown`,
-`rune`, `courierDeliver` …). **Kancalar:** `g.hooks.beforeDamage / afterDamage / onKill / onStep` dizileri.
+**Dalga şeması** (`mission.waves[i]`, yoksa `defaultWave(n)`):
+```js
+{ dogs: ['feed', 'mid', …], elites: 2, creepSquads: 1,
+  boss: null | 'roshan' | 'boss_general' | 'Dire Generali',   bossLevel: 1, bossAt: 'pit' | 'center' | 'dire' | 'gate' | {x, z},
+  units: [{ id: 'neutral_alpha' | 'creep_melee' | 'dog_feed' | 'boss_shadow' | …, n: 2, at: 'center' | 'camp:kurt' | {x,z},
+            elite, counted: true, delay: 5 /* sn */, k: 1, aggro: true }],
+  night: true | false, camps: true, text: 'Dalga duyurusu' }
+```
+Birim kimlikleri kısa adla da çözülür (`unitId('ROSHAN')`). `counted: false` birimler dalgayı bitirmeyi beklemez.
+Liste bitince hikâyede zafer (`runEnd.victory`).
 
-**Yeni içerik eklemek:** kahraman → `heroes.js` satırı + 4 yetenek `abilities.js` + model anahtarı
-(`MODEL_H`, `MODEL_YAW`, `HeroRig` prosedürel yedek) + `glyphs.js` amblemi · eşya → `items.js` + (varsa) `src/assets/items`
-ikonu · boss/creep → `UNITS` satırı + think fonksiyonu + `stepFoes` dağıtımı + `UnitRig` model anahtarı · dalga senaryosu
-→ `config.waves`.
+**Görev hedefleri** (`mission.objectives`): `{ id, kind, n, optional, text, … }` — `kill` (`unit`: kimlik/kind/tür),
+`boss` (`boss`: kimlik), `waves`, `survive` (`t` sn), `time` (`t` sn içinde bitir; aşılırsa başarısız), `runes`,
+`camps`, `towers` (Dire kulesi yık), `protect` (Radiant kulesi düşerse başarısız), `noDeath`, `level`, `item` (`item`
+kimliği), `lastHits`, `gold` (kazanılan). `victory: 'objectives'` → zorunlu hedefler bitince zafer; `failOnObjective`
+(varsayılan açık) zorunlu hedef kaçınca yenilgi. HUD sağ üstte listeler, `objective` olayı yayar.
+
+**API (hikâye/entegrasyon):** `g.spawnUnit(id, { n, at, x, z, elite, counted, k, aggro })` → birimler ·
+`g.addZone({ kind, x, z, r, dur, every, follow, tick })` · `g.later(sn, fn)` · `g.learn(key)`, `g.chooseTalent(L, i)`,
+`g.buy(id)`, `g.sell(slot)`, `g.buyback()`, `g.chooseNeutral(id)`, `g.rerollNeutral()`, `g.equipNeutral(id)`,
+`g.variant(abilityId)`, `g.report()`, `g.activeBoss()`, `g.visionR()`, `g.dev.*` (test).
+
+**Olay veri yolu** — `g.on(type, fn)` (çıkış fonksiyonu döner), `g.off`, `'*'` hepsi. Yaşam döngüsü: `runStart`,
+`waveStart {wave, boss, bossId, text}`, `waveEnd`, `waveClear`, `runEnd {mode, score, wave, heroId, stats, victory,
+objectives, curse}`, `gameOver`. Savaş: `dmgNum {x,y,z,n,type,crit,miss,immune,block,absorb,hero}`, `status`,
+`dispel`, `silenced`, `hurt`, `hit`, `kill`, `unitKilled {unit, id, kind, by, lastHit}`, `multikill`, `streak`,
+`firstBlood`, `deny`, `death {lost, buyback}`, `revive {buyback, cost}`. Kahraman: `levelUp`, `learn`, `unlearned`,
+`talentReady`, `talent`. Eşya: `buy`, `combine`, `sell`, `itemBought`, `itemUse`, `courierDeliver`. Dünya:
+`dayNight {night}`, `campSpawn`, `campCleared`, `neutralDrop`, `neutralChoice {choices, tier}`, `neutralEquip`,
+`neutralReroll`, `ward`, `zone`, `zoneEnd`, `rune`, `runeTaken`. Boss: `bossSpawn`, `bossTele {foe, kind}`,
+`bossAct`, `bossPhase`, `bossSummon`, `bossShieldBreak`, `bossKilled`, `roshanTele/Slam/Roar`. Görev: `objective
+{id, done, failed, progress, n, obj}`. Görsel: `fx {kind…}`, `cast`, `proj`, `towerDown`, `towerShot` …
+**Kancalar:** `g.hooks.beforeDamage / afterDamage / onKill / onStep`.
+
+**Yeni içerik eklemek:** kahraman → `heroes.js` + 4 yetenek `abilities.js` (levels, show) + `MODEL_H`/`MODEL_YAW` +
+prosedürel yedek + glif · eşya → `items.js` (+ `SHOP_TABS`) · boss/birim → `UNITS` + `THINK[ai]` + `UNIT_LOOK` ·
+dalga/görev → `mission`.
+
+### Geliştirme kancası (`root.__arenaDebug`, yalnızca `import.meta.env.DEV`)
+`wave(n)`, `clear()`, `gold(n)`, `level(n)`, `learnAll()`, `talents(i)`, `roshan()`, `boss(id, {at, k})`,
+`unit(id, o)`, `camps()`, `neutral(id?)`, `night(true|false|null)`, `rune(k)`, `creeps()`, `heal()`, `god(v)`,
+`kill()`, `unlock(id|'all')`, `pickHero(id)`, `start(config)`, `sheet(tab)`, `learnMode(v)`, `speed(k)`, `mode()`.
 
 ### Kayıtlar (localStorage, `csk:` önekiyle)
 | Anahtar | İçerik |
 |---|---|
-| `arena:v2` | `{ v: 2, hero, bests: { okcu, balta, buz, golge }, runs, roshans }` (sürüm uyuşmazsa sıfırlanır) |
-| `arena:keys` · `arena:auto` · `arena:autoshop` | Tuş düzeni (wasd/dota), otomatik nişan, molada dükkânı aç |
-| profil `scores.arena` | Tek skor tablosu (değişmedi, `store.me.submitScore`) |
-| profil `picks['arena:h:<kahraman>']` · `picks['arena:roshan']` · `picks['arena:dalga']` | Kahraman başına en iyi skor, toplam Roshan, en yüksek dalga (rozet/görev için) |
+| `arena:v2` | `{ v: 2, hero, bests: { <kahraman>: puan }, runs, roshans }` |
+| `arena:keys` · `arena:auto` · `arena:autoshop` · `arena:autolearn` | Tuş düzeni, otomatik nişan, molada dükkân, otomatik öğrenme |
+| profil `scores.arena` · `picks['arena:h:<id>']` · `picks['arena:roshan']` · `picks['arena:dalga']` | Sonsuz mod skorları |
+| `devUnlock` | yalnızca bellek içi (kalıcı değil) |
 
-## Denge notları
-Başsız simülasyon botuyla (kaçan/yaklaşan basit bot, otomatik nişan, eşya sırası sabit; 4’er koşu, 20 dk sınır):
-Okçu 14–18, Balta 13–17, Buz Cadısı 14–19, Gölge 5–22 (yüksek risk/ödül) dalga. Bot mükemmel nişanlı olduğundan
-gerçek oyuncu için beklenen aralık kabaca 4–12 dalga. Ayarlanan noktalar: geç dalga ölçeği (`waveScale`: can
-`1 + 0.26k + 0.035k²`, hasar `1 + 0.12k + 0.006k²`, en çok 6 elit), Dire kulesi (34 hasar, 1,5 sn, 0,8 sn kilitlenme —
-yakın dövüşçüleri en çok öldüren kaynaktı), Gölge’ye can çalma, Balta’ya zırh/Helezon şansı.
+## Denge notları (Arena 3.0)
+Başsız bot (`game.js` DOM’suz; kaçan/yaklaşan bot, otomatik öğrenme, sabit eşya planı, 25–30 dk sınır, her kahraman
+3–4 koşu): **Okçu 22–24, Balta 19–23, Buz Cadısı 18–20, Gölge ≈24 (bazen erken ölüm), Şimşek Ruhu ≈22, Ağaç
+Bekçisi 21–22** dalga. Aynı botla eski 2.0: Okçu 14–17, Balta 22–23, Buz 23, Gölge 21. Seviye: 10. dalgada 15–17,
+12. dalgada 18–20. Bot mükemmel nişanlıdır; gerçek oyuncu için beklenen kabaca 6–14 dalga.
+Ayarlananlar: Çev. zırhı 1/6 → 1/10, saldırı hızı 1 → 0,75/çev.; geç dalga ölçeği (kare terimler + 14. dalgadan
+sonra ×1,06^(k−14) duvarı); Gölge kaçınma %20 → %15 ve kritik tablosu; Kan Emici; Okçu ok saldırı çarpanı;
+Feed Alfa dalışı her menzilde; Roshan kükremesine ccCap.
 
 ## Performans
-- Modeller tembel: açılışta köpek, iki kule, Aegis ve seçili kahraman; diğer kahramanlar seçim ekranında boşta,
-  creep’ler ve kurye koşu başlarken, Roshan 4 sn sonra / 3. dalgada. GLB başına bir şablon (core/models.js önbelleği),
-  birim başına yalnızca malzeme kopyası (yanıp sönme/saydamlık).
-- Sınırlar: aynı anda en çok 8 creep, 9 DOG (+1 hırsız), 1 Roshan, 4 kule. Rig’ler, oklar, mermiler, rünler havuzlanır.
-- Ağaçlar InstancedMesh (5 draw call), nokta ışık sayısı sabit (4 kapı + kahraman + efekt), creep/kule can çubukları
-  canvas’sız sprite, DOG etiketleri yalnızca değişince yeniden çizilir, mini harita ~8 fps.
-- Mobilde gölge yok, piksel oranı ≤ 1,5, yarım yoğunluk dış ağaç, 1024 px zemin boyası; kare hızı düşerse piksel oranı
-  kademeli iner, sonra gölge kapanır. Her şey `dispose()` ile bırakılır (model önbelleği hariç).
-- Üçgen bütçesi: model başına ~20–29 bin üçgen; en kalabalık anda ~500 bin. Orta telefonlar için bir LOD/basitleştirme
-  (gltf-transform `simplify`) ileride düşünülebilir.
+- Modeller tembel: seçili kahraman + köpek + kuleler; nötr kurt/harpi ve Roshan koşu başında, diğer bosslar 7.
+  dalgadan (ya da görev bossu varsa) önce. Birim rig’leri görünüşe göre havuzlanır; telgraflar, alanlar, kalıntılar,
+  ward’lar havuzlu ve çıkışta `dispose()`.
+- Sınırlar: en çok 40 düşman (`MAX_FOES`), 8 creep, kamp başına 2–3 nötr, 4 ward, 3 kalıntı. Yüzen sayılar 32’lik
+  DOM havuzu. Gece karartması tek düzlem + radyal doku; ışıklar sabit sayıda, yalnızca renk/yoğunluk değişir.
+- Mobilde gölge yok, piksel oranı ≤ 1,5; kare hızı düşerse kademeli iner.
 
-## Test notları (bu tur)
-Playwright + SwiftShader (yazılımsal WebGL, 1–3 fps; kare hızı değerlendirilmedi), HMR engelli, 1440×900 masaüstü ve
-390×844 dokunmatik. Her kahraman için: seçim → başlat → bot/dokunmatik oyun → dalga temizleme → dükkânın kendiliğinden
-açılması → satın alma (kurye uçup teslim etti) → çeşmede anında alım → yetenek ağacı (oyun durdu, seçim uygulandı) →
-Çift Hasar rünü → Roshan dalgası (uyarı halkası) → BKB → Roshan’ı kes → Aegis + Peynir → Aegis ile dirilme → oyun sonu
-ekranı → `scores.arena`, `picks` ve `arena:v2` yazıldı. Mobilde ayrıca gerçek dokunma (CDP): joystick, Q W E R
-düğmeleri, dükkânda seç + “Satın al”, yetenek ağacına dokunma. Ek olarak: WebGL kapalıyken 2D yedek (Roshan dalgası,
-creep, rün), 1024×700 dizüstü düzeni, arenadan çıkıp dönme (tüm canvas’lar bırakıldı, site kısayolları geri geldi),
-başsız bulanık test (4 kahraman × 3 koşu, rastgele yetenek/eşya/alım/satım/rün/Roshan; 0 istisna) ve
-`mode: 'story'` senaryolu dalgaların zaferle bitmesi. Konsol hatası 0, yatay taşma 0, `vite build` geçti.
-Geliştirme kancası `root.__arenaDebug` (dalga atla, altın, seviye, Roshan, rün, creep, ölümsüzlük, zaman ölçeği,
-model sırası) yalnızca `import.meta.env.DEV` altında; üretim paketinde yok. Tüm GLB’lerin +z’ye baktığı sıra
-ekran görüntüsüyle doğrulandı (`MODEL_YAW` hepsi 0).
+## Test notları (Arena 3.0)
+- **Başsız (node):** `scenario` (5 boss görevi zaferle, telgraf/evre/çağırma; tarif + kurye + satış; kamplar + orman
+  düşmesi; gece görüşü; dönüşüm/susturma/dispel; BKB sersemletme ve büyü hasarını engelliyor, saf hasar geçiyor; zırh
+  formülü; statü direnci; geri alma + bekleme + altınsız son; yetenek puanları/ağaç/seviye sınırları) — tümü geçti.
+  Bulanık test 6 kahraman × (bot + rastgele) 18 koşu, **0 istisna**. `variants`: 18 varyantın hepsi (bot + rastgele,
+  `neutralChoice: 3`, `neutralReroll: 1`) 12 koşu, 0 istisna; tüm varyant yolları ve seçim/takas olayları görüldü.
+- **Playwright** (SwiftShader, HMR engelli, port 5201): 1440×900 ve 390×844 dokunmatik, 6 kahraman: kilit açma,
+  başlat, 25. seviye, öğrenme kipi / Ctrl kısayolu / sayfa “+”, 4 yetenek ağacı seçimi, dükkândan iki tarif (Faz Botları
+  bedava birleşme, Şimşek Tırpanı bileşen + tarif), BKB, kamplar + orman eşyası (+ seçim kartı), gece, 5 boss (çubuk +
+  telgraf), geri alma, yüzen hasar sayıları (fiziksel/büyü/saf/kritik sınıfları), taşma kontrolü, konsol hatası 0.
+- `vite build` geçti.
 
-## Önerilen rozet / görev eklemeleri (entegrasyona)
-- **Roshan Avcısı**: `picks['arena:roshan'] ≥ 1` · **Aegis Koleksiyoncusu**: `≥ 5`.
-- **Dört Yüz**: dört kahramanın hepsinde `picks['arena:h:<id>'] ≥ 1200`.
-- **On Dalga**: `picks['arena:dalga'] ≥ 10`.
-- Kahraman rozetleri: “Kesin Hüküm” (Balta ≥ 8.000), “Buz Devri” (Buz Cadısı ≥ 8.000), “Görünmez Kâbus” (Gölge ≥ 8.000).
-- Günlük görev fikirleri: “Arena’da Roshan’ı kes”, “Balta/Buz/Gölge ile ilk dalgayı temizle” (kahraman skoru ≥ 1.200).
-- `THRESHOLDS.arenaEfsane` (6.000) yeni ekonomiyle 4–5 dalgaya denk geliyor; istenirse 10.000’e çekilebilir.
+## Hikâye ve ilerleme ajanlarına notlar
+- Görevler `g.start({ mode: 'story', heroId, mission: { waves, objectives, victory, failOnObjective }, modifiers })`
+  ile kurulur; bosslar `waves[i].boss` / `units[{id}]` ya da `g.spawnUnit` ile. Pub’ın Kalbi sabittir, `bossAt:
+  'center'` önerilir. Gölge Ulusu gece (`night: true`) daha anlamlıdır.
+- `runEnd` yükü `grantRunRewards` için yeterlidir (`stats.bosses`, `stats.bossKills`, `items`, `kills`, `time`).
+  Yalnızca `mode: 'endless'` salon skoruna yazar.
+- arena.js `progression.js` varsa: `registerUnlockCheck`, `connectStore(coreStore)`, `trackGame(game)` (çıkışta
+  durdurulur), her başlatmada `applyMeta(config)`, oyun sonunda `grantRunRewards(runEnd)`. Kütüphane / lanet seçici /
+  ödül ekranı menüleri henüz bağlı değil (hikâye ajanı).
+- Uygulanan meta alanları: `variants` (18/18), `pools.neutralChoice` (1–3), `pools.neutralReroll` (0–3/mola),
+  `startItems`, `startGold`, `cosmetics.aura/trail` (halka + iz), `cosmetics.courier` (kurye izi rengi),
+  `cosmetics.stamp` (üçlü öldürmede “DOG DOG DOG” damgası), `cosmetics.title` / `mastery.title` (sayfada unvan,
+  portrede altın çerçeve), `bonus` (stat nesnesi).

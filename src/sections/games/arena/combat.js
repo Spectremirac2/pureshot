@@ -155,6 +155,12 @@ export function applyStatus(g, target, kind, dur, data = {}) {
       st.shred = Math.max(st.shred, dur);
       st.shredK = Math.max(st.shredK, data.k || 3);
       break;
+    case 'taunt':
+      st.taunt = Math.max(st.taunt, dur);
+      // konuma kışkırtma (Gölge İkizi yemi): { x, z }; yoksa kahramana
+      st.tauntX = data.x ?? null;
+      st.tauntZ = data.z ?? null;
+      break;
     case 'fear':
       st.fear = Math.max(st.fear, dur);
       st.fearX = data.x ?? (data.src ? data.src.x : 0);

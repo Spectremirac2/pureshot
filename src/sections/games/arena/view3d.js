@@ -8,12 +8,12 @@ import { artUrl } from '../../../core/assets.js';
 import { ARENA_R, PLAY_R, GATE_ANGLES, GATES, FOUNTAIN, inRiver } from './map.js';
 import { TYPE_IDS, archOf } from './dogs.js';
 import { HEROES, HERO_IDS } from './heroes.js';
-import { RUNES } from './items.js';
+import { RUNES, NEUTRALS } from './items.js';
 import * as TX from './textures.js';
 import { Particles, Rings, ambientEmbers } from './fx3d.js';
 import {
   Bin, makeGeoms, DogRig, Label, HeroRig, UnitRig, TowerRig, CourierRig, MODEL_YAW, cloneModel,
-  buildAegis, buildRapier, buildArrow, buildRune, buildCheese, buildProj,
+  buildAegis, buildRapier, buildArrow, buildRune, buildCheese, buildProj, UNIT_LOOK, unitLookId,
 } from './actors.js';
 import { buildMap } from './map3d.js';
 
@@ -30,6 +30,10 @@ export const MODEL_H = {
   'model-tower-radiant': 3.6,
   'model-tower-dire': 3.6,
   'model-courier': 1.0,
+  'model-neutral-wolf': 0.9,
+  'model-neutral-harpy': 1.1,
+  'model-boss-general': 2.6,
+  'model-boss-ancient': 3.2,
   ...Object.fromEntries(HERO_IDS.map((id) => [HEROES[id].model, HEROES[id].height])),
 };
 
@@ -145,6 +149,9 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     typeColor: (id) => typeColors[id] || col.ember,
     execColor: new THREE.Color('#ffb020'),
     iceMat: bin.add(new THREE.MeshStandardMaterial({ color: '#bfefff', emissive: '#3aa8e0', emissiveIntensity: 0.6, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55, flatShading: true, depthWrite: false })),
+    vineMat: bin.add(new THREE.MeshStandardMaterial({ color: '#4f8a2a', emissive: '#1f4a10', emissiveIntensity: 0.5, roughness: 0.8, flatShading: true })),
+    shockMat: bin.add(new THREE.MeshBasicMaterial({ color: '#8fd0ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })),
+    bubbleMat: bin.add(new THREE.MeshStandardMaterial({ color: '#7fd4ff', emissive: '#3a78b8', emissiveIntensity: 0.8, transparent: true, opacity: 0.28, roughness: 0.1, depthWrite: false, side: THREE.DoubleSide })),
     arrowMats: {
       wood: bin.add(new THREE.MeshStandardMaterial({ color: '#8a5a2b', roughness: 0.6 })),
       head: bin.add(new THREE.MeshStandardMaterial({ color: '#e7e1d6', roughness: 0.2, metalness: 0.9, emissive: col.ember, emissiveIntensity: 0.4 })),
@@ -153,8 +160,12 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   };
 
   // ---------------------------------------------------------------- ışıklar
-  scene.add(new THREE.HemisphereLight(new THREE.Color('#8f86c8'), new THREE.Color('#2a1a12'), 1.25));
+  const hemi = new THREE.HemisphereLight(new THREE.Color('#8f86c8'), new THREE.Color('#2a1a12'), 1.25);
+  scene.add(hemi);
   const moon = new THREE.DirectionalLight(new THREE.Color('#d6ccff'), 1.7);
+  const LIGHT_DAY = { hemi: 1.32, moon: 1.8, hemiSky: new THREE.Color('#9a90d0'), moonC: new THREE.Color('#ffe7cc'), fog: new THREE.Color('#130f1d'), fogD: 0.015, exp: 1.18 };
+  const LIGHT_NIGHT = { hemi: 0.62, moon: 0.75, hemiSky: new THREE.Color('#4a58a8'), moonC: new THREE.Color('#9fb4ff'), fog: new THREE.Color('#070a1c'), fogD: 0.024, exp: 1.05 };
+  let nightK = 0;
   moon.position.set(-9, 20, 7);
   moon.target.position.set(0, 0, 0);
   if (shadows) {
@@ -181,6 +192,8 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   const fxLight = new THREE.PointLight(col.ember, 0, 18, 1.6);
   scene.add(fxLight);
   let flash = 0;
+  let trailCol = null;
+  let courierCol = null;
   const flashPos = new THREE.Vector3();
   const flashCol = new THREE.Color();
 
@@ -334,8 +347,6 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   const reticleDot = flat(flatMat(tex.glow, col.ember2, 0.9), 0.35, 0.07);
   const fieldRing = flat(flatMat(tex.dashRing, col.ice, 0.6), 9.6, 0.08);
   const burnRing = flat(flatMat(tex.thinRing, col.ember, 0.35), 6.4, 0.06);
-  const teleRing = flat(flatMat(tex.ring, col.blood, 0.8), 1, 0.09);
-  const teleFill = flat(flatMat(tex.glow, col.blood, 0.4), 1, 0.085);
   const lineGeo = bin.add(new THREE.PlaneGeometry(1, 1));
   lineGeo.rotateX(-Math.PI / 2);
   lineGeo.rotateY(-Math.PI / 2);
@@ -345,6 +356,118 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   chargeLine.position.y = 0.08;
   chargeLine.renderOrder = 4;
   scene.add(chargeLine);
+
+  // ---------------------------------------------------------------- boss uyarıları: çember, halka, şerit, koni (havuz)
+  const donutGeos = new Map();
+  const coneGeos = new Map();
+  const donutGeo = (inner) => {
+    const k = Math.round(inner * 100);
+    if (!donutGeos.has(k)) { const g0 = bin.add(new THREE.RingGeometry(inner, 1, 72)); g0.rotateX(-Math.PI / 2); donutGeos.set(k, g0); }
+    return donutGeos.get(k);
+  };
+  const coneGeo = (arc) => {
+    const k = Math.round(arc * 100);
+    if (!coneGeos.has(k)) { const g0 = bin.add(new THREE.CircleGeometry(1, 36, -Math.PI / 2 - arc / 2, arc)); g0.rotateX(-Math.PI / 2); coneGeos.set(k, g0); }
+    return coneGeos.get(k);
+  };
+  const teleCol = { blood: col.blood, gold: col.gold, arcane: col.shadow, ice: col.ice };
+  function makeTele() {
+    const ring = flat(flatMat(tex.ring, col.blood, 0.8), 1, 0.09);
+    const fill = flat(flatMat(tex.glow, col.blood, 0.4), 1, 0.085);
+    const areaMat = bin.add(new THREE.MeshBasicMaterial({ color: col.blood, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const area = new THREE.Mesh(donutGeo(0.5), areaMat);
+    area.position.y = 0.088;
+    area.renderOrder = 3;
+    const lineM = flatMat(tex.line, col.blood, 0.7);
+    const line = new THREE.Mesh(lineGeo, lineM);
+    line.position.y = 0.09;
+    line.renderOrder = 4;
+    scene.add(area, line);
+    const all = [ring, fill, area, line];
+    for (const m of all) m.visible = false;
+    return { ring, fill, area, line, all };
+  }
+  const teles = Array.from({ length: 5 }, makeTele);
+  function drawTele(T, e, c) {
+    const k = Math.max(0, Math.min(1, 1 - c.t / c.dur));
+    const colr = teleCol[c.color] || col.blood;
+    const p = lastG && lastG.player;
+    const cx = c.shape === 'mark' && p ? p.x : c.fixed || c.shape === 'line' ? c.x ?? e.x : e.x;
+    const cz = c.shape === 'mark' && p ? p.z : c.fixed || c.shape === 'line' ? c.z ?? e.z : e.z;
+    const flick = 0.6 + 0.4 * Math.sin(time * 20);
+    if (c.shape === 'line') {
+      T.line.visible = true;
+      T.line.position.set(cx, 0.09, cz);
+      T.line.rotation.y = c.ang;
+      T.line.scale.set(c.w * 2, 1, c.len);
+      T.line.material.color.copy(colr);
+      T.line.material.opacity = 0.35 + 0.5 * k * flick;
+      return;
+    }
+    if (c.shape === 'ring' || c.shape === 'cone') {
+      T.area.visible = true;
+      T.area.geometry = c.shape === 'ring' ? donutGeo(c.inner / c.r) : coneGeo(c.arc || 1.9);
+      T.area.position.set(cx, 0.088, cz);
+      T.area.rotation.y = c.shape === 'cone' ? c.ang : 0;
+      T.area.scale.setScalar(c.r);
+      T.area.material.color.copy(colr);
+      T.area.material.opacity = 0.12 + 0.35 * k * flick;
+      if (c.shape === 'ring') {
+        T.ring.visible = true;
+        T.ring.position.set(cx, 0.09, cz);
+        T.ring.scale.setScalar(c.r * 2);
+        T.ring.material.color.copy(colr);
+        T.ring.material.opacity = 0.6 + 0.4 * Math.sin(time * 20);
+      }
+      return;
+    }
+    // circle / mark
+    T.ring.visible = true;
+    T.fill.visible = true;
+    T.ring.position.set(cx, 0.09, cz);
+    T.fill.position.set(cx, 0.085, cz);
+    T.ring.material.color.copy(colr);
+    T.fill.material.color.copy(colr);
+    T.ring.scale.setScalar(c.r * 2);
+    T.fill.scale.setScalar(c.r * 2 * (c.soft ? 1 : k));
+    T.fill.material.opacity = (c.soft ? 0.12 : 0.25) + 0.3 * k;
+    T.ring.material.opacity = 0.6 + 0.4 * Math.sin(time * 20);
+  }
+  let lastG = null;
+
+  // ---------------------------------------------------------------- gece örtüsü (görüş dışı karanlık)
+  const shroudCanvas = (() => {
+    const c = TX.makeCanvas(256, 256);
+    const g0 = c.getContext('2d');
+    const grd = g0.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(0.3, 'rgba(0,0,0,0)');
+    grd.addColorStop(0.52, 'rgba(0,0,0,0.78)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.9)');
+    g0.fillStyle = 'rgba(0,0,0,0.9)';
+    g0.fillRect(0, 0, 256, 256);
+    g0.clearRect(0, 0, 256, 256);
+    g0.fillStyle = grd;
+    g0.fillRect(0, 0, 256, 256);
+    return c;
+  })();
+  const shroudMat = bin.add(new THREE.MeshBasicMaterial({ map: bin.add(TX.toTexture(shroudCanvas, { mips: false })), color: new THREE.Color('#03051a'), transparent: true, opacity: 0, depthWrite: false }));
+  const shroud = new THREE.Mesh(G.plane, shroudMat);
+  shroud.rotation.x = -Math.PI / 2;
+  shroud.position.y = 0.14;
+  shroud.renderOrder = 6;
+  shroud.visible = false;
+  scene.add(shroud);
+
+  // kahraman kalkanı (Kış Kalkanı, Ruh Başlığı), Yıldırım Topu parıltısı, kozmetik aura
+  const heroBubble = new THREE.Mesh(G.bubble, kit.bubbleMat);
+  heroBubble.visible = false;
+  scene.add(heroBubble);
+  const ballMat = bin.add(new THREE.SpriteMaterial({ map: tex.glow, color: new THREE.Color('#9fd6ff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
+  const ballGlow = new THREE.Sprite(ballMat);
+  ballGlow.scale.set(2.4, 2.4, 1);
+  scene.add(ballGlow);
+  const auraRing = flat(flatMat(tex.ring, col.gold, 0), 2.2, 0.045);
 
   // ---------------------------------------------------------------- kahraman
   // Kahraman rig'leri kahraman başına bir kez kurulur (seçim ekranında gezinmek yeni malzeme üretmesin)
@@ -389,21 +512,24 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     rigById.delete(id);
     rigFree.push(rig);
   }
-  // creep / Roshan
-  const unitFree = { 'model-creep-melee': [], 'model-creep-ranged': [], 'model-roshan': [] };
+  // creep / orman / bosslar: havuz anahtarı = UNIT_LOOK kimliği (aynı GLB farklı boya/ölçekle paylaşılabilir)
+  const unitFree = {};
   const unitById = new Map();
-  const unitKey = (e) => (e.kind === 'boss' ? 'model-roshan' : e.type === 'ranged' ? 'model-creep-ranged' : 'model-creep-melee');
   function acquireUnit(e) {
-    const key = unitKey(e);
+    const lookId = unitLookId(e);
+    const key = (UNIT_LOOK[lookId] || UNIT_LOOK.creep_melee).key;
     if (!(key in models)) want(key);
-    const rig = unitFree[key].pop() || new UnitRig(kit, key, key === 'model-creep-ranged' ? 'creep-ranged' : 'creep-melee');
+    const pool = unitFree[lookId] || (unitFree[lookId] = []);
+    const rig = pool.pop() || new UnitRig(kit, lookId);
     if (!rig.procedural && !models[key]) rig.setModel(null);
     if (rig.procedural && models[key]) rig.setModel(models[key]);
     scene.add(rig.root);
     scene.add(rig.barGroup);
     unitById.set(e.id, rig);
-    if (key === 'model-roshan') {
+    rig.alphaK = e.seen === false ? 0 : 1;
+    if (e.kind === 'boss') {
       if (!rig.label) { rig.label = new Label(bin); rig.labelGroup = new THREE.Group(); rig.labelGroup.add(rig.label.sprite); }
+      rig.label.key = '';
       scene.add(rig.labelGroup);
     }
     return rig;
@@ -415,7 +541,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     scene.remove(rig.barGroup);
     if (rig.labelGroup) scene.remove(rig.labelGroup);
     unitById.delete(id);
-    unitFree[rig.key].push(rig);
+    (unitFree[rig.lookId] || (unitFree[rig.lookId] = [])).push(rig);
   }
   // kuleler
   const towerById = new Map();
@@ -446,10 +572,8 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     for (const r of Object.values(heroRigs)) if (key === heroModelKey(r.heroId) && r.procedural) r.setModel(m);
     if (key === 'model-courier' && courier) courier.setModel(m);
     if (key.startsWith('model-tower')) for (const r of towerById.values()) if (r.key === key && r.procedural) r.setModel(m);
-    if (unitFree[key]) {
-      for (const r of unitById.values()) if (r.key === key && r.procedural) r.setModel(m);
-      for (const r of unitFree[key]) if (r.procedural) r.setModel(m);
-    }
+    for (const r of unitById.values()) if (r.key === key && r.procedural) r.setModel(m);
+    for (const list of Object.values(unitFree)) for (const r of list) if (r.key === key && r.procedural) r.setModel(m);
   });
 
   const arrowFree = [];
@@ -486,6 +610,37 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
   const cheeseFree = [];
   const runeById = new Map();
   const runeFree = [];
+  const neutralById = new Map();
+  const neutralFree = [];
+  // Durgun Kalıntı, ward, alan etkileri (havuzlu)
+  const remMat = bin.add(new THREE.SpriteMaterial({ map: tex.glow, color: new THREE.Color('#8fd0ff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+  const remById = new Map();
+  const remFree = [];
+  const wardPoleMat = bin.add(new THREE.MeshStandardMaterial({ color: '#6b4a2a', roughness: 0.8 }));
+  const wardEyeMat = bin.add(new THREE.SpriteMaterial({ map: tex.glow, color: col.gold2, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+  const wardById = new Map();
+  const wardFree = [];
+  const zoneById = new Map();
+  const zoneFree = [];
+  const ZONE_COL = { rain: col.ember2, blizzard: col.ice, bloom: new THREE.Color('#ff9ad5'), grove: col.jade, decoy: col.shadow };
+  function zoneObj() {
+    const o = zoneFree.pop();
+    if (o) return o;
+    const ring = new THREE.Mesh(G.plane, bin.add(new THREE.MeshBasicMaterial({ map: tex.dashRing, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 })));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.07;
+    ring.renderOrder = 3;
+    const fill = new THREE.Mesh(G.plane, bin.add(new THREE.MeshBasicMaterial({ map: tex.glow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.25 })));
+    fill.rotation.x = -Math.PI / 2;
+    fill.position.y = 0.065;
+    fill.renderOrder = 3;
+    const ghost = new THREE.Sprite(bin.add(new THREE.SpriteMaterial({ map: tex.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 })));
+    ghost.scale.set(1.2, 2.2, 1);
+    ghost.position.y = 1;
+    const root = new THREE.Group();
+    root.add(ring, fill, ghost);
+    return { root, ring, fill, ghost };
+  }
   let aegisObj = null;
   let aegisT = 0;
   let aegisOnField = false;
@@ -552,6 +707,11 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
         for (const [id, r] of rapierById) { scene.remove(r.root); rapierFree.push(r); rapierById.delete(id); }
         for (const [id, r] of cheeseById) { scene.remove(r.root); cheeseFree.push(r); cheeseById.delete(id); }
         for (const [id, r] of runeById) { scene.remove(r.root); runeFree.push(r); runeById.delete(id); }
+        for (const [id, r] of neutralById) { scene.remove(r.root); neutralFree.push(r); neutralById.delete(id); }
+        for (const [id, o] of remById) { scene.remove(o); remFree.push(o); remById.delete(id); }
+        for (const [id, o] of wardById) { scene.remove(o.root); wardFree.push(o); wardById.delete(id); }
+        for (const [id, o] of zoneById) { scene.remove(o.root); zoneFree.push(o); zoneById.delete(id); }
+        nightK = 0;
         for (const [id, pr] of projById) { pr.root.visible = false; (projFree[pr.kind] ||= []).push(pr); projById.delete(id); }
         if (aegisObj) aegisObj.root.visible = false;
         aegisOnField = false;
@@ -561,14 +721,17 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
         setHero(d.heroId);
         break;
       case 'runStart':
-        // arka planda: creep'ler, kurye; Roshan dalga 3'ten önce
+        // arka planda: creep'ler, kurye, orman birimleri; Roshan dalga 3'ten önce; bosslar doğunca
         want('model-creep-melee');
         want('model-creep-ranged');
         want('model-courier');
+        setTimeout(() => { if (!disposed) { want('model-neutral-wolf'); want('model-neutral-harpy'); } }, 2500);
         setTimeout(() => { if (!disposed) want('model-roshan'); }, 4000);
+        if (d.mission) setTimeout(() => { if (!disposed) { want('model-boss-general'); want('model-boss-ancient'); } }, 6000);
         break;
       case 'waveStart':
         if (d.wave >= 3) want('model-roshan');
+        if (d.wave >= 7) { want('model-boss-general'); want('model-boss-ancient'); }
         break;
       case 'spawn': {
         const e = d.foe || d.dog;
@@ -745,6 +908,45 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
       case 'channelStart':
         rings.fire(p.x, p.z, { color: col.ice, r0: 0.5, r1: 4.8, dur: 0.6 });
         break;
+      case 'bossAct': {
+        const e = d.foe;
+        if (d.kind === 'pounce') { rings.fire(d.x, d.z, { color: col.shadow, r0: 0.3, r1: d.r + 0.6, dur: 0.45, alpha: 1 }); parts.burst(reduced ? 8 : 30, { x: d.x, z: d.z, y: 0.2, color: [col.shadow, col.smoke], speed: 5, up: 3, g: 9, life: 0.7, size: 0.3 }); shake(0.45); }
+        else if (d.kind === 'howl') { rings.fire(d.x, d.z, { color: col.shadow, r0: 0.5, r1: d.r, dur: 0.7, alpha: 0.9 }); rings.fire(d.x, d.z, { color: col.arcane, r0: 0.4, r1: d.r * 1.1, dur: 1, alpha: 0.5 }); shake(0.35); }
+        else if (d.kind === 'warcry') { rings.fire(d.x, d.z, { color: col.gold, r0: 0.5, r1: d.r, dur: 0.8, alpha: 0.8 }); parts.burst(reduced ? 8 : 26, { x: d.x, z: d.z, y: 2, color: [col.gold, col.dire], speed: 3, up: 4, life: 0.8, size: 0.28 }); }
+        else if (d.kind === 'cleave') {
+          if (!reduced) for (let i = 0; i < 16; i++) { const a = d.ang - d.arc / 2 + (i / 15) * d.arc; parts.spawn({ x: d.x + Math.sin(a) * d.r * 0.7, z: d.z + Math.cos(a) * d.r * 0.7, y: 1, vx: Math.sin(a) * 4, vz: Math.cos(a) * 4, vy: 0.4, drag: 3, life: 0.35, size: 0.3, size1: 0.05, color: i % 2 ? col.dire : col.white, floor: false }); }
+          shake(0.25);
+        } else if (d.kind === 'pulse') {
+          const c = d.ring ? col.blood : col.ember;
+          rings.fire(d.x, d.z, { color: c, r0: d.ring ? d.inner : 0.5, r1: d.r, dur: 0.55, alpha: 1 });
+          parts.burst(reduced ? 10 : 40, { x: d.x, z: d.z, y: 1.5, color: [c, col.white], speed: 8, up: 3, g: 6, life: 0.7, size: 0.3, spread: d.ring ? d.inner : 1 });
+          setFlash(d.x, 3, d.z, col.blood, 70);
+          shake(0.55);
+        } else if (d.kind === 'dash') { if (e) parts.burst(reduced ? 6 : 20, { x: e.x, z: e.z, y: 0.2, color: [new THREE.Color('#8a7a6a'), col.ember2], speed: 3, up: 2, life: 0.5, size: 0.3 }); }
+        else if (d.kind === 'stealth' && e) { parts.burst(reduced ? 8 : 34, { x: e.x, z: e.z, y: 1, color: [col.smoke, col.shadow], speed: 2, up: 2, life: 1.1, size: 0.6 }); }
+        break;
+      }
+      case 'bossPhase':
+        rings.fire(d.foe.x, d.foe.z, { color: col.dire, r0: 0.5, r1: 5, dur: 0.9 });
+        shake(0.4);
+        break;
+      case 'bossShieldBreak':
+        parts.burst(reduced ? 12 : 60, { x: d.foe.x, z: d.foe.z, y: 2, color: [col.ice, col.ice2, col.white], speed: 7, up: 5, g: 8, life: 1, size: 0.32 });
+        rings.fire(d.foe.x, d.foe.z, { color: col.ice, r0: 0.5, r1: 4, dur: 0.7 });
+        shake(0.4);
+        break;
+      case 'neutralDrop':
+        rings.fire(d.pickup.x, d.pickup.z, { color: col.jade, r0: 0.3, r1: 2, dur: 0.7 });
+        parts.burst(reduced ? 6 : 20, { x: d.pickup.x, z: d.pickup.z, y: 0.6, color: [col.jade, col.gold2], speed: 2.5, up: 4, life: 0.8, size: 0.2 });
+        break;
+      case 'deny':
+        rings.fire(d.x, d.z, { color: col.ember, r0: 0.5, r1: 3, dur: 0.6 });
+        break;
+      case 'ward':
+        rings.fire(d.ward.x, d.ward.z, { color: col.gold2, r0: 0.3, r1: 8, dur: 0.9, alpha: 0.6 });
+        break;
+      case 'campSpawn':
+        break;
       default:
         break;
     }
@@ -840,6 +1042,95 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
         rings.fire(d.x, d.z, { color: col.gold, r0: 0.3, r1: 2.2, dur: 0.5 });
         parts.burst(reduced ? 8 : 24, { x: d.x, z: d.z, y: 0.3, color: [col.gold, col.gold2], speed: 2, up: 5, life: 0.9, size: 0.24 });
         break;
+      case 'remnant':
+        rings.fire(d.x, d.z, { color: col.ice, r0: 0.2, r1: 1.2, dur: 0.4 });
+        break;
+      case 'remnantBoom':
+      case 'overload':
+        rings.fire(d.x, d.z, { color: col.ice, r0: 0.3, r1: d.r, dur: 0.4, alpha: 1 });
+        parts.burst(reduced ? 8 : 30, { x: d.x, z: d.z, y: 0.8, color: [col.ice, col.white, new THREE.Color('#5fb8ff')], speed: 6, up: 3, g: 4, life: 0.45, size: 0.22, spread: 0.4 });
+        setFlash(d.x, 1.5, d.z, col.ice, 45);
+        break;
+      case 'zap': {
+        const n = reduced ? 4 : 12;
+        for (let i = 0; i <= n; i++) {
+          const k = i / n;
+          parts.spawn({ x: d.x0 + (d.x1 - d.x0) * k + (Math.random() - 0.5) * 0.3, z: d.z0 + (d.z1 - d.z0) * k + (Math.random() - 0.5) * 0.3, y: 1 + (Math.random() - 0.5) * 0.4, vx: 0, vz: 0, vy: 0, life: 0.22, size: 0.22, size1: 0.05, color: i % 2 ? col.white : col.ice, floor: false });
+        }
+        break;
+      }
+      case 'vortex':
+      case 'pulse':
+        rings.fire(d.x, d.z, { color: col.ice, r0: d.kind === 'vortex' ? d.r : 0.3, r1: d.kind === 'vortex' ? 0.3 : d.r + 1, dur: 0.5, alpha: 1 });
+        if (!reduced) for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; const rr = d.r * 0.9; parts.spawn({ x: d.x + Math.sin(a) * rr, z: d.z + Math.cos(a) * rr, y: 0.6, vx: Math.cos(a) * 3 * (d.kind === 'vortex' ? 1 : -1), vz: -Math.sin(a) * 3, vy: 0.3, drag: 2, life: 0.5, size: 0.22, size1: 0.04, color: i % 2 ? col.ice : col.white, floor: false }); }
+        break;
+      case 'ballStart':
+      case 'ballEnd':
+        rings.fire(d.x, d.z, { color: col.ice, r0: 0.3, r1: 2, dur: 0.35 });
+        parts.burst(reduced ? 6 : 18, { x: d.x, z: d.z, y: 1, color: [col.ice, col.white], speed: 4, up: 2, life: 0.4, size: 0.2 });
+        break;
+      case 'guise':
+      case 'bloom':
+      case 'grove':
+        rings.fire(d.x, d.z, { color: d.kind === 'bloom' ? new THREE.Color('#ff9ad5') : col.jade, r0: 0.3, r1: d.r || 2.4, dur: 0.6 });
+        parts.burst(reduced ? 8 : 30, { x: d.x, z: d.z, y: 0.5, color: [col.jade, new THREE.Color('#b4ff7a'), d.kind === 'bloom' ? new THREE.Color('#ff9ad5') : col.jade], speed: 2.5, up: 3, g: 1, life: 1.2, size: 0.22, spread: 1 });
+        break;
+      case 'leech':
+        if (d.foe) parts.burst(reduced ? 5 : 16, { x: d.foe.x, z: d.foe.z, y: 0.2, color: [col.jade, new THREE.Color('#4f8a2a')], speed: 2, up: 3, life: 0.7, size: 0.2 });
+        break;
+      case 'bark':
+        rings.fire(d.x, d.z, { color: col.jade, r0: 0.4, r1: d.tower ? 2.5 : 1.8, dur: 0.6 });
+        break;
+      case 'growth':
+        rings.fire(d.x, d.z, { color: col.jade, r0: 0.5, r1: d.r, dur: 0.8, alpha: 1 });
+        rings.fire(d.x, d.z, { color: new THREE.Color('#4f8a2a'), r0: 0.3, r1: d.r * 0.7, dur: 1.1, alpha: 0.7 });
+        if (!reduced) for (let i = 0; i < 50; i++) { const a = Math.random() * Math.PI * 2; const rr = Math.sqrt(Math.random()) * d.r; parts.spawn({ x: d.x + Math.sin(a) * rr, z: d.z + Math.cos(a) * rr, y: 0.05, vx: 0, vz: 0, vy: 2 + Math.random() * 2, g: 3, life: 0.9, size: 0.26, size1: 0.08, color: i % 3 ? col.jade : new THREE.Color('#4f8a2a'), floor: false }); }
+        shake(0.35);
+        break;
+      case 'dust':
+        rings.fire(d.x, d.z, { color: col.shadow, r0: 0.5, r1: d.r, dur: 0.8, alpha: 0.7 });
+        parts.burst(reduced ? 8 : 30, { x: d.x, z: d.z, y: 1.2, color: [col.gold2, col.shadow], speed: 5, up: 2, g: 2, life: 1, size: 0.2, spread: 1 });
+        break;
+      case 'cyclone':
+        if (!reduced) for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 4; parts.spawn({ x: d.x + Math.sin(a) * 0.9, z: d.z + Math.cos(a) * 0.9, y: 0.1 + i * 0.07, vx: Math.cos(a) * 3, vz: -Math.sin(a) * 3, vy: 1.5, drag: 1, life: 0.9, size: 0.26, size1: 0.1, color: i % 2 ? col.ice2 : col.white, floor: false }); }
+        break;
+      case 'magShield':
+      case 'iceWard':
+        rings.fire(d.x, d.z, { color: d.kind === 'iceWard' ? col.ice : col.arcane, r0: 0.3, r1: 1.8, dur: 0.5 });
+        break;
+      case 'satanic':
+        parts.burst(reduced ? 8 : 28, { x: d.x, z: d.z, y: 1, color: [col.blood, col.dire], speed: 3, up: 3, life: 0.8, size: 0.26 });
+        break;
+      case 'mek':
+      case 'tome':
+        rings.fire(d.x, d.z, { color: d.kind === 'mek' ? col.jade : col.gold, r0: 0.3, r1: d.kind === 'mek' ? 8 : 2.2, dur: 0.6 });
+        break;
+      case 'phase':
+      case 'gale':
+        rings.fire(d.x, d.z, { color: d.kind === 'gale' ? col.jade : col.ember2, r0: 0.3, r1: d.r || 1.6, dur: 0.45 });
+        if (d.kind === 'gale' && !reduced) for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; parts.spawn({ x: d.x, z: d.z, y: 0.5, vx: Math.sin(a) * 8, vz: Math.cos(a) * 8, vy: 0.4, drag: 3, life: 0.45, size: 0.24, size1: 0.04, color: col.jade, floor: false }); }
+        break;
+      case 'rainStart':
+      case 'blizzardStart':
+      case 'massCull':
+        rings.fire(d.x, d.z, { color: d.kind === 'rainStart' ? col.ember2 : d.kind === 'massCull' ? col.blood : col.ice, r0: 0.3, r1: d.r, dur: 0.6, alpha: 1 });
+        if (d.kind === 'massCull') shake(0.35);
+        break;
+      case 'shards':
+        for (const t of d.targets || []) parts.burst(reduced ? 3 : 10, { x: t.x, z: t.z, y: 0.8, color: [col.ice, col.ice2, col.white], speed: 3, up: 2, g: 6, life: 0.45, size: 0.22 });
+        rings.fire(d.x, d.z, { color: col.ice, r0: 0.2, r1: d.r, dur: 0.35 });
+        break;
+      case 'mark':
+        if (d.foe) rings.fire(d.foe.x, d.foe.z, { color: col.gold, r0: 1.4, r1: 0.4, dur: 0.5, alpha: 1 });
+        break;
+      case 'decoy':
+      case 'eclipse':
+        rings.fire(d.x, d.z, { color: col.shadow, r0: 0.3, r1: d.r || 2.2, dur: 0.6 });
+        parts.burst(reduced ? 8 : 26, { x: d.x, z: d.z, y: 0.8, color: [col.shadow, col.smoke], speed: 2.5, up: 2, life: 0.9, size: 0.4 });
+        break;
+      case 'eclipseHit':
+        if (!reduced) for (let i = 0; i < 10; i++) { const a = Math.random() * Math.PI * 2; parts.spawn({ x: d.x + Math.sin(a) * d.r * 0.8, z: d.z + Math.cos(a) * d.r * 0.8, y: 0.9, vx: Math.cos(a) * 4, vz: -Math.sin(a) * 4, vy: 0.2, drag: 3, life: 0.3, size: 0.26, size1: 0.04, color: i % 2 ? col.shadow : col.white, floor: false }); }
+        break;
       default:
         break;
     }
@@ -914,18 +1205,71 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     camera.lookAt(cam.x + sx * 0.5, cam.ty, cam.z);
 
     // ortam
-    for (const t of torchLights) t.L.intensity = t.base * (0.82 + 0.18 * Math.sin(time * 9 + t.seed) * Math.sin(time * 5.3 + t.seed * 2));
+    for (const t of torchLights) t.L.intensity = t.base * (0.82 + 0.18 * Math.sin(time * 9 + t.seed) * Math.sin(time * 5.3 + t.seed * 2)) * (1 + 0.5 * nightK);
     for (const f of flames) {
       const k = 1 + 0.12 * Math.sin(time * 14 + f.seed) + 0.08 * Math.sin(time * 23 + f.seed);
       f.f.scale.set(0.8 * (2 - k) * 0.9, 1.3 * k, 1);
     }
-    floorMat.emissiveIntensity = 0.85 + 0.2 * Math.sin(time * 1.3);
+    // gece / gündüz: ışıklar yumuşak geçer, görüş dışı karanlığa gömülür
+    const wantNight = g.isNight && playing ? 1 : 0;
+    nightK += (wantNight - nightK) * Math.min(1, dt * 0.9);
+    const A = LIGHT_DAY;
+    const B = LIGHT_NIGHT;
+    hemi.intensity = A.hemi + (B.hemi - A.hemi) * nightK;
+    hemi.color.copy(A.hemiSky).lerp(B.hemiSky, nightK);
+    moon.intensity = A.moon + (B.moon - A.moon) * nightK;
+    moon.color.copy(A.moonC).lerp(B.moonC, nightK);
+    scene.fog.color.copy(A.fog).lerp(B.fog, nightK);
+    scene.fog.density = A.fogD + (B.fogD - A.fogD) * nightK;
+    renderer.toneMappingExposure = A.exp + (B.exp - A.exp) * nightK;
+    floorMat.emissiveIntensity = (0.85 + 0.2 * Math.sin(time * 1.3)) * (1 - 0.45 * nightK);
+    shroud.visible = nightK > 0.02;
+    if (shroud.visible) {
+      const vr = g.visionR ? Math.min(20, g.visionR()) : 8.5;
+      shroud.position.set(p.x, 0.14, p.z);
+      // doku: merkezden yarıçapın %30'una kadar açık, %52'de karanlık → açık alan ≈ 0,84 × görüş
+      shroud.scale.setScalar(Math.max(6, vr) * 5.6);
+      shroudMat.opacity = 0.85 * nightK;
+    }
     map.update(time, dt, g);
     if (flash > 0) flash = Math.max(0, flash - dt * 160);
 
     // kahraman
     hero.update(p, time, dt, g, !lineup);
     heroLight.position.set(p.x, 2.6, p.z + 0.8);
+    heroLight.intensity = mobile ? 0 : 7 + 9 * nightK;
+    // Yıldırım Topu: kahraman ışık topuna dönüşür
+    if (p.ball && !p.dead) {
+      hero.setOpacity(0.08);
+      ballMat.opacity = 0.85 + 0.15 * Math.sin(time * 30);
+      ballGlow.position.set(p.x, 1.0, p.z);
+      const bs = 2.2 + Math.sin(time * 25) * 0.2;
+      ballGlow.scale.set(bs, bs, 1);
+      if (simDt > 0 && !reduced) for (let i = 0; i < 3; i++) parts.spawn({ x: p.x + (Math.random() - 0.5) * 0.8, z: p.z + (Math.random() - 0.5) * 0.8, y: 0.6 + Math.random() * 0.8, vx: (Math.random() - 0.5) * 3, vz: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 2, life: 0.35, size: 0.2, size1: 0.02, color: i % 2 ? col.white : col.ice, floor: false });
+    } else ballMat.opacity = 0;
+    // kalkan küresi
+    const shielded = !p.dead && (p.shield > 0 || p.magShield > 0);
+    heroBubble.visible = shielded && playing;
+    if (heroBubble.visible) {
+      heroBubble.position.set(p.x, 0.95, p.z);
+      heroBubble.scale.setScalar(1.05 + Math.sin(time * 4) * 0.04);
+      heroBubble.rotation.y = time * 0.6;
+    }
+    // kozmetik aura (ustalık / Kütüphane)
+    const cos = g.cosmetics || null;
+    const auraC = cos && cos.aura && cos.aura.color;
+    auraRing.visible = !!auraC && !p.dead && (playing || g.state === 'idle');
+    if (auraRing.visible) {
+      if (auraRing.userData.c !== auraC) { auraRing.userData.c = auraC; auraRing.material.color.set(auraC); }
+      auraRing.position.set(p.x, 0.045, p.z);
+      auraRing.scale.setScalar(2.1 + Math.sin(time * 2.4) * 0.12);
+      auraRing.material.opacity = 0.5 + 0.2 * Math.sin(time * 3);
+      auraRing.rotation.z = -time * 0.4;
+    }
+    if (cos && cos.trail && cos.trail.color && simDt > 0 && !reduced && p.moving > 0.3 && !p.dead && playing && Math.random() < 0.5) {
+      if (!trailCol || trailCol.userKey !== cos.trail.color) { trailCol = new THREE.Color(cos.trail.color); trailCol.userKey = cos.trail.color; }
+      parts.spawn({ x: p.x - Math.sin(p.face) * 0.3, z: p.z - Math.cos(p.face) * 0.3, y: 0.15, vx: 0, vz: 0, vy: 0.4, life: 0.7, size: 0.22, size1: 0.04, color: trailCol, floor: false });
+    }
     const showHero = playing;
     playerRing.visible = (showHero || g.state === 'idle') && !p.dead;
     playerRing.position.set(p.x, 0.05, p.z);
@@ -968,7 +1312,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     reticleDot.position.set(p.aimX, 0.07, p.aimZ);
     reticle.rotation.z = -time * 1.5;
     const tg = g.target;
-    targetRing.visible = showHero && !!tg && !tg.dead;
+    targetRing.visible = showHero && !!tg && !tg.dead && tg.seen !== false;
     if (tg) {
       targetRing.position.set(tg.x, 0.065, tg.z);
       targetRing.scale.setScalar(2.8 * tg.r * (tg.scale || 1) + 0.2 + Math.sin(time * 8) * 0.05);
@@ -1014,44 +1358,47 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     const barK = labelScale * 0.3;
     const execThr = g.execThreshold ? g.execThreshold() : 0;
     seen.clear();
+    lastG = g;
+    let teleN = 0;
+    const fadeK = Math.min(1, dt * 6);
     for (const e of g.foes) {
       seen.add(e.id);
       if (e.kind === 'dog') {
         const rig = rigById.get(e.id) || acquireRig(e);
-        rig.update(e, time, dt, reduced, labelScale, execThr);
+        rig.alphaK = (rig.alphaK ?? 1) + ((e.seen === false ? 0 : 1) - (rig.alphaK ?? 1)) * fadeK;
+        rig.update(e, time, dt, reduced, labelScale, execThr, rig.alphaK);
+        rig.root.visible = rig.alphaK > 0.02;
       } else {
         const rig = unitById.get(e.id) || acquireUnit(e);
-        rig.update(e, time, dt, barK, execThr);
+        rig.alphaK = (rig.alphaK ?? 1) + ((e.seen === false ? 0 : 1) - (rig.alphaK ?? 1)) * fadeK;
+        rig.update(e, time, dt, barK, execThr, rig.alphaK);
+        rig.root.visible = rig.alphaK > 0.02;
         if (rig.label) {
-          rig.labelGroup.position.set(e.x, 3.55, e.z);
+          const U = e.def;
+          rig.labelGroup.position.set(e.x, (U.height || 3) + 0.55, e.z);
           rig.label.sprite.scale.set(labelScale * 1.2, labelScale * 0.6, 1);
-          rig.label.mat.opacity = e.dead ? Math.max(0, 1 - e.deathT) : e.spawnT > 0 ? 0 : 1;
+          const shadowK = U.ai === 'shadow' ? Math.max(0.15, e.vis ?? 1) : 1;
+          rig.label.mat.opacity = (e.dead ? Math.max(0, 1 - e.deathT) : e.spawnT > 0 ? 0 : 1) * rig.alphaK * shadowK;
           rig.labelGroup.visible = rig.label.mat.opacity > 0.02;
-          rig.label.draw({ name: 'ROSHAN', color: '#e9b949', hp: e.hp, maxHp: e.maxHp, status: e.dead ? null : e.status === 'sleep' ? 'afk' : e.st.stun > 0 ? 'stun' : null, elite: true, tag: execThr && e.hp <= execThr ? 'İNFAZ' : '' });
+          rig.label.draw({ name: U.short || 'BOSS', color: U.color || '#e9b949', hp: e.hp, maxHp: e.maxHp, status: e.dead ? null : e.status === 'sleep' ? 'afk' : e.st.stun > 0 ? 'stun' : e.st.hex > 0 ? 'hex' : null, elite: true, tag: execThr && e.hp <= execThr ? 'İNFAZ' : e.invuln > 0 ? 'KALKAN' : e.enraged ? 'ÖFKE' : '' });
           rig.barGroup.visible = false;
         }
-        if (e.kind === 'boss' && e.cast && !e.dead) {
-          const k = 1 - e.cast.t / e.cast.dur;
-          teleRing.visible = true;
-          teleFill.visible = true;
-          teleRing.position.set(e.x, 0.09, e.z);
-          teleFill.position.set(e.x, 0.085, e.z);
-          const c = e.cast.kind === 'slam' ? col.blood : col.gold;
-          teleRing.material.color.copy(c);
-          teleFill.material.color.copy(c);
-          teleRing.scale.setScalar(e.cast.r * 2);
-          teleFill.scale.setScalar(e.cast.r * 2 * k);
-          teleFill.material.opacity = 0.25 + 0.3 * k;
-          teleRing.material.opacity = 0.6 + 0.4 * Math.sin(time * 20);
-        }
+      }
+      if (e.cast && !e.dead && teleN < teles.length && (e.cast.shape || e.kind === 'boss')) {
+        const T = teles[teleN++];
+        for (const m of T.all) m.visible = false;
+        drawTele(T, e, e.cast.shape ? e.cast : { ...e.cast, shape: 'circle' });
       }
       // durum parçacıkları
-      if (simDt > 0 && !reduced && !e.dead) {
-        if (e.st.dot > 0 && Math.random() < 0.18) parts.spawn({ x: e.x + (Math.random() - 0.5) * 0.4, z: e.z + (Math.random() - 0.5) * 0.4, y: 0.6 + Math.random() * 0.5, vx: 0, vz: 0, vy: 1, life: 0.5, size: 0.16, size1: 0.03, color: e.st.dotKey === 'frost' ? col.ice : col.blood, floor: false });
+      if (simDt > 0 && !reduced && !e.dead && e.seen !== false) {
+        if (e.st.dot > 0 && Math.random() < 0.18) parts.spawn({ x: e.x + (Math.random() - 0.5) * 0.4, z: e.z + (Math.random() - 0.5) * 0.4, y: 0.6 + Math.random() * 0.5, vx: 0, vz: 0, vy: 1, life: 0.5, size: 0.16, size1: 0.03, color: e.st.dotKey === 'frost' ? col.ice : e.st.dotKey === 'leech' || e.st.dotKey === 'growth' ? col.jade : col.blood, floor: false });
         if (e.st.slow > 0 && e.st.slowK >= 0.3 && Math.random() < 0.08) parts.spawn({ x: e.x, z: e.z, y: 0.2, vx: 0, vz: 0, vy: 0.6, life: 0.6, size: 0.18, size1: 0.05, color: col.ice, floor: false });
+        if (e.st.amp > 0 && Math.random() < 0.1) parts.spawn({ x: e.x, z: e.z, y: 1.4, vx: 0, vz: 0, vy: 0.4, life: 0.5, size: 0.2, size1: 0.05, color: col.gold, floor: false });
+        if (e.st.shred > 0 && Math.random() < 0.06) parts.spawn({ x: e.x, z: e.z, y: 0.8, vx: (Math.random() - 0.5), vz: (Math.random() - 0.5), vy: 0.2, life: 0.4, size: 0.16, size1: 0.02, color: col.dire, floor: false });
+        if (e.st.hex > 0 && Math.random() < 0.15) parts.spawn({ x: e.x, z: e.z, y: 0.9, vx: 0, vz: 0, vy: 0.8, life: 0.6, size: 0.22, size1: 0.05, color: new THREE.Color('#ff9ad5'), floor: false });
       }
     }
-    if (!g.foes.some((e) => e.kind === 'boss' && e.cast && !e.dead)) { teleRing.visible = false; teleFill.visible = false; }
+    for (let i = teleN; i < teles.length; i++) for (const m of teles[i].all) m.visible = false;
     for (const id of [...rigById.keys()]) if (!seen.has(id)) releaseRig(id);
     for (const id of [...unitById.keys()]) if (!seen.has(id)) releaseUnit(id);
 
@@ -1068,7 +1415,10 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     }
     if (courier) {
       courier.update(g.courier, time);
-      if (simDt > 0 && g.courier.state !== 'home' && !reduced && Math.random() < 0.5) parts.spawn({ x: g.courier.x, z: g.courier.z, y: g.courier.y + 0.2, vx: 0, vz: 0, vy: -0.3, life: 0.6, size: 0.14, size1: 0.02, color: col.gold2, floor: false });
+      // Kütüphane kozmetiği: kurye rengi (iz parçacıkları)
+      const crC = g.cosmetics && g.cosmetics.courier && g.cosmetics.courier.color;
+      if (crC && (!courierCol || courierCol.userKey !== crC)) { courierCol = new THREE.Color(crC); courierCol.userKey = crC; }
+      if (simDt > 0 && g.courier.state !== 'home' && !reduced && Math.random() < (crC ? 0.8 : 0.5)) parts.spawn({ x: g.courier.x, z: g.courier.z, y: g.courier.y + 0.2, vx: 0, vz: 0, vy: -0.3, life: crC ? 0.8 : 0.6, size: crC ? 0.2 : 0.14, size1: 0.02, color: crC ? courierCol : col.gold2, floor: false });
     }
 
     // oklar
@@ -1163,6 +1513,80 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
       if (!seen.has(id)) { scene.remove(o.root); runeFree.push(o); runeById.delete(id); }
     }
 
+    // Durgun Kalıntılar
+    seen.clear();
+    for (const r of g.remnants || []) {
+      seen.add(r.id);
+      let o = remById.get(r.id);
+      if (!o) { o = remFree.pop() || new THREE.Sprite(remMat); scene.add(o); remById.set(r.id, o); }
+      const armed = r.t >= r.arm;
+      const k = (armed ? 1 : 0.5) * (0.8 + 0.2 * Math.sin(time * 18 + r.id));
+      o.scale.set(1.3 * k, 2.1 * k, 1);
+      o.position.set(r.x, 1.0 + Math.sin(time * 3 + r.id) * 0.06, r.z);
+      if (simDt > 0 && !reduced && Math.random() < 0.3) parts.spawn({ x: r.x + (Math.random() - 0.5) * 0.5, z: r.z + (Math.random() - 0.5) * 0.5, y: 0.4 + Math.random() * 1.2, vx: (Math.random() - 0.5) * 1.5, vz: (Math.random() - 0.5) * 1.5, vy: 0.5, life: 0.25, size: 0.14, size1: 0.02, color: col.ice, floor: false });
+    }
+    for (const [id, o] of remById) if (!seen.has(id)) { scene.remove(o); remFree.push(o); remById.delete(id); }
+    // ward'lar
+    seen.clear();
+    for (const w of g.wards || []) {
+      seen.add(w.id);
+      let o = wardById.get(w.id);
+      if (!o) {
+        o = wardFree.pop();
+        if (!o) {
+          const root = new THREE.Group();
+          const pole = new THREE.Mesh(G.wardPole, wardPoleMat);
+          pole.position.y = 0.55;
+          const eye = new THREE.Sprite(wardEyeMat);
+          eye.position.y = 1.2;
+          eye.scale.set(0.7, 0.7, 1);
+          const ring = new THREE.Mesh(G.plane, bin.add(new THREE.MeshBasicMaterial({ map: tex.thinRing, color: col.gold2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.18 })));
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.05;
+          ring.scale.setScalar(16);
+          root.add(pole, eye, ring);
+          o = { root, eye, ring };
+        }
+        scene.add(o.root);
+        wardById.set(w.id, o);
+      }
+      o.root.position.set(w.x, 0, w.z);
+      o.eye.scale.setScalar(0.6 + 0.1 * Math.sin(time * 4 + w.id));
+      o.ring.material.opacity = 0.08 + 0.18 * nightK;
+    }
+    for (const [id, o] of wardById) if (!seen.has(id)) { scene.remove(o.root); wardFree.push(o); wardById.delete(id); }
+    // alan etkileri (varyantlar)
+    seen.clear();
+    for (const z of g.zones || []) {
+      seen.add(z.id);
+      let o = zoneById.get(z.id);
+      if (!o) { o = zoneObj(); scene.add(o.root); zoneById.set(z.id, o); }
+      const c = ZONE_COL[z.kind] || col.gold;
+      o.ring.material.color.copy(c);
+      o.fill.material.color.copy(c);
+      o.root.position.set(z.x, 0, z.z);
+      const R = z.kind === 'decoy' ? 1.1 : z.r;
+      o.ring.scale.setScalar(R * 2);
+      o.ring.rotation.z = time * (z.kind === 'blizzard' ? 1.2 : 0.4);
+      o.fill.scale.setScalar(R * 2);
+      const fade = Math.min(1, (z.dur - z.t) * 2);
+      o.ring.material.opacity = 0.65 * fade;
+      o.fill.material.opacity = (z.kind === 'grove' || z.kind === 'bloom' ? 0.3 : 0.18) * fade;
+      o.ghost.material.opacity = z.kind === 'decoy' ? (0.55 + 0.2 * Math.sin(time * 9)) * fade : 0;
+      if (z.kind === 'decoy') o.ghost.material.color.set(g.H ? g.H.color : '#b18cff');
+      if (simDt > 0 && !reduced) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.sqrt(Math.random()) * z.r;
+        const x = z.x + Math.sin(a) * rr;
+        const zz = z.z + Math.cos(a) * rr;
+        if (z.kind === 'rain') parts.spawn({ x, z: zz, y: 4.5, vx: 0.6, vz: 0.6, vy: -14, life: 0.32, size: 0.16, size1: 0.1, color: col.ember2, floor: false });
+        else if (z.kind === 'blizzard' && Math.random() < 0.6) parts.spawn({ x, z: zz, y: 3, vx: 1.2, vz: -0.6, vy: -3, life: 0.9, size: 0.14, size1: 0.1, color: col.ice2, floor: false });
+        else if ((z.kind === 'bloom' || z.kind === 'grove') && Math.random() < 0.5) parts.spawn({ x, z: zz, y: 0.1, vx: 0, vz: 0, vy: 1.1, life: 1.1, size: 0.18, size1: 0.06, color: z.kind === 'bloom' ? ZONE_COL.bloom : col.jade, floor: false });
+        else if (z.kind === 'decoy' && Math.random() < 0.4) parts.spawn({ x: z.x + (Math.random() - 0.5) * 0.6, z: z.z + (Math.random() - 0.5) * 0.6, y: 0.3 + Math.random() * 1.4, vx: 0, vz: 0, vy: 0.4, life: 0.6, size: 0.3, size1: 0.5, color: col.smoke, alpha: 0.4, floor: false });
+      }
+    }
+    for (const [id, o] of zoneById) if (!seen.has(id)) { scene.remove(o.root); zoneFree.push(o); zoneById.delete(id); }
+
     // eşyalar
     seen.clear();
     let aegisNow = null;
@@ -1177,6 +1601,17 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
         continue;
       }
       seen.add(k.id);
+      if (k.kind === 'neutral') {
+        let o = neutralById.get(k.id);
+        const colr = (NEUTRALS[k.item] && NEUTRALS[k.item].color) || '#43d66a';
+        if (!o) { o = neutralFree.pop() || buildRune(kit, colr); o.set(colr); scene.add(o.root); neutralById.set(k.id, o); }
+        o.root.position.set(k.x, Math.sin(time * 2.2) * 0.1 - 0.15, k.z);
+        o.core.rotation.y = time * 2.4;
+        o.ring.rotation.x = Math.PI / 2;
+        o.ring.rotation.z = time;
+        o.root.scale.setScalar(Math.min(0.8, k.t * 3));
+        continue;
+      }
       if (k.kind === 'cheese') {
         let r = cheeseById.get(k.id);
         if (!r) { r = cheeseFree.pop() || buildCheese(kit); scene.add(r.root); cheeseById.set(k.id, r); }
@@ -1200,6 +1635,7 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     }
     for (const [id, r] of rapierById) if (!seen.has(id)) { scene.remove(r.root); rapierFree.push(r); rapierById.delete(id); }
     for (const [id, r] of cheeseById) if (!seen.has(id)) { scene.remove(r.root); cheeseFree.push(r); cheeseById.delete(id); }
+    for (const [id, r] of neutralById) if (!seen.has(id)) { scene.remove(r.root); neutralFree.push(r); neutralById.delete(id); }
     if (aegisObj) {
       if (!aegisNow && aegisOnField) {
         aegisOnField = false;
@@ -1258,6 +1694,10 @@ async function buildView(renderer, { mobile = false, reduced = false, heroId = '
     for (const r of rapierFree) disposeTree(r.root);
     for (const r of cheeseFree) disposeTree(r.root);
     for (const r of runeFree) disposeTree(r.root);
+    for (const r of neutralFree) disposeTree(r.root);
+    for (const o of wardFree) disposeTree(o.root);
+    for (const o of zoneFree) disposeTree(o.root);
+    for (const o of remFree) disposeTree(o);
     for (const list of Object.values(projFree)) for (const o of list) disposeTree(o.root);
     for (const b of bubbleFree) disposeTree(b);
     for (const r of retired) { disposeTree(r.root); disposeTree(r.barGroup); if (r.range) disposeTree(r.range); }

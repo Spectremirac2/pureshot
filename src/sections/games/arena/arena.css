@@ -1441,3 +1441,36 @@
   .ar-learn, .ar-sp-btn, .ar-sheet .ar-tal-opt.pending { animation: none; }
   .ar-nightveil { transition: none; }
 }
+
+/* orman eşyası seçimi (Kütüphane havuzu) — oyun akarken seçilir */
+.ar-nchoice { position: absolute; left: 0; right: 0; top: 18%; z-index: 5; display: flex; justify-content: center; pointer-events: none; padding: 0 12px; }
+.ar-nchoice[hidden] { display: none; }
+.ar-nc-card { pointer-events: auto; margin: 0; width: min(520px, 100%); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border-color: color-mix(in srgb, var(--radiant) 55%, var(--line-2)); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.ar-nc-head { display: flex; align-items: center; gap: 8px; }
+.ar-nc-head strong { font-family: var(--font-display); font-size: 1rem; color: var(--radiant); }
+.ar-nc-t { margin-left: auto; min-width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--radiant); color: var(--text); font-size: 13px; font-weight: 800; }
+.ar-nc-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
+.ar-nc-item { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px; text-align: left; border: 1px solid color-mix(in srgb, var(--ic, var(--radiant)) 55%, var(--line-2)); background: color-mix(in srgb, var(--bg) 88%, var(--ic, var(--radiant))); color: var(--text-2); cursor: pointer; position: relative; }
+.ar-nc-item:hover, .ar-nc-item:focus-visible { border-color: var(--ic, var(--radiant)); color: var(--text); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ic, var(--radiant)) 40%, transparent); }
+.ar-nc-item .ar-item-img { width: 38px; height: 32px; flex: none; object-fit: cover; }
+.ar-nc-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ar-nc-txt strong { font-size: 13px; color: var(--text); }
+.ar-nc-item .kbd { position: absolute; top: 3px; right: 4px; font-size: 9px; opacity: 0.7; }
+.ar-stage.is-touch .ar-nc-item .kbd { display: none; }
+.ar-shop-reroll { align-self: flex-start; min-height: 34px; gap: 6px; }
+.ar-shop-reroll[hidden] { display: none; }
+.ar-shop-reroll .ar-coin { width: 16px; height: 16px; display: inline-block; }
+@media (max-width: 560px) {
+  .ar-nchoice { top: 12%; }
+  .ar-nc-list { grid-template-columns: 1fr; }
+  .ar-nc-item { min-height: 46px; }
+}
+.ar-sab-var { margin-left: 6px; padding: 1px 5px; font-size: 9px; letter-spacing: 0.12em; border: 1px solid var(--arcane); color: var(--arcane); vertical-align: middle; }
+.ar-slot.variant::before { content: ''; position: absolute; right: 5px; top: 5px; width: 6px; height: 6px; transform: rotate(45deg); background: var(--arcane); box-shadow: 0 0 6px var(--arcane); pointer-events: none; z-index: 3; }
+.ar-sheet-title { font-size: 0.6em; color: var(--aegis-2); font-family: var(--font-lore); letter-spacing: 0.08em; }
+.ar-portrait.titled { box-shadow: 0 0 0 2px color-mix(in srgb, var(--aegis) 70%, transparent), 0 0 14px color-mix(in srgb, var(--aegis) 40%, transparent); }
+/* dükkân kutucukları: görselli ve glifli eşyalar aynı yükseklikte; ad hep altta, fiyat adın üstünde */
+.ar-shop-item .ar-item-img { flex: 1 1 auto; min-height: 0; }
+.ar-shop-name { margin-top: auto; flex: none; }
+.ar-nc-item .ar-item-fb { padding: 4px; }
+.ar-nc-item .ar-item-fb svg { width: 26px; height: 26px; }

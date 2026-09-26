@@ -14,7 +14,7 @@ import { haptic } from '../juice.js';
 import { createGame, STEP, BUYBACK_CD } from './game.js';
 import { DOG_TYPES, TYPE_IDS, archOf } from './dogs.js';
 import { HEROES, HERO_IDS, heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, ATTR_NAMES, ATTR_SHORT, isHeroUnlocked, devUnlock, registerUnlockCheck, abilityCap } from './heroes.js';
-import { ABILITIES, abilityInfo, STATS_BONUS } from './abilities.js';
+import { ABILITIES, abilityInfo, abilityDisplay, targetingOf, STATS_BONUS } from './abilities.js';
 import { ITEMS, SLOTS, RUNES, NEUTRALS } from './items.js';
 import { UNITS, BOSS_IDS, unitId } from './units.js';
 import { armorReduction, STATUS_NAMES } from './combat.js';
@@ -303,6 +303,7 @@ export function mountArena(el, ctx = {}) {
     onClose: () => closeShop(),
     onReady: () => readyUp(),
     onEquipNeutral: (id) => { if (game) game.equipNeutral(id); },
+    onRerollNeutral: () => { if (game && !game.rerollNeutral()) floatAt('Takas yalnız molada', game.player.x, 2.2, game.player.z, 'dim'); },
     sound,
   });
   // kahraman sayfası: özellikler, yetenek seviyeleri, yetenek ağacı (T ve C açar; açıkken oyun durur)
@@ -321,6 +322,15 @@ export function mountArena(el, ctx = {}) {
       bbBtn,
       bbLost,
       bbGive,
+    ),
+  );
+  // orman eşyası seçimi (Kütüphane: meta.pools.neutralChoice) — oyun durmaz; 25 sn içinde seçilmezse ilki alınır
+  const ncList = h('div', { class: 'ar-nc-list' });
+  const ncTime = h('span', { class: 'ar-nc-t num' }, '25');
+  const ncEl = h('div', { class: 'ar-nchoice', hidden: true, role: 'dialog', 'aria-label': 'Orman eşyası seç' },
+    h('div', { class: 'ar-card ar-nc-card' },
+      h('div', { class: 'ar-nc-head' }, h('span', { class: 'eyebrow' }, 'Orman sandığı'), h('strong', null, 'Birini seç'), ncTime),
+      ncList,
     ),
   );
 
@@ -410,7 +420,7 @@ export function mountArena(el, ctx = {}) {
     h('div', { class: 'ar-over-grid' }, overBody, overLbHost),
   );
   screens.append(startScreen, pauseScreen, overScreen, talentHost);
-  stage.append(hud, touchLayer, shop.el, buybackEl, screens, live);
+  stage.append(hud, touchLayer, shop.el, buybackEl, ncEl, screens, live);
 
   // --- sahanın altı: rehber + skor tablosu
   const guide = h('div', { class: 'ar-guide-grid' });
@@ -565,13 +575,19 @@ export function mountArena(el, ctx = {}) {
       for (const k of KEYS4) {
         const A = ABILITIES[H.abilities[k]];
         const s = set[k];
+        const tg = targetingOf(game, k);
+        const D = abilityDisplay(game, k);
         s.ico.innerHTML = glyph(A.icon);
-        s.btn.classList.toggle('passive', A.targeting === 'passive');
-        s.btn.dataset.targeting = A.targeting;
+        s.btn.classList.toggle('passive', tg === 'passive');
+        s.btn.classList.toggle('variant', !!(D && D.variant));
+        s.btn.dataset.targeting = tg;
         s.lvKey = '';
       }
     }
     for (const k of ['str', 'agi', 'int']) attrEls[k].row.classList.toggle('primary', H.attr === k);
+    const ttl = heroTitle();
+    portraitHit.title = `${H.name}${ttl ? ` · ${ttl}` : ''} (C)`;
+    portraitBox.classList.toggle('titled', !!ttl);
     accLbl.textContent = H.id === 'okcu' ? 'İsabet ' : 'Verim ';
   }
   /** Yetenek düğmesi ipucu: ad, seviye, değerler. */
@@ -579,13 +595,15 @@ export function mountArena(el, ctx = {}) {
     const info = abilityInfo(game, key);
     if (!info) return '';
     const { A, lv, max } = info;
-    const rows = abilityRows(A).map(([l, v]) => `${l} ${v}`).join(' · ');
-    return `${A.name} — seviye ${lv}/${max}${lv ? '' : ' (öğrenilmedi)'}. ${abilityTip(A)}. ${A.desc}${rows ? ` (${rows})` : ''}`;
+    const D = abilityDisplay(game, key);
+    const rows = D.variant ? '' : abilityRows(A).map(([l, v]) => `${l} ${v}`).join(' · ');
+    return `${D.name}${D.variant ? ' (varyant)' : ''} — seviye ${lv}/${max}${lv ? '' : ' (öğrenilmedi)'}. ${abilityTip(A)}. ${D.desc}${rows ? ` (${rows})` : ''}`;
   }
   applyHeroUi();
 
   // ------------------------------------------------------------------ kalıcı ilerleme bağlantısı (varsa)
   let prog = null;
+  let stopTrack = null;
   let lastRunEnd = null;
   function progUnlocked(id) {
     if (!prog) return false;
@@ -605,6 +623,9 @@ export function mountArena(el, ctx = {}) {
       if (!alive) return;
       prog = m;
       registerUnlockCheck(progUnlocked);
+      // İlerleme sözleşmesi (docs/ARENA-ILERLEME.md, madde 1): salon mağazası + oyun içi sayaçlar (kodeks, ustalık)
+      try { if (typeof m.connectStore === 'function') m.connectStore(coreStore); } catch (e) { console.warn('Arena: connectStore', e); }
+      try { if (typeof m.trackGame === 'function' && game) stopTrack = m.trackGame(game); } catch (e) { console.warn('Arena: trackGame', e); }
       select.refresh();
     }).catch((e) => console.warn('Arena: progression.js yüklenemedi', e));
   }
@@ -794,6 +815,7 @@ export function mountArena(el, ctx = {}) {
       case 'multikill':
         showBanner(d.label, `+${d.bonus} bonus`, d.n >= 5 ? 'rampage' : 'multi', 1500);
         if (d.n >= 5) { stamp('RAMPAGE!', 'gold'); snd('horn', 0, 0.7); }
+        else if (d.n >= 3 && game.cosmetics && game.cosmetics.stamp) stamp('DOG DOG DOG', 'gold'); // Kütüphane kozmetiği
         else snd('good', 0);
         say(`${d.label}! ${d.bonus} bonus puan.`, true);
         break;
@@ -830,7 +852,7 @@ export function mountArena(el, ctx = {}) {
         break;
       case 'learn': {
         snd('good', 0);
-        const nm = d.key === 'stats' ? STATS_BONUS.name : ABILITIES[game.H.abilities[d.key]].name;
+        const nm = d.key === 'stats' ? STATS_BONUS.name : abilityDisplay(game, d.key).name;
         floatAt(`${nm} ${d.level}`, p.x, 2.5, p.z, 'gold');
         say(`${nm} seviye ${d.level}. Kalan yetenek puanı ${d.points}.`);
         if (d.points <= 0) setLearnMode(false);
@@ -846,6 +868,7 @@ export function mountArena(el, ctx = {}) {
           announcer(d.night ? 'GECE ÇÖKTÜ' : 'GÜN DOĞDU', d.night ? 'Görüş kısaldı · Wardsız DOG’lar güçlendi' : 'Görüş açıldı', d.night ? 'night' : 'gold', 1800);
           say(d.night ? 'Gece çöktü: görüş kısaldı, Wardsız DOG’lar güçlendi.' : 'Gün doğdu: görüş açıldı.', true);
           snd('horn', 0, d.night ? 0.55 : 1.2);
+          if (sound.dusk) later(() => snd('dusk', 0, d.night), 400);
         }
         break;
       case 'bossSpawn':
@@ -860,6 +883,7 @@ export function mountArena(el, ctx = {}) {
         say(`${d.foe.name}: ${d.text}`, true);
         break;
       case 'bossTele':
+        if (sound.warn) snd('warn', 500, d.kind === 'dash' ? 1.2 : 1);
         if (d.kind === 'warcry') floatAt('SAVAŞ NARASI!', d.foe.x, 3.2, d.foe.z, 'gold big');
         else if (d.kind === 'howl') floatAt('ULUMA!', d.foe.x, 2.6, d.foe.z, 'arcane big');
         else if (d.kind === 'dash') floatAt('DALIŞ!', d.foe.x, 2.6, d.foe.z, 'ember big');
@@ -896,6 +920,15 @@ export function mountArena(el, ctx = {}) {
         break;
       case 'neutralEquip':
         floatAt(`+${d.item.name}`, p.x, 2.3, p.z, 'jade');
+        hideNeutralChoice();
+        break;
+      case 'neutralChoice':
+        showNeutralChoice(d.choices, d.tier);
+        break;
+      case 'neutralReroll':
+        floatAt(`${d.from.name} → ${d.item.name}`, p.x, 2.3, p.z, 'jade');
+        feedPush([h('span', { class: 'ar-feed-ico', html: glyph('tree') }), `Orman takası: ${d.item.name}`], 'gold');
+        snd('rune', 0, 0.9);
         break;
       case 'lootBack':
         floatAt(`GERİ ALINDI${d.gold ? ` +${d.gold}` : ''}${d.tango ? ' +Tango' : ''}`, d.foe.x, 1.8, d.foe.z, 'gold');
@@ -973,11 +1006,12 @@ export function mountArena(el, ctx = {}) {
         if (d.kind === 'mek') { snd('good', 0); floatAt('+260', p.x, 2.2, p.z, 'jade'); }
         if (d.kind === 'tome') { snd('levelUp', 0); floatAt('+XP', p.x, 2.2, p.z, 'gold'); }
         if (d.kind === 'phase') snd('whoosh', 0);
-        if (d.kind === 'remnantBoom' || d.kind === 'overload' || d.kind === 'zap') snd('freeze', 90, 1.4);
+        if (d.kind === 'remnantBoom' || d.kind === 'overload' || d.kind === 'zap') { if (sound.zap) snd('zap', 90); else snd('freeze', 90, 1.4); }
         if (d.kind === 'vortex') snd('spin', 0);
         if (d.kind === 'ballStart') snd('blink', 0, 1.3);
         if (d.kind === 'growth') { snd('slam', 0, 0.8); haptic([15, 30, 15]); }
-        if (d.kind === 'leech' || d.kind === 'guise' || d.kind === 'bark') snd('rune', 60, 0.9);
+        if (d.kind === 'leech' || d.kind === 'thorns') { if (sound.vine) snd('vine', 80); else snd('rune', 60, 0.9); }
+        if (d.kind === 'guise' || d.kind === 'bark') snd('rune', 60, 0.9);
         break;
       case 'channelEnd':
         if (d.interrupted) floatAt('Kanal kesildi', p.x, 2.2, p.z, 'dim');
@@ -1206,6 +1240,7 @@ export function mountArena(el, ctx = {}) {
         break;
       case 'gameOver':
         hideBuyback();
+        hideNeutralChoice();
         gameOver(d.report);
         break;
       case 'reset':
@@ -1213,6 +1248,7 @@ export function mountArena(el, ctx = {}) {
         for (const x of feedItems.splice(0)) x.li.remove();
         talentBtn.hidden = true;
         hideBuyback();
+        hideNeutralChoice();
         renderObjectives();
         break;
       default:
@@ -1289,6 +1325,11 @@ export function mountArena(el, ctx = {}) {
   function statRow(label, value, hint = '') {
     return h('div', { class: 'ar-sst' }, h('dt', null, label), h('dd', { class: 'num', title: hint }, value));
   }
+  /** Ustalık/Kütüphane unvanı (meta.mastery.title ya da meta.cosmetics.title), yoksa ''. */
+  function heroTitle() {
+    const m = game && game.meta;
+    return (m && ((m.mastery && m.mastery.title) || (m.cosmetics && m.cosmetics.title))) || '';
+  }
   function renderSheet() {
     const g = game;
     const p = g.player;
@@ -1325,18 +1366,19 @@ export function mountArena(el, ctx = {}) {
     for (const k of KEYS4) {
       const info = abilityInfo(g, k);
       const A = info.A;
+      const D = abilityDisplay(g, k);
       const can = g.canLearn(k);
       const cap = abilityCap(k, p.level);
       const need = info.lv >= info.max ? 'dolu' : cap <= info.lv ? `${k === 'r' ? (info.lv + 1) * 6 : info.lv * 2 + 1}. seviyede` : '';
-      const lb = h('button', { class: 'ar-sab-learn', type: 'button', disabled: !can, 'aria-label': `${A.name} öğren`, title: can ? `Öğren (${KEY_NAMES[k]})` : need || 'Yetenek puanı yok' }, h('span', { html: glyph('plus') }));
+      const lb = h('button', { class: 'ar-sab-learn', type: 'button', disabled: !can, 'aria-label': `${D.name} öğren`, title: can ? `Öğren (${KEY_NAMES[k]})` : need || 'Yetenek puanı yok' }, h('span', { html: glyph('plus') }));
       lb.addEventListener('click', () => { game.learn(k); renderSheet(); });
       const rows = abilityRows(A);
       abil.appendChild(h('div', { class: `ar-sab${info.lv ? '' : ' unlearned'}${A.ult ? ' ult' : ''}` },
         h('span', { class: 'ar-sab-i', html: glyph(A.icon) }),
         h('div', { class: 'ar-sab-t' },
-          h('strong', null, `${KEY_NAMES[k]} · ${A.name}`),
+          h('strong', null, `${KEY_NAMES[k]} · ${D.name}`, D.variant ? h('span', { class: 'ar-sab-var', title: `Kütüphane varyantı (temel: ${A.name})` }, 'VARYANT') : null),
           h('span', { class: 'ar-sab-pips' }, Array.from({ length: info.max }, (_, i) => h('i', { class: i < info.lv ? 'on' : '' }))),
-          h('span', { class: 'xsmall muted ar-sab-d' }, A.desc),
+          h('span', { class: 'xsmall muted ar-sab-d' }, D.desc),
           rows.length ? h('span', { class: 'xsmall ar-sab-rows' }, rows.map(([l, v]) => h('span', null, `${l} `, h('b', { class: 'num' }, v)))) : null,
         ),
         h('div', { class: 'ar-sab-side' }, lb, need ? h('span', { class: 'xsmall dim' }, need) : null),
@@ -1348,7 +1390,7 @@ export function mountArena(el, ctx = {}) {
       lb.addEventListener('click', () => { game.learn('stats'); renderSheet(); });
       abil.appendChild(h('div', { class: 'ar-sab stats' },
         h('span', { class: 'ar-sab-i', html: glyph('star') }),
-        h('div', { class: 'ar-sab-t' }, h('strong', null, STATS_BONUS.name), h('span', { class: 'ar-sab-pips' }, Array.from({ length: 7 }, (_, i) => h('i', { class: i < p.statsLv ? 'on' : '' }))), h('span', { class: 'xsmall muted ar-sab-d' }, STATS_BONUS.desc)),
+        h('div', { class: 'ar-sab-t' }, h('strong', null, STATS_BONUS.name), h('span', { class: 'ar-sab-pips' }, Array.from({ length: g.maxAbilityLevel('stats') }, (_, i) => h('i', { class: i < p.statsLv ? 'on' : '' }))), h('span', { class: 'xsmall muted ar-sab-d' }, STATS_BONUS.desc)),
         h('div', { class: 'ar-sab-side' }, lb),
       ));
     }
@@ -1371,8 +1413,8 @@ export function mountArena(el, ctx = {}) {
     talentHost.appendChild(h('div', { class: 'ar-card ar-sheet-card', style: { '--hc': H.color } },
       h('div', { class: 'ar-sheet-head' },
         h('span', { class: 'ar-sheet-emb', html: glyph(H.id) }),
-        h('div', null, h('span', { class: 'eyebrow' }, `Seviye ${p.level} · ${H.role}`), h('h2', { class: 'h2' }, H.name)),
-        p.skillPoints > 0 ? h('span', { class: 'badge jade ar-sheet-sp' }, `+${p.skillPoints} yetenek puanı`) : null,
+        h('div', null, h('span', { class: 'eyebrow' }, `Seviye ${p.level} · ${H.role}`), h('h2', { class: 'h2' }, H.name, heroTitle() ? h('span', { class: 'ar-sheet-title' }, ` · ${heroTitle()}`) : null)),
+        p.skillPoints > 0 && g.learnable().length ? h('span', { class: 'badge jade ar-sheet-sp' }, `+${p.skillPoints} yetenek puanı`) : null,
         closeB,
       ),
       h('div', { class: 'ar-sheet-grid' },
@@ -1391,10 +1433,10 @@ export function mountArena(el, ctx = {}) {
 
   // ------------------------------------------------------------------ öğrenme kipi
   function setLearnMode(v) {
-    learnMode = !!v && !!game && game.player.skillPoints > 0;
+    learnMode = !!v && !!game && game.player.skillPoints > 0 && game.learnable().length > 0;
     stage.classList.toggle('learning', learnMode);
     spBtn.setAttribute('aria-pressed', String(learnMode));
-    if (learnMode) say('Öğrenme kipi: yetenek seç (Q W E R). Çıkmak için L.', true);
+    if (learnMode) say(`Öğrenme kipi: yetenek seç (Q ${SCHEMES[scheme].wKey} E R ya da düğmelerin üstündeki artı). Çıkmak için L.`, true);
   }
   function learnKey(key) {
     if (!game || (mode !== 'playing' && mode !== 'picking')) return false;
@@ -1422,6 +1464,32 @@ export function mountArena(el, ctx = {}) {
   }
   bbBtn.addEventListener('click', () => { if (game.buyback()) { hideBuyback(); focusStage(); } });
   bbGive.addEventListener('click', () => { game.buybackOpen = false; game.dyingT = Math.min(game.dyingT, 0.05); hideBuyback(); });
+
+  // ------------------------------------------------------------------ orman eşyası seçimi
+  function showNeutralChoice(choices, tier) {
+    clear(ncList);
+    choices.forEach((N, i) => {
+      const b = h('button', { class: 'ar-nc-item', type: 'button', style: { '--ic': N.color }, 'aria-label': `${N.name}. ${N.desc}` },
+        itemImg(N),
+        h('span', { class: 'ar-nc-txt' }, h('strong', null, N.name), h('span', { class: 'xsmall' }, N.desc)),
+        h('span', { class: 'kbd' }, `F${i + 1}`),
+      );
+      b.addEventListener('click', (e) => { e.stopPropagation(); pickNeutralChoice(N.id); });
+      ncList.appendChild(b);
+    });
+    ncEl.dataset.tier = String(tier || 1);
+    ncEl.hidden = false;
+    snd('rune', 0, 1.25);
+    say(`Orman sandığı: ${choices.map((N) => N.name).join(', ')}. Birini seç; F1, F2${choices.length > 2 ? ', F3' : ''}.`, true);
+  }
+  function pickNeutralChoice(id) {
+    if (!game || !game.chooseNeutral(id)) return;
+    hideNeutralChoice();
+    focusStage();
+  }
+  function hideNeutralChoice() {
+    if (!ncEl.hidden) ncEl.hidden = true;
+  }
 
   // ------------------------------------------------------------------ görev hedefleri
   function objText(o) {
@@ -1502,10 +1570,16 @@ export function mountArena(el, ctx = {}) {
     if (!isHeroUnlocked(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
     if (overLb) { overLb(); overLb = null; }
     keys.clear();
-    let cfg = { mode: 'endless', heroId: save.hero, curse: 0, meta: null, mission: null, waves: null, objectives: [], modifiers: {}, ...(extra && typeof extra === 'object' && !(extra instanceof Event) ? extra : {}) };
+    const ex = extra && typeof extra === 'object' && !(extra instanceof Event) ? extra : {};
+    const { devMeta, ...rest } = ex;
+    // allowLocked: kilit kapısı yukarıda geçildi (profil ya da geliştirici kilidi); applyMeta başka kahramana düşmesin
+    let cfg = { mode: 'endless', heroId: save.hero, meta: null, mission: null, waves: null, objectives: [], modifiers: {}, allowLocked: true, ...rest };
     if (prog && typeof prog.applyMeta === 'function') {
       try { cfg = prog.applyMeta(cfg) || cfg; } catch (e) { console.warn('Arena: applyMeta', e); }
     }
+    if (cfg.curse == null) cfg.curse = 0;
+    // yalnızca geliştirme testleri: Kütüphane profili olmadan varyant/havuz/kozmetik denemek için
+    if (import.meta.env.DEV && devMeta && typeof devMeta === 'object') cfg.meta = { ...(cfg.meta || {}), ...devMeta };
     game.autoSkill = autoLearn;
     lastRunEnd = null;
     game.start(cfg);
@@ -1546,6 +1620,7 @@ export function mountArena(el, ctx = {}) {
     if (overLb) { overLb(); overLb = null; }
     setLearnMode(false);
     hideBuyback();
+    hideNeutralChoice();
     mode = 'start';
     stage.classList.remove('is-playing');
     closeShop(true);
@@ -1719,7 +1794,7 @@ export function mountArena(el, ctx = {}) {
     const S = SCHEMES[scheme];
     return [...S.up, ...S.down, ...S.left, ...S.right, ...S.q, ...S.w, ...S.e, ...S.r];
   };
-  const heroCharges = () => ABILITIES[game.H.abilities.q].targeting === 'charge';
+  const heroCharges = () => targetingOf(game, 'q') === 'charge';
 
   function keyOf(code) {
     const S = SCHEMES[scheme];
@@ -1755,6 +1830,12 @@ export function mountArena(el, ctx = {}) {
     }
     if (mode === 'playing') {
       if (bbOpen && (code === 'Enter' || code === 'NumpadEnter')) { e.preventDefault(); bbBtn.click(); return; }
+      if (game.neutralOffer && (code === 'F1' || code === 'F2' || code === 'F3')) {
+        e.preventDefault();
+        const id = game.neutralOffer.choices[Number(code[1]) - 1];
+        if (id) pickNeutralChoice(id);
+        return;
+      }
       if (code === 'Escape' || code === 'KeyP') {
         e.preventDefault();
         if (code === 'Escape' && learnMode) { setLearnMode(false); return; }
@@ -1953,7 +2034,7 @@ export function mountArena(el, ctx = {}) {
   // yetenek düğmeleri (masaüstü slotları ve dokunmatik düğmeler)
   function bindSlot(s, isTouch) {
     const key = s.key;
-    const targeting = () => ABILITIES[game.H.abilities[key]].targeting;
+    const targeting = () => targetingOf(game, key);
     if (s.learn) {
       on(s.learn, 'click', (e) => { e.preventDefault(); learnKey(key); focusStage(); });
       on(s.learn, 'pointerdown', (e) => e.stopPropagation());
@@ -2173,9 +2254,11 @@ export function mountArena(el, ctx = {}) {
     setText(goldNum, fmtNum(p.gold));
     setAttr(goldBtn, 'title', `Dükkân (B) · güvenilir ${fmtNum(p.goldR)}, güvenilmez ${fmtNum(g.unreliable())}`);
     setHidden(talentBtn, !p.talentPending.length);
-    setHidden(spBtn, !(p.skillPoints > 0));
+    // 25. seviyede her şey dolduğunda artan puanlar harcanamaz: rozeti gizle
+    const canSpend = p.skillPoints > 0 && g.learnable().length > 0;
+    setHidden(spBtn, !canSpend);
     setText(spNum, String(p.skillPoints));
-    if (learnMode && !(p.skillPoints > 0)) setLearnMode(false);
+    if (learnMode && !canSpend) setLearnMode(false);
     const st = g.stat;
     for (const k of ['str', 'agi', 'int']) setText(attrEls[k].v, String(Math.round(st[k] || 0)));
     // orman yuvası
@@ -2218,6 +2301,11 @@ export function mountArena(el, ctx = {}) {
       const shielded = boss.invuln > 0;
       setCls(bossBar, 'shielded', shielded);
       setText(bossPhase, shielded ? 'KALKAN · muhafızları indir' : boss.stealth > 0 ? 'Karanlıkta…' : boss.status === 'sleep' ? 'uyuyor' : boss.phaseText || (boss.k > 1 ? `güç ${boss.k}` : ''));
+    }
+    // orman seçimi sayacı
+    if (!ncEl.hidden) {
+      if (!g.neutralOffer) hideNeutralChoice();
+      else setText(ncTime, String(Math.max(0, Math.ceil(g.neutralOffer.t))));
     }
     // geri alma sayacı
     if (bbOpen) {
@@ -2471,6 +2559,7 @@ export function mountArena(el, ctx = {}) {
   // ------------------------------------------------------------------ temizlik
   return () => {
     alive = false;
+    if (stopTrack) { try { stopTrack(); } catch { /* yok say */ } stopTrack = null; }
     if (stopLoop) stopLoop();
     for (const off of offs) off();
     offs.length = 0;

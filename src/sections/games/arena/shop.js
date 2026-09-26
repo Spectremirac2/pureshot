@@ -18,7 +18,7 @@ export function itemImg(I, cls = 'ar-item-img') {
 }
 
 /**
- * opts: { game, onBuy(id), onSell(slot), onClose(), onReady(), onEquipNeutral(id), sound }
+ * opts: { game, onBuy(id), onSell(slot), onClose(), onReady(), onEquipNeutral(id), onRerollNeutral(), sound }
  */
 export function buildShop(opts) {
   const g = () => opts.game;
@@ -95,6 +95,10 @@ export function buildShop(opts) {
   const neutralSlot = h('span', { class: 'ar-shop-slot ar-shop-neutral', role: 'listitem', title: 'Orman eşyası yuvası' });
   bag.appendChild(neutralSlot);
   const stash = h('div', { class: 'ar-shop-stash', hidden: true });
+  // Kütüphane: Yaşlı Koru Takası (meta.pools.neutralReroll) — molada takılı orman eşyasını aynı kademeden değiştir
+  const rerollN = h('b', { class: 'num' }, '0');
+  const rerollBtn = h('button', { class: 'btn ghost sm ar-shop-reroll', type: 'button', hidden: true, title: 'Takılı orman eşyasını aynı kademeden rastgele başka biriyle değiştir (yalnız molada)' }, h('span', { class: 'ar-coin', html: glyph('tree') }), h('span', null, 'Orman takası '), rerollN);
+  rerollBtn.addEventListener('click', () => { if (opts.onRerollNeutral) opts.onRerollNeutral(); update(true); });
   const breakTxt = h('span', { class: 'ar-shop-break small' });
   const readyBtn = h('button', { class: 'btn ghost sm ar-shop-ready', type: 'button' }, icon('play', { size: 14 }), 'Hazırım');
   readyBtn.addEventListener('click', () => opts.onReady());
@@ -111,6 +115,7 @@ export function buildShop(opts) {
     info,
     h('div', { class: 'ar-shop-baghead xsmall' }, h('span', null, 'Çantan'), h('span', { class: 'dim' }, 'tıkla, onayla: yarı fiyatına sat')),
     bag,
+    rerollBtn,
     stash,
     foot,
   );
@@ -186,7 +191,7 @@ export function buildShop(opts) {
     const game = g();
     if (!game) return;
     const p = game.player;
-    const key = `${p.gold}|${p.items.map((it) => (it ? it.id + (it.charges ?? '') + (it.reserved ? 'r' : '') : '-')).join(',')}|${p.neutral ? p.neutral.id : ''}|${game.neutralStash.join(',')}|${game.courier.state}|${game.courier.items.length}|${game.state}|${Math.ceil(game.breakT)}|${selected}|${tab}`;
+    const key = `${p.gold}|${p.items.map((it) => (it ? it.id + (it.charges ?? '') + (it.reserved ? 'r' : '') : '-')).join(',')}|${p.neutral ? p.neutral.id : ''}|${game.neutralStash.join(',')}|${game.courier.state}|${game.courier.items.length}|${game.state}|${Math.ceil(game.breakT)}|${selected}|${tab}|${game.rerollsLeft || 0}`;
     if (!force && key === last) return;
     last = key;
     gold.textContent = fmtNum(p.gold);
@@ -243,6 +248,13 @@ export function buildShop(opts) {
         neutralSlot.appendChild(itemImg(N));
         neutralSlot.title = `Orman eşyası: ${N.name} — ${N.desc}`;
       } else neutralSlot.title = 'Orman eşyası yuvası (kamplardan düşer)';
+    }
+    const pools = game.pools || {};
+    rerollBtn.hidden = !(pools.neutralReroll > 0 && p.neutral);
+    if (!rerollBtn.hidden) {
+      rerollN.textContent = `${game.rerollsLeft || 0}/${Math.min(3, pools.neutralReroll)}`;
+      rerollBtn.disabled = !game.canRerollNeutral();
+      rerollBtn.setAttribute('aria-label', `Orman takası: ${game.rerollsLeft || 0} hak. ${game.state === 'break' ? '' : 'Yalnız molada.'}`);
     }
     const sk = game.neutralStash.join(',');
     if (stash.dataset.k !== sk) {

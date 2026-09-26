@@ -1045,6 +1045,8 @@ const PROC = {
   balta: (kit) => humanoid(kit, { skin: '#b8412f', cloth: '#4a2c1c', accent: '#b9b2a4', weapon: 'axe', scale: 1.15, horns: true }),
   buz: (kit) => humanoid(kit, { skin: '#f1dccb', cloth: '#3a78b8', accent: '#dff6ff', weapon: 'staff', scale: 1.05, hood: true }),
   golge: (kit) => humanoid(kit, { skin: '#c9b3a2', cloth: '#3a2a55', accent: '#b18cff', weapon: 'daggers', scale: 1.0, hood: true }),
+  simsek: (kit) => humanoid(kit, { skin: '#dfe9ff', cloth: '#2b4f9c', accent: '#7fd4ff', weapon: 'staff', scale: 1.0, hood: true }),
+  agac: (kit) => humanoid(kit, { skin: '#6b4a2a', cloth: '#3c5a26', accent: '#8fd16a', weapon: 'club', scale: 1.25, horns: true }),
   'creep-melee': (kit) => humanoid(kit, { skin: '#6f7f5a', cloth: '#4a3a3a', accent: '#8a7f70', weapon: 'club', scale: 0.72 }),
   'creep-ranged': (kit) => humanoid(kit, { skin: '#6f7f5a', cloth: '#8a1f2a', accent: '#402020', weapon: 'orb', scale: 0.72, hood: true }),
 };
@@ -1128,10 +1130,14 @@ export class HeroRig {
     let rz = this.deadK * 1.45;
     if (p.channel) { by += 0.22 + Math.sin(t * 3) * 0.05; rx = -0.1; }
     if (p.st && p.st.stun > 0) rz += Math.sin(t * 18) * 0.08;
+    if (p.cyclone > 0) { by += 1.1 + Math.sin(t * 4) * 0.12; rx = 0; }
+    if (p.st && p.st.fear > 0) rz += Math.sin(t * 30) * 0.05;
     this.body.position.set(0, by, bz);
     this.body.rotation.set(rx, 0, rz);
-    // Helezon: iki tam tur
-    this.spin.rotation.y = p.spinT > 0 ? (1 - p.spinT / 0.42) * Math.PI * 4 : 0;
+    // Helezon: iki tam tur · Kasırga: dönerek havada · Tutulma: sürekli dönüş
+    if (p.cyclone > 0) this.spin.rotation.y = t * 11;
+    else if (p.eclipse) this.spin.rotation.y = t * 16;
+    else this.spin.rotation.y = p.spinT > 0 ? (1 - p.spinT / 0.42) * Math.PI * 4 : 0;
     if (this.archer) {
       const lp = this._lp;
       lp.x = 0; lp.z = 0; lp.face = 0; lp.moving = 0; lp.dead = false; lp.recoil = p.recoil; lp.charging = p.charging; lp.charge = p.charge;
@@ -1163,31 +1169,138 @@ export class HeroRig {
   }
 }
 
-/** Creep ve Roshan: GLB (yoksa prosedürel). */
+/** Kök görünümü: Buz Zinciri (buz kütlesi), Ağaç Bekçisi (sarmaşık), Elektrik Girdabı (şimşek). */
+export function setRootLook(mesh, kit, fx) {
+  const want = fx === 'vine' ? 'vine' : fx === 'shock' ? 'shock' : 'ice';
+  if (mesh.userData.look === want) return;
+  mesh.userData.look = want;
+  if (want === 'vine') { mesh.geometry = kit.G.vine; mesh.material = kit.vineMat; }
+  else if (want === 'shock') { mesh.geometry = kit.G.vine; mesh.material = kit.shockMat; }
+  else { mesh.geometry = kit.G.iceBlock; mesh.material = kit.iceMat; }
+}
+
+/**
+ * Birim görünüş ayarları (UNITS kimliğine göre): GLB anahtarı, prosedürel yedek, ölçek, renk tonu.
+ * Feed Alfa ve Gölge Ulusu köpek modelinin büyütülmüş, boyanmış hâlidir.
+ */
+export const UNIT_LOOK = {
+  creep_melee: { key: 'model-creep-melee', proc: 'creep-melee' },
+  creep_ranged: { key: 'model-creep-ranged', proc: 'creep-ranged' },
+  neutral_wolf: { key: 'model-neutral-wolf', proc: 'wolf' },
+  neutral_alpha: { key: 'model-neutral-wolf', proc: 'wolf', scale: 1.3, tint: '#f1e2b8', emissive: '#3a2a08' },
+  neutral_harpy: { key: 'model-neutral-harpy', proc: 'neutral-harpy' },
+  boss_roshan: { key: 'model-roshan', proc: 'roshan' },
+  boss_feedalfa: { key: 'model-dog', proc: 'dog', scale: 2.45, tint: '#ffb080', emissive: '#6a1c00', fur: '#c98f5a' },
+  boss_shadow: { key: 'model-dog', proc: 'dog', scale: 2.25, tint: '#5a4a8a', emissive: '#3b1f8a', fur: '#3a2f55', shadow: true },
+  boss_general: { key: 'model-boss-general', proc: 'boss-general' },
+  boss_ancient: { key: 'model-boss-ancient', proc: 'boss-ancient' },
+};
+export const unitLookId = (e) => (e.def && UNIT_LOOK[e.def.id] ? e.def.id : e.kind === 'boss' ? 'boss_roshan' : e.type === 'ranged' ? 'creep_ranged' : 'creep_melee');
+
+function procDog(kit, fur) {
+  const dr = new DogRig({ ...kit, dogModel: null });
+  dr.m.fur.color.set(fur);
+  dr.m.fur2.color.copy(lighten(fur, 0.4));
+  return { group: dr.body, mats: dr.mats, legs: dr.legs, tail: dr.tail };
+}
+function procBig(kit, kind) {
+  const { G, bin, shadows } = kit;
+  const M = (c, o = {}) => bin.add(new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, transparent: true, ...o }));
+  const g = new THREE.Group();
+  if (kind === 'boss-ancient') {
+    const core = M('#3a0f1f', { emissive: '#ff2a55', emissiveIntensity: 0.9, flatShading: true, metalness: 0.3 });
+    const rock = M('#2a2336', { flatShading: true, roughness: 1 });
+    const c = mesh(G.crystal, core, shadows);
+    c.scale.set(1.5, 2.3, 1.5);
+    c.position.y = 2.0;
+    g.add(c);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU;
+      const sp = mesh(G.crystal, rock, shadows);
+      sp.scale.set(0.5, 1.4, 0.5);
+      sp.position.set(Math.sin(a) * 1.25, 0.8, Math.cos(a) * 1.25);
+      sp.rotation.set(Math.cos(a) * 0.35, 0, -Math.sin(a) * 0.35);
+      g.add(sp);
+    }
+    const base = mesh(G.pedA, rock, shadows);
+    base.scale.set(2.2, 1.2, 2.2);
+    base.position.y = 0.18;
+    g.add(base);
+    return { group: g, mats: [core, rock], core: c };
+  }
+  if (kind === 'boss-general') {
+    const b = humanoid(kit, { skin: '#7a2a2a', cloth: '#2a1a1e', accent: '#d9a441', weapon: 'axe', scale: 2.1, horns: true });
+    return b;
+  }
+  if (kind === 'neutral-harpy') {
+    const body = M('#7aa0c8');
+    const wingM = M('#bfe6ff', { side: THREE.DoubleSide });
+    const eye = M('#fff', { emissive: '#7fd4ff', emissiveIntensity: 1.6 });
+    const t = mesh(G.dTorso, body, shadows);
+    t.scale.set(1.3, 1.5, 1.3);
+    t.position.y = 0.75;
+    const hd = mesh(G.dHead, body, false);
+    hd.position.set(0, 1.12, 0.1);
+    for (const sgn of [-1, 1]) {
+      const w = mesh(G.wing, wingM, false);
+      w.scale.set(sgn * 0.8, 0.8, 1);
+      w.rotation.x = -Math.PI / 2;
+      w.position.set(sgn * 0.12, 0.95, 0);
+      g.add(w);
+      const e = mesh(G.dEye, eye, false);
+      e.position.set(sgn * 0.08, 1.16, 0.28);
+      g.add(e);
+    }
+    g.add(t, hd);
+    return { group: g, mats: [body, wingM, eye], wings: g.children.filter((o) => o.geometry === G.wing) };
+  }
+  return humanoid(kit, { skin: '#6f7f5a', cloth: '#4a3a3a', accent: '#8a7f70', weapon: 'club', scale: 0.72 });
+}
+
+/** Creep, orman birimi ve bosslar: GLB (yoksa prosedürel). Bir havuz anahtarı = bir UNIT_LOOK kimliği. */
 export class UnitRig {
-  constructor(kit, key, procKey) {
+  constructor(kit, lookId) {
     this.kit = kit;
-    this.key = key;
-    this.procKey = procKey;
+    this.lookId = lookId;
+    this.look = UNIT_LOOK[lookId] || UNIT_LOOK.creep_melee;
+    this.key = this.look.key;
     this.root = new THREE.Group();
     this.body = new THREE.Group();
     this.root.add(this.body);
     this.mats = [];
     this.flash = [];
+    this.baseEm = [];
     this.phase = Math.random() * 10;
     this._op = -1;
-    this.setModel(kit.models[key] || null);
-    this.bar = new HpBar(kit, { w: key === 'model-roshan' ? 2.2 : 0.95, h: key === 'model-roshan' ? 0.16 : 0.1, color: '#e0354b' });
+    this.isBoss = lookId.startsWith('boss_');
+    this.setModel(kit.models[this.key] || null);
+    this.bar = new HpBar(kit, { w: this.isBoss ? 2.2 : 0.95, h: this.isBoss ? 0.16 : 0.1, color: lookId.startsWith('neutral') ? '#c9b8a0' : '#e0354b' });
     this.barGroup = this.bar.group;
-    // buz kütlesi (Buz Zinciri)
+    // kök (buz / sarmaşık / şimşek)
     this.ice = new THREE.Mesh(kit.G.iceBlock, kit.iceMat);
     this.ice.visible = false;
     this.root.add(this.ice);
+    // boss süsleri: kalkan küresi, nara parıltısı
+    if (this.isBoss) {
+      this.bubble = new THREE.Mesh(kit.G.bubble, kit.bubbleMat);
+      this.bubble.visible = false;
+      this.root.add(this.bubble);
+      const gm = kit.bin.add(new THREE.SpriteMaterial({ map: kit.glowTex, color: new THREE.Color('#ff5a3d'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
+      this.aura = new THREE.Sprite(gm);
+      this.aura.scale.set(4, 4, 1);
+      this.aura.position.y = 1.4;
+      this.root.add(this.aura);
+    }
   }
 
   setModel(template) {
     for (const c of [...this.body.children]) this.body.remove(c);
     this._op = -1;
+    this.legs = null;
+    this.core = null;
+    this.wings = null;
+    const L = this.look;
+    const { G, bin } = this.kit;
     if (template) {
       const c = cloneModel(template, this.kit);
       c.obj.rotation.y = MODEL_YAW[this.key] || 0;
@@ -1195,8 +1308,11 @@ export class UnitRig {
       this.mats = c.mats;
       this.flash = c.flash;
       this.procedural = false;
-    } else if (this.key === 'model-roshan') {
-      const { G, bin } = this.kit;
+      if (L.tint) {
+        const t = new THREE.Color(L.tint);
+        for (const m of this.mats) if (m.color) m.color.multiply(t);
+      }
+    } else if (L.proc === 'roshan') {
       const stone = bin.add(new THREE.MeshStandardMaterial({ color: '#6c6377', roughness: 0.9, flatShading: true, transparent: true }));
       const horn = bin.add(new THREE.MeshStandardMaterial({ color: '#e8dcc0', roughness: 0.5, transparent: true }));
       const eye = bin.add(new THREE.MeshStandardMaterial({ color: '#ffb347', emissive: '#ff7a1a', emissiveIntensity: 2, transparent: true }));
@@ -1207,17 +1323,17 @@ export class UnitRig {
       hd.scale.setScalar(0.55);
       hd.position.set(0, 1.9, 1.05);
       this.body.add(b, hd);
-      for (const s of [-1, 1]) {
+      for (const sg of [-1, 1]) {
         const h = new THREE.Mesh(G.dHorn, horn);
         h.scale.set(3.2, 4.5, 3.2);
-        h.position.set(s * 0.45, 2.45, 1.05);
-        h.rotation.z = -s * 0.5;
+        h.position.set(sg * 0.45, 2.45, 1.05);
+        h.rotation.z = -sg * 0.5;
         const e = new THREE.Mesh(G.dEye, eye);
         e.scale.setScalar(2.4);
-        e.position.set(s * 0.22, 1.98, 1.55);
+        e.position.set(sg * 0.22, 1.98, 1.55);
         const leg = new THREE.Mesh(G.dLeg, stone);
         leg.scale.set(4, 3.2, 4);
-        leg.position.set(s * 0.7, 0.45, 0.5);
+        leg.position.set(sg * 0.7, 0.45, 0.5);
         const leg2 = leg.clone();
         leg2.position.z = -0.6;
         this.body.add(h, e, leg, leg2);
@@ -1225,14 +1341,36 @@ export class UnitRig {
       this.mats = [stone, horn, eye];
       this.flash = [stone];
       this.procedural = true;
-    } else {
-      const b = (PROC[this.procKey] || PROC['creep-melee'])(this.kit);
+    } else if (L.proc === 'dog' || L.proc === 'wolf') {
+      const b = procDog(this.kit, L.fur || (L.proc === 'wolf' ? '#8d8a86' : '#c98f5a'));
+      this.body.add(b.group);
+      this.mats = b.mats;
+      this.flash = b.mats.filter((m) => 'emissive' in m);
+      this.legs = b.legs;
+      this.procedural = true;
+      if (L.tint && L.proc !== 'wolf') for (const m of this.mats) if (m.color) m.color.multiply(new THREE.Color(L.tint));
+    } else if (PROC[L.proc]) {
+      const b = PROC[L.proc](this.kit);
       this.body.add(b.group);
       this.mats = b.mats;
       for (const m of b.mats) m.transparent = true;
       this.flash = b.mats;
       this.procedural = true;
+    } else {
+      const b = procBig(this.kit, L.proc);
+      this.body.add(b.group);
+      this.mats = b.mats;
+      for (const m of b.mats) m.transparent = true;
+      this.flash = b.mats.filter((m) => 'emissive' in m);
+      this.core = b.core || null;
+      this.wings = b.wings || null;
+      this.procedural = true;
     }
+    // taban parıltısı (boya): vurulma parlaması bitince buna döner
+    const em = L.emissive ? new THREE.Color(L.emissive) : null;
+    this.baseEm = this.flash.map((m) => (m.emissive ? (em ? em.clone() : m.emissive.clone()) : null));
+    if (L.shadow) for (const m of this.mats) { m.transparent = true; m.depthWrite = true; }
+    this.body.scale.setScalar(L.scale || 1);
   }
 
   setOpacity(a) {
@@ -1241,65 +1379,91 @@ export class UnitRig {
     for (const m of this.mats) m.opacity = a;
   }
 
-  update(e, t, dt, labelK, execThr = 0) {
+  update(e, t, dt, labelK, execThr = 0, alpha = 1) {
     const boss = e.kind === 'boss';
     this.root.position.set(e.x, 0, e.z);
     this.root.rotation.y = e.face;
     const moving = Math.min(1.4, (e.speedNow || 0) / 3);
     const frozen = e.st.root > 0 || e.st.stun > 0;
     if (!frozen) this.phase += dt * (4 + moving * 8);
-    let s = 1;
+    let s = this.look.scale || 1;
     let by = 0;
     let rx = 0;
     let rz = 0;
     let bz = 0;
+    const spawnDur = boss ? 1.6 : 0.7;
     if (e.spawnT > 0) {
-      const k = 1 - e.spawnT / (boss ? 1.6 : 0.7);
-      if (boss) by = -3 + 3 * (1 - Math.pow(1 - Math.max(0, k), 3));
-      else s = Math.max(0.01, k);
+      const k = 1 - e.spawnT / spawnDur;
+      if (boss && this.lookId !== 'boss_feedalfa' && this.lookId !== 'boss_shadow') by = -3 + 3 * (1 - Math.pow(1 - Math.max(0, k), 3));
+      else s *= Math.max(0.01, k);
     }
+    let op = alpha;
     if (e.dead) {
       const k = Math.min(1, e.deathT * 2.5);
       rz = k * 1.4 * (e.id % 2 ? 1 : -1);
       by = -Math.max(0, e.deathT - (boss ? 1.2 : 0.5)) * 1.2;
-      this.setOpacity(Math.max(0, 1 - Math.max(0, e.deathT - (boss ? 1.6 : 0.5)) * 2));
+      op = Math.max(0, 1 - Math.max(0, e.deathT - (boss ? 1.6 : 0.5)) * 2);
     } else {
-      this.setOpacity(1);
       by += Math.abs(Math.sin(this.phase)) * (boss ? 0.08 : 0.05) * moving;
       rz = Math.sin(this.phase) * 0.06 * moving;
       if (e.windup > 0) rx = -0.25;
       if (e.lunge > 0) { rx = 0.28; bz = boss ? 0.5 : 0.2; }
       if (e.cast) {
         const k = 1 - e.cast.t / e.cast.dur;
-        if (e.cast.kind === 'slam') { by += Math.sin(k * Math.PI * 0.9) * 0.8; rx = -0.35 * k; }
-        else { rx = -0.3; s = 1 + 0.08 * Math.sin(t * 30) * k; }
+        if (e.cast.kind === 'slam' || e.cast.kind === 'pulse') { by += Math.sin(k * Math.PI * 0.9) * 0.8 * (e.def && e.def.stationary ? 0.3 : 1); rx = -0.35 * k; }
+        else if (e.cast.kind === 'dash') { rx = -0.2; bz = -0.3 * k; }
+        else if (e.cast.kind === 'pounce') { by -= 0.25 * k; rx = 0.2; }
+        else { rx = -0.3; s *= 1 + 0.08 * Math.sin(t * 30) * k; }
       }
+      if (e.dash) { rx = 0.35; }
       if (e.st.stun > 0) rz = Math.sin(t * 18) * 0.08;
       if (e.status === 'sleep') { by -= 0.08; rx = 0.12; }
+      if (this.look.shadow) op *= e.vis != null ? Math.max(0.12, e.vis) * 0.9 : 0.9;
+      if (e.def && e.def.ai === 'ancient') { rz = 0; rx = 0; by = Math.sin(t * 1.4) * 0.06; }
+      if (e.st.hex > 0) s *= 0.6;
     }
+    this.setOpacity(op);
     this.body.position.set(0, by, bz);
     this.body.rotation.set(rx, 0, rz);
     this.body.scale.setScalar(s);
+    if (this.legs) for (let i = 0; i < this.legs.length; i++) this.legs[i].rotation.x = frozen || e.dead ? 0 : Math.sin(this.phase) * 0.7 * moving * (i === 0 || i === 3 ? 1 : -1);
+    if (this.wings) for (const w of this.wings) w.rotation.z = Math.sin(t * 12 + e.seed) * 0.4;
+    if (this.core) { this.core.rotation.y = t * 0.8; }
     const fl = e.hitFlash > 0 ? e.hitFlash / 0.16 : 0;
-    const tele = e.windup > 0 ? 0.3 : 0;
-    for (const m of this.flash) {
+    const tele = e.windup > 0 || e.cast ? 0.3 : 0;
+    for (let i = 0; i < this.flash.length; i++) {
+      const m = this.flash[i];
       if (!m.emissive) continue;
       if (fl > 0) m.emissive.setRGB(fl, fl, fl);
       else if (tele > 0) m.emissive.setRGB(tele, 0.03, 0.05);
       else if (e.st.slow > 0 && e.st.slowK >= 0.3) m.emissive.setRGB(0.05, 0.12, 0.25);
+      else if (this.baseEm[i]) m.emissive.copy(this.baseEm[i]);
       else m.emissive.setRGB(0, 0, 0);
     }
-    this.ice.visible = e.st.root > 0 && !e.dead;
+    this.ice.visible = e.st.root > 0 && !e.dead && op > 0.05;
     if (this.ice.visible) {
-      this.ice.position.y = boss ? 1.4 : 0.55;
-      this.ice.scale.setScalar(boss ? 2.4 : 1);
-      this.ice.rotation.y = e.id;
+      setRootLook(this.ice, this.kit, e.rootFx);
+      const big = boss ? 2.4 : 1;
+      this.ice.position.y = this.ice.userData.look === 'ice' ? (boss ? 1.4 : 0.55) : 0.25 * big;
+      this.ice.scale.setScalar(big * (this.ice.userData.look === 'ice' ? 1 : 1.2));
+      this.ice.rotation.y = e.id + (this.ice.userData.look === 'ice' ? 0 : t * 0.7);
+    }
+    if (this.bubble) {
+      const sh = e.invuln > 0 && !e.dead;
+      this.bubble.visible = sh;
+      if (sh) {
+        const r = (e.def.height || 2) * 0.75;
+        this.bubble.scale.setScalar(r + Math.sin(t * 3) * 0.05);
+        this.bubble.position.y = r * 0.8;
+        this.bubble.rotation.y = t * 0.5;
+      }
+      this.aura.material.opacity = e.warCry > 0 && !e.dead ? 0.35 + 0.15 * Math.sin(t * 8) : 0;
     }
     // can çubuğu
     const bg = this.barGroup;
-    const h = boss ? 3.3 : 1.25;
+    const h = boss ? (e.def.height || 3) + 0.3 : this.lookId.startsWith('neutral') ? 1.3 * (this.look.scale || 1) : 1.25;
     bg.position.set(e.x, h + by, e.z);
-    bg.visible = !e.dead && (boss || e.hp < e.maxHp || e.st.root > 0) && e.spawnT <= 0;
+    bg.visible = !e.dead && op > 0.1 && (boss || e.hp < e.maxHp || e.st.root > 0) && e.spawnT <= 0;
     const exec = execThr > 0 && e.hp <= execThr;
     this.bar.set(e.hp / e.maxHp, labelK, exec ? this.kit.execColor : null);
   }

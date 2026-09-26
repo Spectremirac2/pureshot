@@ -138,6 +138,14 @@ export function thinkDog(d, g, dt) {
     return { mx: tx - tz * zz, mz: tz + tx * zz, spd: d.speed * 1.05 };
   }
   // Savaş Çağrısı: özel durumları unut, doğrudan Balta'ya
+  if (st.taunt > 0 && st.tauntX != null) {
+    // yem (Gölge İkizi): yemin başına üşüşür, ısırmaz
+    d.status = 'taunt';
+    d.canBite = false;
+    d.windup = 0;
+    const [tx, tz, td] = toward(d, st.tauntX, st.tauntZ);
+    return td < 0.9 ? { mx: 0, mz: 0, spd: 0 } : { mx: tx, mz: tz, spd: d.speed * 1.1 };
+  }
   if (st.taunt > 0) {
     d.status = 'taunt';
     if (d.state === 'afk' || d.state === 'farm' || d.state === 'flee' || d.state === 'guard' || d.state === 'paused' || d.state === 'tele') d.state = d.type === 'mid' ? 'chase' : 'go';

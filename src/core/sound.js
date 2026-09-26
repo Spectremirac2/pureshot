@@ -276,3 +276,26 @@ const unlockOnce = () => {
 };
 window.addEventListener('pointerdown', unlockOnce);
 window.addEventListener('keydown', unlockOnce);
+
+// Arena 3.0 ekleri (1vDOQUZ Arena): elektrik, kök/sarmaşık, boss uyarısı, gece çanı.
+Object.assign(sound, {
+  /** Şimşek Ruhu: kıvılcım çatırtısı. */
+  zap(p = 1) {
+    noise({ dur: 0.14, vol: 0.28, freq: 5200 * p, sweepTo: 1800 * p, q: 3 });
+    tone({ type: 'square', from: 1400 * p, to: 700 * p, dur: 0.09, vol: 0.05 });
+  },
+  /** Ağaç Bekçisi: gıcırdayan kök. */
+  vine(p = 1) {
+    tone({ type: 'sawtooth', from: 110 * p, to: 70 * p, dur: 0.28, vol: 0.12 });
+    noise({ dur: 0.22, vol: 0.14, freq: 500 * p, sweepTo: 240 * p, q: 2.5 });
+  },
+  /** Boss telgrafı: kısa alçak uyarı. */
+  warn(p = 1) {
+    tone({ type: 'triangle', from: 330 * p, to: 300 * p, dur: 0.16, vol: 0.1 });
+    tone({ type: 'triangle', from: 247 * p, to: 230 * p, dur: 0.2, vol: 0.1, delay: 0.12 });
+  },
+  /** Gün/gece geçişi: uzak çan. */
+  dusk(night = true) {
+    [night ? 392 : 523, night ? 311 : 659].forEach((f, i) => tone({ type: 'sine', from: f, dur: 0.6, vol: 0.06, delay: i * 0.18 }));
+  },
+});

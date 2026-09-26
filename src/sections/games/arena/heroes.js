@@ -214,9 +214,9 @@ export function isHeroUnlocked(id) {
 export const xpFor = (level) => 110 + 60 * (level - 1);
 export const MAX_LEVEL = 25;
 export const TALENT_LEVELS = [10, 15, 20, 25];
-/** Yetenek seviye sınırları: Q W E 4, R 3; özellik bonusu (+2 tümü) 7 kez. */
+/** Yetenek seviye sınırları: Q W E 4, R 3; özellik bonusu (+2 tümü) 10 kez — 25. seviyedeki 24 puanın hepsi harcanabilir. */
 export const ABILITY_MAX = { q: 4, w: 4, e: 4, r: 3 };
-export const STATS_MAX = 7;
+export const STATS_MAX = 10;
 /** Bu kahraman seviyesinde yeteneğin öğrenilebileceği en yüksek seviye. */
 export function abilityCap(key, heroLevel) {
   if (key === 'r') return Math.min(3, Math.floor(heroLevel / 6));
