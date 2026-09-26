@@ -68,6 +68,11 @@
   .hud-nick { min-width: 44px; justify-content: center; }
   .hud-brand { min-height: 44px; }
 }
+/* Yatay telefon (≈ 641–720 px, dokunmatik): 44 px'lik sağ düğmeler 1fr sütununa sığmıyor, sağ grup sola taşıp saatin
+   üstüne biniyordu (667 px'te “00:00:03” KICK rozetinin altında kalıyordu) */
+@media (max-width: 720px) and (pointer: coarse) {
+  .hud-clock { display: none; }
+}
 @media (max-width: 640px) {
   .hud-top { grid-template-columns: auto 1fr auto; }
   .hud-brand-text span { display: none; }

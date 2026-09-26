@@ -455,6 +455,9 @@
 .jk-feature-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-5); min-width: 0; }
 .jk-card--feature { background: transparent; border: 0; box-shadow: none; clip-path: none; padding: 0; gap: var(--sp-4); }
 .jk-card--feature .jk-card-head { display: none; }
+/* öne çıkan kartın iç boşluğu 0: eylem çubuğunun -8 px taşırması kartın overflow:hidden kenarında kırpılıyordu
+   (DOG’la ve kopyala düğmelerinin kenarı, üstüne gelince yuvarlak zemin) */
+.jk-card--feature .jk-actions { margin-inline: 0; }
 
 /* ---------------------------------------------------------------- makine */
 .jk-machine { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); gap: var(--sp-5); align-items: start; }

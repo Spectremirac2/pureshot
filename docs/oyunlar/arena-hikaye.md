@@ -351,5 +351,18 @@ kilitli görev oturumdan geri yüklenen seçim ekranından başlatılabiliyordu;
 Kütüphane/Kodeks penceresi bölümden çıkınca açık kalıyordu ve Esc sonrası odak kayboluyordu; Günlük kutucuğunda geri sayım
 kesiliyordu; yatay telefonda görev hedefleri sahnenin altında kalıyordu.
 
-STORY_TEST_PLACEHOLDER
+Faz F sonrası yeniden koşu (`HEAD` + faz F düzeltmeleri, geliştirme sunucusu 5203; ayrıntı:
+[arena.md → Test notları (faz F) → Sonuçlar](arena.md#sonuçlar)):
+
+| Takım | Sonuç |
+|---|---|
+| `story.test.mjs` (yeni: bozuk kayıtta zafersiz yıldız sayılmaz) | **63/63** |
+| `progression.test.mjs` · `scenario.mjs` · `variants.mjs` | 17/17 · 60/60 · 12/12 (0 istisna) |
+| Görev simülasyonu (görev bilen bot; 15 görev × 6 kahraman × 2; I–II metasız, III–V mütevazı meta) | **173/180** zafer (I 36/36, II 33/36, III 35/36, IV 35/36, V 34/36; faz D ile aynı bant) |
+| Bulanık görev simülasyonu (`FUZZ=1`, 15 × 6) | 90 koşu, **0 istisna** |
+| `t_story.mjs` 1440×900 · 390×844 dokunmatik | **59/59** · **58/58** |
+| `t_edge.mjs` (bozuk/elle değiştirilmiş kayıt, kilitli görev ve kahraman, diyalogda duraklat / baştan başla / haritaya dön, diyalog sırasında zafer ve ölüm, sekme gizlenince duraklama, pencerelerde odak, salon skoru yalnız Sonsuz’dan) | masaüstü **37/37**, mobil **36/36** |
+| `t_2d_story.mjs` (WebGL’siz 2D görünümde görev, diyalog, boss, rapor) | 11/11 · 11/11 |
+| `t_a11y.mjs` (merkez, harita ve seçimde klavye, diyalog odağı ve `aria-live`, azaltılmış hareket) | **21/21** |
+| `t_random.mjs` (Sonsuz → Rastgele Seçim + Lanet seçici) | 8/8 |
 

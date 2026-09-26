@@ -430,6 +430,8 @@ Sonsuz mod dengesi ve rozet eşikleri değişmedi.
 | 11 | Orta | Fare/klavyeyle dar pencerede (< 560 px) masaüstü paneli sahnenin iki yanından taşıyordu | Tam genişlik, iki sıralı sıkışık panel |
 | 12 | Düşük | Günlük kutucuğunda geri sayım üç noktayla kesiliyordu (“yenilenme 13 sa 18…”) | Alt satır sarar, geri sayım bölünmez |
 | 13 | Düşük (performans) | `library.js` (22,8 kB JS + 29,2 kB CSS) her arena açılışında iniyordu (Lanet seçici açılışta kuruluyordu) | Lanet seçici Sonsuz seçim ekranı ilk açılınca kurulur; Kütüphane/Kodeks kutucuklarının üstüne gelince önden iner; pencere, parça inene kadar dönen gösterge gösterir (Kodeks/ustalıkta da boş pencere görünüyordu) |
+| 14 | Düşük (site) | Espri Duvarı’nda “Günün damgası” kartının eylem çubuğu iki yandan 8 px kırpılıyordu (DOG’la ve kopyala düğmelerinin kenarı; üstüne gelince yuvarlak zemin düz kesiliyordu) | Çubuğun `margin: 0 -8px` taşırması, iç boşluğu 0 olan öne çıkan kartta `overflow: hidden` kenarına denk geliyordu → `.jk-card--feature .jk-actions { margin-inline: 0 }` (`jokes.css`) |
+| 15 | Düşük (site) | Yatay telefonda (641–720 px, dokunmatik; ör. 667×375) üst çubukta saat KICK rozetinin altında kalıyordu | 44 px’lik sağ düğmeler `1fr` sütununa sığmıyor, sağ grup sola taşıyordu → bu aralıkta saat gizlenir (`shell.css`; turun saat adımı görünmeyen hedefi zaten atlar) |
 
 Test düzeneğinde (yalnız `scratchpad/arenaF` kopyalarında) düzeltilen yarışlar: boss çubuğu okunmadan kahraman boss’u
 öldürüyordu (kontrol süresince boss canı ×40, çubukta adı da doğrulanıyor); orman takası molası düğmeye basılmadan
@@ -440,6 +442,21 @@ viewport ∩ en yakın kırpan ata” sınırı (yatay kayan sekme şeritleri ha
 ve o an oynayan giriş animasyonları (öldürme akışı sağdan kayarak girer) atlanır. Eski denetimin raporladığı `ar-float` /
 `ar-feed-i` “taşmaları” sahnenin kırptığı anlık animasyonlardı; yeni denetim eski dükkân hatasını iki görünümde de yakalıyor
 (eski CSS enjekte edilerek doğrulandı) ve 12. hatayı buldu.
+
+İkinci geçişte (konteyner yeniden başladıktan sonra, `HEAD` üzerinde tüm takımlar yeniden) düzenekte düzeltilenler:
+`sim.mjs` faz B’nin görevsiz botunu içe aktarıyordu (bot Dire kulesine yürümediği için s3m2 0/6 çıkıyordu) → faz D’nin
+görev bilen botu; taşma denetimi aria-hidden, transform’lu ve kendi kutusunda kırpılan süs katmanlarını atlar (merkez
+kutucuğunun üstüne gelince `scale(1.03)` yakınlaşan afiş; viewport’tan taşarsa yine sayılır); iki paralel yazılımsal WebGL
+koşusunun yükünde zaman aşımına düşen iki eşzamanlı durum geçişi (diyaloğu atla, sonraki görev) 4–5 → 12 sn;
+üretim testinde merkez yoklaması `requestAnimationFrame` yerine 250 ms (yükte ~1 kare/sn). İlk geçişin son masaüstü
+koşusundaki `library-open` / `codex-open` / `campaign` hataları konteynerin yeniden başlamasıydı (ilk açılış geliştirme
+sunucusunda ~17 sn, 30 sn beklemede geçiyor). **Site duman testi** yeni taşma ölçüsüyle: belge kaydırması
+(`scrollWidth > innerWidth`) + görünür, aria-hidden olmayan içeriğin kırpan ataların kesişiminden sağa ya da sola
+taşması (kayan sekme/çip şeritleri, SVG iç çizimleri, oynayan animasyonlar hariç); süs kırpmaları (Soru-Cevap’ın dev soru
+işareti, Bingo damgası, Rün nehri: aria-hidden, kutusunda kasıtlı) ayrı raporlanır. Eski ölçünün “4/6 taşma”sı bu süslerle
+kayan çip şeridindeki bir ikonun SVG içiydi; gerçek olan tek bulgu 14. hata. Galeri denetimi tembel görselleri tek tek
+görünüme kaydırıp `naturalWidth > 0` bekler (eskisi 5–7/10 görüyordu); müze denetimi Salon III’ün eserlerini (XIII–XVIII)
+açar; ilk ziyaret turu sabit 2,5 sn yerine tur kartını bekler.
 
 ### Sonuçlar
 
