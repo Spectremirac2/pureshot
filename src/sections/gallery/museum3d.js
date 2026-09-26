@@ -1,5 +1,5 @@
 // 3D Müze: karanlık salon, taş kaide, spot ışık, yansıyan zemin, kor tozları.
-// İki salon, 12 eser: Salon I · Efsaneler (3) ve Salon II · Arena (9). Salon sekmeleri, eser slotları,
+// Üç salon, 18 eser: Salon I · Efsaneler (3), Salon II · Arena (9), Salon III · Dokuzun Laneti (6). Salon sekmeleri, eser slotları,
 // sahnedeki önceki/sonraki okları, klavye (← →) ve tam ekran ile gezilir.
 // fal.ai (Trellis 2) GLB modeli varsa onu, yoksa exhibits.js'teki prosedürel versiyonu sergiler.
 // Bellek: yalnızca sergilenen eser ve iki komşusu yüklü tutulur (modelpool.js); uzaklaşanlar serbest bırakılır.
@@ -14,7 +14,7 @@ import { art, modelAvailable } from './sources.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { byId } from '../../data/archetypes.js';
 import { EXHIBITS, buildExhibit, stoneTexture } from './exhibits.js';
-import { WINGS, wingOf, TOTAL_NO } from './exhibit-data.js';
+import { WINGS, wingOf, TOTAL_NO, EN_WORD, upperName } from './exhibit-data.js';
 import { createModelPool } from './modelpool.js';
 import { likeTracker, likesLocalOnly } from './likes.js';
 
@@ -116,10 +116,10 @@ function tileTexture() {
   return t;
 }
 
-/** Salon sancağı. kind: 'dog' (Salon I, pati arması) | 'radiant' (yeşim, kule) | 'dire' (kızıl, boynuzlar) */
+/** Salon sancağı. kind: 'dog' (Salon I, pati arması) | 'radiant' (yeşim, kule) | 'dire' (kızıl, boynuzlar) | 'lanet' (mor, IX mührü) */
 function bannerTexture(pal, kind = 'dog') {
-  const top = kind === 'radiant' ? '#1c6b50' : pal.direDeep;
-  const bottom = kind === 'radiant' ? '#0b2a22' : '#2a0a12';
+  const top = kind === 'radiant' ? '#1c6b50' : kind === 'lanet' ? '#3a1d5c' : pal.direDeep;
+  const bottom = kind === 'radiant' ? '#0b2a22' : kind === 'lanet' ? '#0e0816' : '#2a0a12';
   return canvasTex(128, 384, (g) => {
     g.beginPath();
     g.moveTo(10, 0); g.lineTo(118, 0); g.lineTo(118, 384); g.lineTo(64, 326); g.lineTo(10, 384); g.closePath();
@@ -144,6 +144,18 @@ function bannerTexture(pal, kind = 'dog') {
       g.beginPath(); g.moveTo(64, 96); g.lineTo(76, 116); g.lineTo(64, 136); g.lineTo(52, 116); g.closePath();
       g.fillStyle = pal.radiant;
       g.fill();
+    } else if (kind === 'lanet') {
+      // dokuzun mührü: halka + IX + çatlak
+      g.strokeStyle = pal.aegis;
+      g.lineWidth = 5;
+      g.beginPath(); g.arc(64, 170, 36, 0, Math.PI * 2); g.stroke();
+      g.font = '700 38px Cinzel, Georgia, serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('IX', 64, 172);
+      g.strokeStyle = pal.dire;
+      g.lineWidth = 3;
+      g.beginPath(); g.moveTo(64, 214); g.lineTo(56, 236); g.lineTo(70, 252); g.lineTo(60, 280); g.stroke();
     } else if (kind === 'dire') {
       // boynuzlu kafatası
       g.beginPath(); g.ellipse(64, 172, 26, 24, 0, 0, Math.PI * 2); g.fill();
@@ -169,12 +181,18 @@ function iconCard(ex, pal) {
   svg.setAttribute('y', '120');
   svg.setAttribute('stroke', pal.aegis2);
   const inner = new XMLSerializer().serializeToString(svg);
-  const name = ex.name.toLocaleUpperCase('tr-TR').replace(/[<&>]/g, '');
+  const name = upperName(ex.name).replace(/[<&>]/g, '');
   const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><radialGradient id="g" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${pal.bg4}"/><stop offset="1" stop-color="${pal.bg}"/></radialGradient></defs><rect width="512" height="512" fill="url(#g)"/><rect x="18" y="18" width="476" height="476" fill="none" stroke="${pal.aegis}" stroke-opacity=".6" stroke-width="3"/>${inner}<text x="256" y="420" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="700" font-size="34" fill="${pal.aegis}">${name}</text><text x="256" y="456" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="18" fill="${pal.text}" fill-opacity=".7">ESER NO. ${ex.no}</text></svg>`;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(doc);
 }
 
 const fmtKB = (bytes) => `${fmtNum(Math.round(bytes / 1024))} KB`;
+
+/** Eser adı düğümü: İngilizce özel adlar lang="en" (CSS büyük harfinde "DİRE" olmasın). */
+const nameNode = (name) => name.split(/(\s+)/).map((w) => {
+  const m = w.match(EN_WORD);
+  return m ? [h('span', { lang: 'en' }, m[1]), m[2]] : w;
+});
 
 function meshStats(obj) {
   let tris = 0, verts = 0, meshes = 0;
@@ -221,20 +239,45 @@ export function mountMuseum(el, ctx) {
   const isMobile = window.matchMedia('(max-width: 720px), (pointer: coarse)').matches;
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   let themeIdx = Math.max(0, THEMES.findIndex((t) => t.id === ls.get('gl:light', 'kor')));
-  let current = 0;
+  // Son bakılan eser hatırlanır; her salon kendi son eserini ayrıca hatırlar (salon sekmesine dönünce oradan devam)
+  let current = Math.max(0, EXHIBITS.findIndex((e) => e.key === ls.get('gl:eser', EXHIBITS[0].key)));
+  const lastInWing = Object.fromEntries(WINGS.map((w) => [w.id, EXHIBITS.findIndex((e) => e.wing === w.id)]));
+  lastInWing[EXHIBITS[current].wing] = current;
+  let shownWing = null;
   let destroyed = false;
   let mode = 'init'; // '3d' | '2d'
+  const wrapIdx = (i) => (i + EXHIBITS.length) % EXHIBITS.length;
 
   // ---------------------------------------------------------------- DOM
   const canvas = h('canvas', { class: 'gl-canvas', tabindex: '0', role: 'img', 'aria-label': '3D müze sahnesi' });
   const loadingEl = h('div', { class: 'gl-stage-loading', hidden: true, role: 'status' }, h('span', { class: 'spinner' }), h('span', null, 'fal modeli yükleniyor…'));
-  const stageNo = h('span', { class: 'gl-stage-no' }, 'Eser I / III');
+  const stageRoom = h('span', { class: 'gl-stage-room' }, 'Salon I');
+  const stageNo = h('span', { class: 'gl-stage-no' }, `Eser I / ${TOTAL_NO}`);
   const hint = h('p', { class: 'gl-stage-hint' }, icon('refresh', { size: 14 }), h('span', null, coarse ? 'Yana sürükle: döndür · İki parmak: yakınlaştır' : 'Sürükle: döndür · Tekerlek: yakınlaştır'));
+  const prevBtn = h('button', { class: 'gl-nav prev', type: 'button' }, icon('arrowLeft', { size: 22 }));
+  const nextBtn = h('button', { class: 'gl-nav next', type: 'button' }, icon('arrowRight', { size: 22 }));
+  const fsBtn = h('button', { class: 'gl-fs', type: 'button', 'aria-pressed': 'false', 'aria-label': 'Tam ekran', title: 'Tam ekran (F)' }, icon('expand', { size: 18 }));
+  // Salon geçişi perdesi: "Salon II · Arena" yazısı kısa bir kararma ile görünür
+  const veilTitle = h('span', { class: 'gl-veil-title' });
+  const veilSub = h('span', { class: 'gl-veil-sub' });
+  const veil = h('div', { class: 'gl-veil', 'aria-hidden': 'true' }, veilTitle, veilSub);
+  // Tam ekranda plaket görünmediği için sahnenin altında ad + beğen + DOG! şeridi
+  const fsName = h('span', { class: 'gl-fsbar-name' });
+  const fsKicker = h('span', { class: 'gl-fsbar-kicker' });
+  const fsLikeN = h('span', { class: 'num' }, '0');
+  const fsLike = h('button', { class: 'btn ghost sm gl-like', type: 'button', 'aria-pressed': 'false', title: 'Bu eseri beğen' }, icon('heart', { size: 16 }), h('span', { class: 'sr-only' }, 'Beğen'), fsLikeN);
+  const fsDog = h('button', { class: 'btn primary sm gl-dog-sm', type: 'button', title: 'Eser zıplasın, havlasın' }, icon('paw', { size: 16 }), 'DOG!');
+  const fsBar = h('div', { class: 'gl-fsbar' }, h('span', { class: 'gl-fsbar-text' }, fsName, fsKicker), fsLike, fsDog);
   const stage = h('div', { class: 'gl-stage frame', 'data-light': THEMES[themeIdx].id },
     canvas,
-    h('div', { class: 'gl-stage-hud', 'aria-hidden': 'true' }, h('span', { class: 'gl-stage-room' }, 'Salon T'), stageNo),
+    h('div', { class: 'gl-stage-hud', 'aria-hidden': 'true' }, stageRoom, stageNo),
     loadingEl,
     hint,
+    prevBtn,
+    nextBtn,
+    fsBtn,
+    fsBar,
+    veil,
   );
 
   const dogBtn = h('button', { class: 'btn primary gl-dog', type: 'button', title: 'Eser zıplasın, havlasın' }, icon('paw'), 'DOG!');
@@ -243,14 +286,48 @@ export function mountMuseum(el, ctx) {
   const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
 
   const slotBtns = EXHIBITS.map((ex, i) => {
-    const b = h('button', { class: 'gl-slot', type: 'button', 'aria-pressed': String(i === current), dataset: { ex: ex.id } },
+    const b = h('button', { class: 'gl-slot', type: 'button', 'aria-pressed': String(i === current), dataset: { ex: ex.id, wing: ex.wing } },
       h('span', { class: 'gl-slot-icon', 'aria-hidden': 'true' }, icon(ex.icon, { size: 26 }), h('span', { class: 'gl-slot-no' }, ex.no)),
-      h('span', { class: 'gl-slot-name' }, ex.name),
+      h('span', { class: 'gl-slot-name' }, nameNode(ex.name)),
       h('span', { class: 'gl-slot-src', dataset: { src: '' } }, modelAvailable(ex.key) ? 'fal GLB' : 'prosedürel'),
     );
     b.addEventListener('click', () => { if (i !== current || mode === 'init') { sound.click(); select(i); } });
     return b;
   });
+  const slotsEl = h('div', { class: 'gl-slots', id: 'gl-slots', role: 'tabpanel', 'aria-label': 'Eser seç' }, slotBtns);
+
+  const wingTabs = WINGS.map((w) => {
+    const n = EXHIBITS.filter((e) => e.wing === w.id).length;
+    const b = h('button', {
+      class: 'gl-wing', type: 'button', role: 'tab', id: `gl-wing-${w.id}`, 'aria-controls': 'gl-slots', 'aria-selected': 'false', tabindex: '-1', dataset: { wing: w.id },
+    },
+      h('span', { class: 'gl-wing-no' }, `Salon ${w.no}`),
+      h('span', { class: 'gl-wing-name' }, w.name),
+      h('span', { class: 'gl-wing-n num' }, String(n), h('span', { class: 'sr-only' }, ' eser')),
+    );
+    b.addEventListener('click', () => {
+      if (shownWing === w.id) return;
+      sound.click();
+      select(lastInWing[w.id]);
+    });
+    return b;
+  });
+  const wingsEl = h('div', { class: 'gl-wings', role: 'tablist', 'aria-label': 'Müze salonları' }, wingTabs);
+  wingsEl.addEventListener('keydown', (e) => {
+    const i = wingTabs.indexOf(document.activeElement);
+    if (i === -1) return;
+    let n = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % wingTabs.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i - 1 + wingTabs.length) % wingTabs.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = wingTabs.length - 1;
+    if (n == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wingTabs[n].focus();
+    wingTabs[n].click();
+  });
+  const wingLore = h('p', { class: 'gl-wing-lore xsmall dim' });
 
   const plaque = h('article', { class: 'gl-plaque panel raised frame', 'aria-label': 'Müze plaketi' });
 
@@ -260,11 +337,15 @@ export function mountMuseum(el, ctx) {
       h('div', { class: 'gl-stage-bar' },
         dogBtn,
         lightBtn,
-        h('p', { class: 'gl-stage-keys xsmall dim' }, 'Klavye: sahneye odaklan, ', h('span', { class: 'kbd' }, '←'), ' ', h('span', { class: 'kbd' }, '→'), ' döndür, ', h('span', { class: 'kbd' }, '+'), ' ', h('span', { class: 'kbd' }, '−'), ' yakınlaştır'),
+        h('p', { class: 'gl-stage-keys xsmall dim' },
+          h('span', { class: 'kbd' }, '←'), ' ', h('span', { class: 'kbd' }, '→'), ' eser · ',
+          h('span', { class: 'kbd' }, 'Shift'), '+', h('span', { class: 'kbd' }, '←'), h('span', { class: 'kbd' }, '→'), ' döndür · ',
+          h('span', { class: 'kbd' }, '+'), ' ', h('span', { class: 'kbd' }, '−'), ' yakınlaştır · ',
+          h('span', { class: 'kbd' }, 'F'), ' tam ekran'),
       ),
     ),
     h('aside', { class: 'gl-museum-side' },
-      h('div', { class: 'gl-slots', role: 'group', 'aria-label': 'Eser seç' }, slotBtns),
+      h('div', { class: 'gl-hall' }, wingsEl, wingLore, slotsEl),
       plaque,
       live,
     ),
@@ -276,17 +357,29 @@ export function mountMuseum(el, ctx) {
   let likeNote = null;
   function updateLike() {
     if (likeNote) likeNote.textContent = likesLocalOnly() ? 'Salt okunur görüntüleme: beğenin yalnızca bu cihazda sayılır.' : 'Beğeniler galeriyle ortak sayılır.';
-    if (!likeBtn) return;
     const key = EXHIBITS[current].key;
     const on = likes.liked(key);
-    likeBtn.setAttribute('aria-pressed', String(on));
-    likeBtn.classList.toggle('on', on);
-    likeBtn.lastChild.textContent = fmtNum(likes.count(key));
+    const n = fmtNum(likes.count(key));
+    for (const b of [likeBtn, fsLike]) {
+      if (!b) continue;
+      b.setAttribute('aria-pressed', String(on));
+      b.classList.toggle('on', on);
+    }
+    if (likeBtn) likeBtn.lastChild.textContent = n;
+    fsLikeN.textContent = n;
   }
+  function toggleLike() {
+    const on = likes.toggle(EXHIBITS[current].key);
+    if (on) sound.bark(1.25);
+    else sound.click();
+    updateLike();
+  }
+  fsLike.addEventListener('click', toggleLike);
 
   // ---------------------------------------------------------------- plaket
   function renderPlaque(ex, state, stats) {
     clear(plaque);
+    const wing = wingOf(ex);
     const badge = state === 'fal'
       ? h('span', { class: 'badge jade' }, 'fal modeli')
       : state === 'loading'
@@ -300,7 +393,7 @@ export function mountMuseum(el, ctx) {
         ['Üçgen', fmtNum(stats.tris)],
         ['Köşe', fmtNum(stats.verts)],
         ['Doku', stats.texW ? `${stats.texW}×${stats.texH} · ${stats.textures} harita` : 'gömülü doku yok'],
-        ['Biçim', 'GLB · Trellis 2'],
+        ['Dosya', stats.bytes ? `${fmtKB(stats.bytes)} · GLB` : 'GLB · Trellis 2'],
       ];
     } else if (state === 'procedural' && stats) {
       rows = [
@@ -312,20 +405,24 @@ export function mountMuseum(el, ctx) {
     } else if (state === '2d') {
       rows = [['Üçgen', '—'], ['Doku', '—'], ['Biçim', '2D yedek görsel'], ['Sebep', 'WebGL yok']];
     } else {
-      rows = [['Üçgen', '…'], ['Köşe', '…'], ['Doku', '…'], ['Biçim', 'GLB']];
+      rows = [['Üçgen', '…'], ['Köşe', '…'], ['Doku', '…'], ['Dosya', '…']];
     }
     likeBtn = h('button', { class: 'btn ghost sm gl-like', type: 'button', 'aria-pressed': 'false', title: 'Bu eseri beğen' },
       icon('heart', { size: 16 }), h('span', null, 'Beğen'), h('span', { class: 'num gl-like-n' }, '0'));
-    likeBtn.addEventListener('click', () => {
-      const on = likes.toggle(ex.key);
-      if (on) sound.bark(1.25);
-      else sound.click();
-      updateLike();
-    });
-    likeNote = h('span', { class: 'xsmall dim' });
+    likeBtn.addEventListener('click', toggleLike);
+    likeNote = h('span', { class: 'xsmall dim gl-like-note' });
+    // arena: true → "Arena’da gör"; 'soon' → hikâye modu henüz yolda: rozet + Arena'ya kısa yol
+    const arenaBtn = ex.arena
+      ? h('button', { class: 'btn ghost sm gl-arena-link', type: 'button', title: ex.arena === true ? 'Bu eseri 1vDOQUZ Arena’da gör' : '1vDOQUZ Arena’ya git' },
+        icon('swords', { size: 16 }), ex.arena === true ? 'Arena’da gör' : 'Arena’ya git', icon('arrowRight', { size: 14 }))
+      : null;
+    const soon = ex.arena === 'soon' ? h('span', { class: 'badge gl-soon' }, icon('hourglass', { size: 13 }), 'Yakında hikâye modunda') : null;
+    if (arenaBtn) arenaBtn.addEventListener('click', () => { sound.click(); exitFs(); ctx.go('oyunlar', 'arena'); });
     append(plaque, [
-      h('div', { class: 'gl-plaque-top' }, h('span', { class: 'eyebrow' }, `Eser No. ${ex.no}`), badge),
-      h('h2', { class: 'gl-plaque-title' }, ex.name),
+      h('div', { class: 'gl-plaque-top' }, h('span', { class: 'eyebrow' }, `Eser No. ${ex.no} · Salon ${wing.no}`), h('span', { class: 'gl-plaque-badges' }, soon, badge)),
+      h('div', { class: 'gl-plaque-head' },
+        h('h2', { class: 'gl-plaque-title' }, nameNode(ex.name)),
+        ex.kicker ? h('p', { class: 'gl-plaque-kicker' }, ex.kicker) : null),
       // Malzeme satırı sergilenen şeyi anlatsın: yedekte fal modeli yok
       h('p', { class: 'gl-plaque-mat' }, h('span', { class: 'gl-plaque-k' }, 'Malzeme: '),
         state === 'procedural'
@@ -342,14 +439,36 @@ export function mountMuseum(el, ctx) {
         : state === '2d'
           ? h('p', { class: 'gl-plaque-note' }, icon('info', { size: 16 }), h('span', null, 'Tarayıcın WebGL desteklemediği için 3D sahne yerine 2D önizleme gösteriliyor.'))
           : null,
-      h('div', { class: 'gl-plaque-foot' }, likeBtn, likeNote),
+      h('div', { class: 'gl-plaque-foot' }, likeBtn, arenaBtn, likeNote),
     ]);
     updateLike();
   }
 
   function markSlots() {
-    slotBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === current)));
-    stageNo.textContent = `Eser ${EXHIBITS[current].no} / III`;
+    const ex = EXHIBITS[current];
+    const wing = wingOf(ex);
+    slotBtns.forEach((b, i) => {
+      b.setAttribute('aria-pressed', String(i === current));
+      b.hidden = EXHIBITS[i].wing !== wing.id;
+    });
+    wingTabs.forEach((t) => {
+      const on = t.dataset.wing === wing.id;
+      t.setAttribute('aria-selected', String(on));
+      t.setAttribute('tabindex', on ? '0' : '-1');
+    });
+    slotsEl.dataset.wing = wing.id;
+    slotsEl.setAttribute('aria-labelledby', `gl-wing-${wing.id}`);
+    wingLore.textContent = wing.lore;
+    stageRoom.textContent = wing.label;
+    stageNo.textContent = `Eser ${ex.no} / ${TOTAL_NO}`;
+    clear(fsName);
+    append(fsName, nameNode(ex.name));
+    fsKicker.textContent = `Eser ${ex.no} · ${ex.kicker || wing.label}`;
+    const p = EXHIBITS[wrapIdx(current - 1)], n = EXHIBITS[wrapIdx(current + 1)];
+    prevBtn.setAttribute('aria-label', `Önceki eser: ${p.name}`);
+    prevBtn.title = `Önceki: ${p.name} (←)`;
+    nextBtn.setAttribute('aria-label', `Sonraki eser: ${n.name}`);
+    nextBtn.title = `Sonraki: ${n.name} (→)`;
   }
 
   function setLightUI() {
@@ -364,20 +483,25 @@ export function mountMuseum(el, ctx) {
   let renderer = null, scene, camera, controls, reflector = null, envRT = null;
   let spot, rim, rim2, cone, glow, dust, dustMat, floorMat, plateTex, plateCanvas;
   const ownTextures = [];
+  const banners = [];
+  const bannerMats = {};
   let holder, jumper, presenter = null;
   let outgoing = [];
   let appear = null, jumpAnim = null;
   let boost = 0, spotKick = 0;
   let themeT = 1;
+  let focusY = 1.55;
+  let swing = null; // eser değişince kamerayı yumuşakça esere (önden) döndürür
   const themeTargets = { spot: new THREE.Color(), rim: new THREE.Color(), cone: new THREE.Color(), glow: new THREE.Color() };
   let dustData = null;
   let running = false, visible = true, lost = false, raf = 0, lastT = 0, clock = 0;
-  let resumeT = 0;
+  let resumeT = 0, preloadT = 0, veilT = 0;
   let stoneTex = null;
   let io = null, ro = null;
   const software = isSoftwareGL();
   let tier = software ? 3 : 0;
   const perf = { acc: 0, n: 0 };
+  const pool = createModelPool();
 
   const pal = {
     ember: tok('--ember', '#ff6a2b'), ember2: tok('--ember-2', '#ff9a3d'), aegis: tok('--aegis', '#e9b949'), aegis2: tok('--aegis-2', '#f6d98a'),
@@ -512,7 +636,7 @@ export function mountMuseum(el, ctx) {
     const arena = art('texture-arena');
     if (arena) {
       new THREE.TextureLoader().load(arena, (tex) => {
-        if (destroyed) { tex.dispose(); return; }
+        if (destroyed || !renderer) { tex.dispose(); return; }
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(9, 9);
@@ -601,7 +725,7 @@ export function mountMuseum(el, ctx) {
       scene.add(rope);
     }
 
-    // Arka plan: sütunlar ve sancaklar (sisin içinde)
+    // Arka plan: sütunlar ve sancaklar (sisin içinde). Sancaklar salona göre değişir.
     const colMat = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4a4260'), map: stoneTex, roughness: 0.95 });
     const shaftG = new THREE.CylinderGeometry(0.32, 0.36, 7.2, 14);
     const baseG = new THREE.BoxGeometry(0.95, 0.35, 0.95);
@@ -615,17 +739,22 @@ export function mountMuseum(el, ctx) {
         scene.add(m);
       }
     }
-    const banTex = bannerTexture(pal);
-    ownTextures.push(banTex);
-    const banMat = new THREE.MeshStandardMaterial({ map: banTex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, emissive: 0xffffff, emissiveMap: banTex, emissiveIntensity: 0.3 });
+    for (const kind of ['dog', 'radiant', 'dire', 'lanet']) {
+      const tex = bannerTexture(pal, kind);
+      ownTextures.push(tex);
+      bannerMats[kind] = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.3 });
+    }
     const banGeo = new THREE.PlaneGeometry(1.1, 3.3);
     for (let i = 0; i < 6; i++) {
       const a = (i / 12) * Math.PI * 2 + 0.26 + Math.PI / 12 + Math.PI; // arka yarım, sütun araları
-      const m = new THREE.Mesh(banGeo, banMat);
+      const m = new THREE.Mesh(banGeo, bannerMats.dog);
       m.position.set(Math.cos(a) * 8.3, 4.6, Math.sin(a) * 8.3);
       m.lookAt(0, 4.6, 0);
       scene.add(m);
+      banners.push(m);
     }
+    // Paylaşımlı malzemeler sahnede kullanılmayabilir; teardown'da elle bırakılsın
+    scene.userData.extraMats = Object.values(bannerMats);
 
     // Kor tozları
     const N = isMobile || software ? 130 : 240;
@@ -660,7 +789,7 @@ export function mountMuseum(el, ctx) {
 
     // Kontroller
     controls = new OrbitControls(camera, canvas);
-    controls.target.set(0, 1.55, 0);
+    controls.target.set(0, focusY, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.enablePan = false;
@@ -687,19 +816,33 @@ export function mountMuseum(el, ctx) {
 
   function onControlStart() {
     controls.autoRotate = false;
+    swing = null;
     clearTimeout(resumeT);
     hint.classList.add('is-hidden');
+  }
+
+  /** Yeni eser önden görünsün: kamera en kısa yoldan ön cepheye döner, sonra otomatik dönüş sürer. */
+  function swingToFront() {
+    if (!controls || reduced) return;
+    const off = camera.position.clone().sub(controls.target);
+    const from = Math.atan2(off.x, off.z);
+    const delta = -Math.atan2(Math.sin(from), Math.cos(from)); // [-π, π] aralığında 0'a
+    if (Math.abs(delta) < 0.35) return;
+    controls.autoRotate = false;
+    clearTimeout(resumeT);
+    swing = { from, delta, t: 0, d: 0.5 + Math.abs(delta) * 0.22 };
   }
   function onControlEnd() {
     clearTimeout(resumeT);
     resumeT = setTimeout(() => { if (controls && !reduced) controls.autoRotate = true; }, 4000);
   }
 
+  // Sahneye odaklıyken: Shift + ← → döndür, + − yakınlaştır (düz ← → eser değiştirir; bkz. onDocKey)
   function onCanvasKey(e) {
-    if (!controls) return;
+    if (!controls || e.ctrlKey || e.metaKey || e.altKey) return;
     let used = true;
     const off = camera.position.clone().sub(controls.target);
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.shiftKey) {
       off.applyAxisAngle(Y_AXIS, e.key === 'ArrowLeft' ? -0.26 : 0.26);
     } else if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_') {
       const f = e.key === '-' || e.key === '_' ? 1.12 : 0.89;
@@ -707,6 +850,7 @@ export function mountMuseum(el, ctx) {
     } else used = false;
     if (!used) return;
     e.preventDefault();
+    e.stopPropagation();
     camera.position.copy(controls.target).add(off);
     onControlStart();
     onControlEnd();
@@ -720,6 +864,7 @@ export function mountMuseum(el, ctx) {
     lost = true;
     setRunning();
     teardownGL(false);
+    pool.destroy();
     mount2D();
   }
 
@@ -764,7 +909,7 @@ export function mountMuseum(el, ctx) {
     dustData.geo.attributes.color.needsUpdate = true;
   }
 
-  // ---------------------------------------------------------------- plaka
+  // ---------------------------------------------------------------- plaka + salon
   function drawPlate(ex) {
     if (!plateCanvas) return;
     const g = plateCanvas.getContext('2d');
@@ -788,54 +933,120 @@ export function mountMuseum(el, ctx) {
     g.strokeRect(15, 15, W - 30, H - 30);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    const name = ex.name.toLocaleUpperCase('tr-TR');
+    const name = upperName(ex.name);
     g.font = '700 44px Cinzel, Georgia, serif';
     g.fillStyle = 'rgba(255,240,200,0.55)';
     g.fillText(name, W / 2 + 1, 56 + 1, W - 70);
     g.fillStyle = '#2a1805';
     g.fillText(name, W / 2, 56, W - 70);
     g.font = '700 17px Cinzel, Georgia, serif';
-    g.fillText(`ESER NO. ${ex.no} · SALON T`, W / 2, 96, W - 70);
+    g.fillText(`ESER NO. ${ex.no} · SALON ${wingOf(ex).no}`, W / 2, 96, W - 70);
     plateTex.needsUpdate = true;
+  }
+
+  function dressHall(wingId) {
+    banners.forEach((m, i) => {
+      m.material = wingId === 'arena' ? (i % 2 ? bannerMats.dire : bannerMats.radiant) : wingId === 'lanet' ? bannerMats.lanet : bannerMats.dog;
+    });
+  }
+
+  function playVeil(wing) {
+    veilTitle.textContent = `Salon ${wing.no}`;
+    veilSub.textContent = wing.name;
+    clearTimeout(veilT);
+    stage.classList.remove('is-veiled');
+    void stage.offsetWidth;
+    stage.classList.add('is-veiled');
+    veilT = setTimeout(() => stage.classList.remove('is-veiled'), reduced ? 900 : 1300);
   }
 
   // ---------------------------------------------------------------- eser değiştirme
   let selToken = 0;
+  const keyOf = (i) => EXHIBITS[wrapIdx(i)].key;
+
+  /** Havuzda kalacaklar: sergilenen, iki komşusu, sahnede hâlâ görünen (çıkış animasyonundaki) eserler. */
+  function trimPool() {
+    const keep = new Set([keyOf(current), keyOf(current - 1), keyOf(current + 1)]);
+    if (presenter && presenter.userData.key) keep.add(presenter.userData.key);
+    for (const o of outgoing) if (o.g.userData.key) keep.add(o.g.userData.key);
+    pool.trim(keep);
+    markPool();
+  }
+  // Geliştirmede test kancası: bellekteki modeller <div class="gl-museum" data-pool="…">
+  const markPool = () => { if (import.meta.env.DEV) root.dataset.pool = pool.loadedKeys().join(' '); };
+
+  function preloadNeighbours() {
+    clearTimeout(preloadT);
+    preloadT = setTimeout(() => {
+      if (destroyed || mode !== '3d') return;
+      for (const d of [1, -1]) {
+        const k = keyOf(current + d);
+        if (modelAvailable(k)) pool.acquire(k).then(markPool);
+      }
+    }, 350);
+  }
+
+  function step(d, { focusSlot = false } = {}) {
+    sound.tick();
+    select(wrapIdx(current + d));
+    if (focusSlot) slotBtns[current].focus();
+  }
+
   async function select(i) {
+    const prevWing = shownWing;
     current = i;
     const ex = EXHIBITS[i];
+    const wing = wingOf(ex);
+    lastInWing[wing.id] = i;
+    shownWing = wing.id;
+    ls.set('gl:eser', ex.key);
     markSlots();
-    canvas.setAttribute('aria-label', `3D müze sahnesi: ${ex.name}, taş kaide üzerinde. Sürükleyerek döndür, tekerlek ya da iki parmakla yakınlaştır; odaklanınca ok tuşları ve artı/eksi ile de kontrol edebilirsin.`);
+    canvas.setAttribute('aria-label', `3D müze sahnesi, ${wing.label}: ${ex.name}, taş kaide üzerinde. Sürükleyerek döndür, tekerlek ya da iki parmakla yakınlaştır; odaklanınca ok tuşlarıyla eser değiştir, Shift ile döndür, artı/eksi ile yakınlaştır.`);
     if (mode === '2d') { select2D(i); return; }
+    if (mode !== '3d') return;
+    if (prevWing !== wing.id) {
+      dressHall(wing.id);
+      if (prevWing) playVeil(wing);
+    }
     drawPlate(ex);
     const token = ++selToken;
     let obj = null;
+    let bytes = 0;
     if (modelAvailable(ex.key)) {
       loadingEl.hidden = false;
       renderPlaque(ex, 'loading');
-      try { obj = await fetchModel(ex.key, { height: ex.height }); } catch { obj = null; }
+      const entry = await pool.acquire(ex.key);
       if (destroyed || token !== selToken || mode !== '3d') return;
-      if (obj) obj.userData.shared = true;
+      if (entry && entry.root) {
+        obj = pool.clone(entry, ex.height);
+        bytes = entry.bytes;
+      }
     }
     loadingEl.hidden = true;
     const state = obj ? 'fal' : 'procedural';
     if (!obj) obj = buildExhibit(ex.id, palFor(), stoneTex);
+    if (ex.yaw) obj.rotation.y = ex.yaw;
     tintThemed(obj, themeColor());
-    const stats = meshStats(obj);
-    swapTo(obj);
+    const stats = { ...meshStats(obj), bytes };
+    swapTo(obj, obj.userData.pooled ? ex.key : null);
+    if (running) swingToFront();
+    focusY = PED_TOP + Math.min(ex.height || 1.5, 1.6) * 0.34;
     renderPlaque(ex, state, stats);
-    live.textContent = `Seçilen eser: ${ex.name}${state === 'fal' ? ' (fal modeli)' : ' (prosedürel önizleme)'}`;
+    live.textContent = `Seçilen eser: ${ex.name}, ${wing.label}${state === 'fal' ? ' (fal modeli)' : ' (prosedürel önizleme)'}`;
     slotBtns[i].querySelector('.gl-slot-src').textContent = state === 'fal' ? 'fal GLB' : 'prosedürel';
+    trimPool();
+    preloadNeighbours();
     if (!running) renderOnce();
   }
 
-  function swapTo(obj) {
+  function swapTo(obj, key) {
     const pres = new THREE.Group();
     pres.add(obj);
+    pres.userData.key = key;
     if (presenter) outgoing.push({ g: presenter, t: 0 });
     presenter = pres;
     jumper.add(pres);
-    if (reduced || mode === 'init-sync') {
+    if (reduced || !running) {
       pres.scale.setScalar(1);
       for (const o of outgoing) { jumper.remove(o.g); disposeTree(o.g); }
       outgoing = [];
@@ -852,7 +1063,8 @@ export function mountMuseum(el, ctx) {
     const ex = EXHIBITS[current];
     sound.bark(ex.pitch);
     sound.bark(ex.pitch * 1.18, 0.5);
-    const r = dogBtn.getBoundingClientRect();
+    const src = isFs() ? fsDog : dogBtn;
+    const r = src.getBoundingClientRect();
     fx.floatText('DOG!', r.left + r.width / 2, r.top, { count: 2 });
     if (mode === '2d') {
       const fig = stage.querySelector('.gl-fallback');
@@ -874,16 +1086,40 @@ export function mountMuseum(el, ctx) {
     if (presenter && !reduced) {
       presenter.traverse((o) => { if (o.userData && typeof o.userData.tick === 'function') o.userData.tick(t); });
     }
+    // eser değişiminde kamerayı öne döndür
+    if (swing && controls) {
+      swing.t += dtA;
+      const p = Math.min(1, swing.t / swing.d);
+      const a = swing.from + swing.delta * easeInOutCubic(p);
+      const ox = camera.position.x - controls.target.x, oz = camera.position.z - controls.target.z;
+      const r = Math.hypot(ox, oz);
+      camera.position.x = controls.target.x + Math.sin(a) * r;
+      camera.position.z = controls.target.z + Math.cos(a) * r;
+      if (p >= 1) {
+        swing = null;
+        clearTimeout(resumeT);
+        resumeT = setTimeout(() => { if (controls && !reduced) controls.autoRotate = true; }, 2500);
+      }
+    }
+    // bakış noktası esere göre yumuşakça ayarlanır (uzun kuleler, alçak creep'ler)
+    if (controls && Math.abs(controls.target.y - focusY) > 0.001) {
+      const k = 1 - Math.exp(-dtA * 4);
+      const dy = (focusY - controls.target.y) * k;
+      controls.target.y += dy;
+      camera.position.y += dy;
+    }
     // çıkan eserler
     if (outgoing.length) {
+      let freed = false;
       for (const o of outgoing) {
         o.t += dtA;
         const p = Math.min(1, o.t / 0.22);
         o.g.scale.setScalar(Math.max(0.001, 1 - p * p));
         o.g.rotation.y += dt * 9;
-        if (p >= 1) { jumper.remove(o.g); disposeTree(o.g); o.dead = true; }
+        if (p >= 1) { jumper.remove(o.g); disposeTree(o.g); o.dead = true; freed = true; }
       }
       outgoing = outgoing.filter((o) => !o.dead);
+      if (freed) trimPool();
     }
     // giren eser
     if (appear && presenter) {
@@ -984,6 +1220,7 @@ export function mountMuseum(el, ctx) {
 
   function renderOnce() {
     if (!renderer || lost || destroyed) return;
+    controls.target.y = focusY;
     controls.update();
     renderer.render(scene, camera);
   }
@@ -1027,9 +1264,13 @@ export function mountMuseum(el, ctx) {
       controls.removeEventListener('end', onControlEnd);
       controls.dispose();
     }
-    if (scene) disposeTree(scene);
+    if (scene) {
+      disposeTree(scene);
+      for (const m of scene.userData.extraMats || []) m.dispose();
+    }
     for (const o of outgoing) disposeTree(o.g);
     outgoing = [];
+    banners.length = 0;
     ownTextures.forEach((t) => t.dispose());
     ownTextures.length = 0;
     if (reflector) reflector.dispose();
@@ -1067,15 +1308,95 @@ export function mountMuseum(el, ctx) {
   function select2D(i) {
     const ex = EXHIBITS[i];
     markSlots();
-    const arch = byId(ex.fallbackArch);
-    fallbackImg.src = art(ex.fallbackArt) || (arch ? proceduralPortrait(arch, 512) : '');
+    const arch = ex.fallbackArch ? byId(ex.fallbackArch) : null;
+    fallbackImg.src = (ex.fallbackArt && art(ex.fallbackArt)) || (arch ? proceduralPortrait(arch, 512) : iconCard(ex, pal));
     fallbackImg.alt = `${ex.name} için 2D önizleme görseli`;
     renderPlaque(ex, '2d');
     live.textContent = `Seçilen eser: ${ex.name} (2D önizleme)`;
   }
 
+  // ---------------------------------------------------------------- tam ekran
+  // Fullscreen API varsa sahne gerçek tam ekrana geçer; yoksa (ör. iPhone Safari) sabit konumlu "sözde" tam ekran.
+  let hotkeysOff = false;
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  const isFs = () => fsElement() === stage || stage.classList.contains('is-pseudo-fs');
+  async function enterFs() {
+    const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+    const enabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    if (req && enabled) {
+      try {
+        await req.call(stage);
+        return;
+      } catch { /* sözde tam ekrana düş */ }
+    }
+    stage.classList.add('is-pseudo-fs');
+    document.documentElement.classList.add('gl-noscroll');
+    onFsChange();
+  }
+  function exitFs() {
+    if (stage.classList.contains('is-pseudo-fs')) {
+      stage.classList.remove('is-pseudo-fs');
+      document.documentElement.classList.remove('gl-noscroll');
+      onFsChange();
+      return;
+    }
+    if (fsElement() === stage) {
+      const ex = document.exitFullscreen || document.webkitExitFullscreen;
+      try { const p = ex && ex.call(document); if (p && p.catch) p.catch(() => {}); } catch { /* yok say */ }
+    }
+  }
+  function toggleFs() {
+    sound.whoosh();
+    if (isFs()) exitFs();
+    else enterFs();
+  }
+  function onFsChange() {
+    if (destroyed) return;
+    const on = isFs();
+    stage.classList.toggle('is-fs', on);
+    fsBtn.setAttribute('aria-pressed', String(on));
+    fsBtn.setAttribute('aria-label', on ? 'Tam ekrandan çık' : 'Tam ekran');
+    fsBtn.title = on ? 'Tam ekrandan çık (F / Esc)' : 'Tam ekran (F)';
+    clear(fsBtn);
+    fsBtn.appendChild(icon(on ? 'shrink' : 'expand', { size: 18 }));
+    // Tam ekranda sitenin tek harfli kısayolları kapalı: T/F/… sahneden çıkarmasın
+    if (on && !hotkeysOff) { ctx.hotkeys(false); hotkeysOff = true; }
+    else if (!on && hotkeysOff) { ctx.hotkeys(true); hotkeysOff = false; }
+    if (on) canvas.focus({ preventScroll: true });
+    resize();
+  }
+
   // ---------------------------------------------------------------- olaylar
+  // Sayfa genelinde ← →: odak müzedeyken (ya da hiçbir yerde değilken) eser değiştirir.
+  function onDocKey(e) {
+    if (destroyed || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (document.querySelector('.modal-backdrop')) return;
+    const inMuseum = t === document.body || t === document.documentElement || root.contains(t);
+    if (!inMuseum || wingsEl.contains(t)) return;
+    if ((e.key === 'f' || e.key === 'F') && (stage.contains(t) || isFs())) {
+      e.preventDefault();
+      e.stopPropagation(); // sitenin F kısayolu çalışmasın
+      toggleFs();
+      return;
+    }
+    if (e.key === 'Escape' && stage.classList.contains('is-pseudo-fs')) {
+      e.preventDefault();
+      exitFs();
+      return;
+    }
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey) {
+      e.preventDefault();
+      step(e.key === 'ArrowLeft' ? -1 : 1, { focusSlot: slotsEl.contains(t) });
+    }
+  }
+
   dogBtn.addEventListener('click', jump);
+  fsDog.addEventListener('click', jump);
+  prevBtn.addEventListener('click', () => step(-1));
+  nextBtn.addEventListener('click', () => step(1));
+  fsBtn.addEventListener('click', toggleFs);
   lightBtn.addEventListener('click', () => {
     themeIdx = (themeIdx + 1) % THEMES.length;
     ls.set('gl:light', THEMES[themeIdx].id);
@@ -1085,6 +1406,9 @@ export function mountMuseum(el, ctx) {
     if (mode === '3d' && renderer) { applyTheme(false); if (!running) renderOnce(); }
   });
   document.addEventListener('visibilitychange', setRunning);
+  document.addEventListener('keydown', onDocKey);
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
 
   // ---------------------------------------------------------------- başlat
   setLightUI();
@@ -1111,11 +1435,21 @@ export function mountMuseum(el, ctx) {
     destroyed = true;
     selToken++;
     clearTimeout(resumeT);
+    clearTimeout(preloadT);
+    clearTimeout(veilT);
     document.removeEventListener('visibilitychange', setRunning);
+    document.removeEventListener('keydown', onDocKey);
+    document.removeEventListener('fullscreenchange', onFsChange);
+    document.removeEventListener('webkitfullscreenchange', onFsChange);
+    if (fsElement() === stage) exitFs();
+    stage.classList.remove('is-pseudo-fs');
+    document.documentElement.classList.remove('gl-noscroll');
+    if (hotkeysOff) { ctx.hotkeys(true); hotkeysOff = false; }
     if (io) io.disconnect();
     if (ro) ro.disconnect();
     likes.destroy();
     teardownGL(true);
+    pool.destroy();
     root.remove();
   };
 }

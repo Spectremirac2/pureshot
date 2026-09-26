@@ -5,6 +5,7 @@ import './gallery.css';
 import { h, clear } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { IMAGE_KEYS, MODEL_KEYS } from './catalog.js';
+import { WINGS } from './exhibit-data.js';
 import { art, arts, modelAvailable } from './sources.js';
 
 const SUBS = [
@@ -13,6 +14,8 @@ const SUBS = [
   { id: 'nasil', label: 'Nasıl yapıldı?', icon: 'sparkle' },
 ];
 const DEFAULT_SUB = 'muze';
+const WORDS = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı'];
+const say = (n) => WORDS[n] || String(n);
 const valid = (s) => (SUBS.some((x) => x.id === s) ? s : DEFAULT_SUB);
 
 let active = null;
@@ -78,8 +81,8 @@ export default {
           h('h1', { class: 'h1' }, 'Galeri & ', h('em', null, '3D Müze')),
           h('p', { class: 'lead' },
             imgReady || modelCount
-              ? 'Sitenin afişleri, DOG portreleri ve 3D eserleri yapım aşamasında fal.ai ile üretildi. Hepsi bu salonda: döndür, yakınlaştır, beğen, DOG’la.'
-              : 'Sitenin afişleri, DOG portreleri ve 3D eserleri yapım aşamasında fal.ai ile üretildi. Dosyalar yerine oturana kadar salonu prosedürel kopyalar bekliyor.'),
+              ? `Sitenin afişleri, DOG portreleri ve 3D müzenin ${MODEL_KEYS.length} eseri yapım aşamasında fal.ai ile üretildi. Hepsi burada, ${say(WINGS.length)} salonda: döndür, yakınlaştır, beğen, DOG’la.`
+              : `Sitenin afişleri, DOG portreleri ve 3D müzenin ${MODEL_KEYS.length} eseri yapım aşamasında fal.ai ile üretildi. Dosyalar yerine oturana kadar ${say(WINGS.length)} salonu prosedürel kopyalar bekliyor.`),
         ),
         ledger,
       ),

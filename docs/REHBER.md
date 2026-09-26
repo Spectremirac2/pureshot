@@ -33,7 +33,7 @@ kısa bir turla göstereyim.” Altında minik yetenek çubuğu önizlemesi (H Q
 | 5 | R (ulti) | 1vDOQUZ Arena | Ultin hazır. 3D arenada dokuz kişiye karşı tek başına: gerçek 1vDOQUZ. Bahane yok, bekleme süresi yok. — altın hale, yayılan halka, altın kart, “ULTİ” rozeti, ayrı ses |
 | 6 | D | Karakter Analizleri | 10 DOG türü, radar grafikleri ve saha notları. Takımdaki DOG’un türü burada teşhis edilir. |
 | 7 | F | Soru-Cevap | Topluluğa sor, DOG Kâhini’ne danış, SSS’e göz at. Kâhin “ward al” diyorsa, al. |
-| 8 | T | Galeri & 3D Müze | fal.ai afişleri ve döndürüp inceleyebileceğin 3D modeller: DOG maskotu, okçu ve Aegis. |
+| 8 | T | Galeri & 3D Müze | fal.ai afişleri ve üç salonda 18 3D eser: DOG maskotu, Arena kahramanları, Roshan’ın kuzeni ve dahası. |
 | 9 | Z (eşya) | Kahraman DOG Endeksi | Eşya slotun: 127 kahramanın DOG endeksi, tier listesi ve “Daha DOG mu?”. Pick’ten önce bir bak. — yeşim çerçeve, “EŞYA” rozeti |
 | 10 | `.hud-dog` | DOG sayacı | Biri feed’lediğinde bas: DOG DOG DOG! Her basış topluluk sayacına eklenir. Utanma, herkes basıyor. |
 | 11 | `.hud-clock` | Maraton saati | Bu sekmede geçirdiğin süre. En kısa yayın 24 saat sürüyor; sen daha ısınma turundasın. *(≤ 640 px’te saat gizli → adım atlanır)* |

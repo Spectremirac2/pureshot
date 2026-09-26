@@ -421,15 +421,15 @@ export function beamCanvas(W = 64, H = 256) {
   return c;
 }
 
-/** Kapı sancağı: koyu kumaş üzerinde kor pati mührü. */
-export function bannerCanvas(W = 128, H = 256) {
-  const ember = tok('--ember', '#ff6a2b');
+/** Kapı sancağı: koyu kumaş üzerinde kor pati mührü. team: 'radiant' | 'dire' | undefined (eski görünüm). */
+export function bannerCanvas(W = 128, H = 256, team = null) {
+  const ember = team === 'radiant' ? '#8ff0c9' : team === 'dire' ? '#ff4d5e' : tok('--ember', '#ff6a2b');
   const gold = tok('--aegis', '#e9b949');
   const c = makeCanvas(W, H);
   const g = c.getContext('2d');
   const grd = g.createLinearGradient(0, 0, 0, H);
-  grd.addColorStop(0, '#3a1420');
-  grd.addColorStop(1, '#1c0a12');
+  grd.addColorStop(0, team === 'radiant' ? '#14402c' : '#3a1420');
+  grd.addColorStop(1, team === 'radiant' ? '#0a1f16' : '#1c0a12');
   g.fillStyle = grd;
   g.beginPath();
   g.moveTo(0, 0);

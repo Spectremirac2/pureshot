@@ -134,6 +134,106 @@
 }
 .gl-stage-loading[hidden] { display: none; }
 
+/* Sahne üstü kontroller: önceki/sonraki eser, tam ekran */
+.gl-nav, .gl-fs {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aegis) 45%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s, border-color 0.15s, transform 0.12s var(--ease-out), opacity 0.2s;
+}
+.gl-nav { top: 50%; transform: translateY(-50%); }
+.gl-nav.prev { left: 12px; }
+.gl-nav.next { right: 12px; }
+.gl-fs { top: 10px; right: 12px; border-radius: 10px; }
+.gl-nav:hover, .gl-fs:hover { background: color-mix(in srgb, var(--bg-3) 85%, transparent); border-color: var(--aegis); }
+.gl-nav:hover svg, .gl-fs:hover svg { color: var(--aegis-2); }
+.gl-nav:active { transform: translateY(-50%) scale(0.94); }
+.gl-nav:focus-visible, .gl-fs:focus-visible { outline: 2px solid var(--aegis); outline-offset: 2px; }
+.gl-stage.is-2d .gl-fs { display: none; }
+
+/* Salon geçiş perdesi */
+.gl-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(60% 55% at 50% 50%, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 85%);
+}
+.gl-veil-title { font-family: var(--font-lore); font-weight: 700; font-size: 13px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--aegis); }
+.gl-veil-sub { font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 1.1rem + 2vw, 2.6rem); text-transform: uppercase; color: var(--text); text-shadow: 0 0 30px color-mix(in srgb, var(--light, var(--ember)) 60%, transparent); }
+.gl-stage.is-veiled .gl-veil { animation: gl-veil 1.3s var(--ease-out) both; }
+@keyframes gl-veil {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  55% { opacity: 0.92; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gl-stage.is-veiled .gl-veil { animation: gl-veil-rm 0.9s linear both; }
+  @keyframes gl-veil-rm { 0%, 70% { opacity: 0.9; } 100% { opacity: 0; } }
+}
+
+/* Tam ekran: gerçek (Fullscreen API) ya da sözde (sabit konum; ör. iPhone Safari) */
+.gl-fsbar { display: none; }
+.gl-stage.is-fs {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  min-height: 0;
+  border: 0;
+}
+.gl-stage.is-pseudo-fs {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+}
+html.gl-noscroll, html.gl-noscroll body { overflow: hidden; }
+.gl-stage.is-fs .gl-fsbar {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: calc(100% - 24px);
+  padding: 8px 8px 8px 16px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aegis) 40%, transparent);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+}
+.gl-fsbar-text { display: flex; flex-direction: column; min-width: 0; margin-right: var(--sp-2); }
+.gl-fsbar-name { font-family: var(--font-display); font-weight: 900; text-transform: uppercase; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-fsbar-kicker { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-fsbar .btn { flex: none; }
+.gl-stage.is-fs .gl-stage-hint { bottom: 86px; }
+.gl-stage.is-fs .gl-stage-hud { top: max(14px, env(safe-area-inset-top, 0px)); left: 18px; }
+.gl-stage.is-fs .gl-stage-room { font-size: 13px; }
+.gl-stage.is-fs .gl-stage-no { font-size: 12px; }
+.gl-stage.is-fs .gl-fs { top: max(12px, env(safe-area-inset-top, 0px)); }
+
 .gl-stage-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
 .gl-dog { min-width: 132px; font-family: var(--font-display); font-weight: 900; letter-spacing: 0.04em; }
 .gl-lightbtn { --sw: var(--ember); }
@@ -145,8 +245,8 @@
   box-shadow: 0 0 10px var(--sw), inset 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent);
   transition: background 0.3s, box-shadow 0.3s;
 }
-.gl-stage-keys { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-@media (hover: none) { .gl-stage-keys { display: none; } }
+.gl-stage-keys { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 3px; }
+@media (hover: none), (pointer: coarse), (max-width: 720px) { .gl-stage-keys { display: none; } }
 
 @media (max-width: 720px) {
   .gl-stage { aspect-ratio: 1 / 1.02; min-height: 300px; max-height: none; }
@@ -186,8 +286,61 @@
 .gl-stage[data-light='yesim'] { --light: var(--radiant); }
 .gl-stage[data-light='altin'] { --light: var(--aegis); }
 
+/* Salonlar: sekmeler + açıklama + eser slotları */
+.gl-hall { display: flex; flex-direction: column; gap: var(--sp-2); }
+.gl-wings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.gl-wing {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  min-height: 52px;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.gl-wing:hover { color: var(--text); border-color: var(--line-2); }
+.gl-wing[aria-selected='true'] {
+  color: var(--text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ember) 16%, transparent), transparent 80%), var(--bg-3);
+  border-color: var(--ember);
+}
+.gl-wing[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--grad-ember, var(--ember));
+}
+.gl-wing:focus-visible { outline: 2px solid var(--aegis); outline-offset: 2px; }
+.gl-wing-no { grid-column: 1; font-family: var(--font-lore); font-weight: 700; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--aegis); white-space: nowrap; }
+.gl-wing-name { grid-column: 1; font-weight: 700; font-size: var(--fs-sm); line-height: 1.15; }
+.gl-wing-n {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 26px;
+  padding: 2px 6px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-3);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.gl-wing[aria-selected='true'] .gl-wing-n { color: var(--ember-2); border-color: color-mix(in srgb, var(--ember) 50%, transparent); }
+.gl-wing-lore { margin: 2px 0 2px; line-height: 1.45; }
+
 /* Eser slotları (Dota eşya slotu havası) */
 .gl-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.gl-slot[hidden] { display: none; }
 .gl-slot {
   display: flex;
   flex-direction: column;
@@ -224,6 +377,14 @@
 .gl-slot-no { position: absolute; top: 2px; left: 4px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--aegis); }
 .gl-slot-name { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.2; }
 .gl-slot-src { font-size: 10px; color: var(--text-3); letter-spacing: 0.04em; }
+/* Kalabalık salonlarda (Arena, Dokuzun Laneti) slotlar sıkışık: küçük ikon, kaynak satırı yok */
+.gl-slots:not([data-wing='efsane']) .gl-slot { position: relative; gap: 5px; padding: 8px 4px 8px; }
+.gl-slots:not([data-wing='efsane']) .gl-slot-icon { position: static; width: 42px; height: 42px; }
+/* Roma rakamı ikonun üstüne binmesin: slotun (pahsız) sağ üst köşesine */
+.gl-slots:not([data-wing='efsane']) .gl-slot-no { top: 5px; right: 7px; left: auto; font-size: 9px; letter-spacing: 0.02em; }
+.gl-slots:not([data-wing='efsane']) .gl-slot-icon svg { width: 22px; height: 22px; }
+.gl-slots:not([data-wing='efsane']) .gl-slot-src { display: none; }
+.gl-slots:not([data-wing='efsane']) .gl-slot-name { font-size: 11px; letter-spacing: 0.04em; }
 
 /* Müze plaketi */
 .gl-plaque {
@@ -235,6 +396,11 @@
     var(--bg-3);
 }
 .gl-plaque-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.gl-plaque-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.gl-soon { display: inline-flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--arcane) 16%, transparent); color: color-mix(in srgb, var(--arcane) 60%, var(--text)); }
+.gl-plaque-head { display: flex; flex-direction: column; gap: 6px; }
+.gl-plaque-kicker { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ember-2); }
+.gl-arena-link svg:last-child { color: var(--aegis); }
 .gl-plaque-title {
   font-family: var(--font-display);
   font-weight: 900;
@@ -648,21 +814,28 @@
 .gl-prompt { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--bg); border-left: 2px solid var(--ember); }
 .gl-prompt-label { font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
 .gl-prompt code { font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
-.gl-pv-models { gap: var(--sp-2); }
+.gl-pv-models { gap: var(--sp-3); }
 .gl-pv-models > .btn { align-self: flex-start; }
+.gl-model-wing { display: flex; flex-direction: column; gap: 6px; }
+.gl-model-wing-h { font-family: var(--font-lore); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--aegis); }
+.gl-model-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
 .gl-model-tile {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
-  column-gap: var(--sp-3);
+  column-gap: var(--sp-2);
   align-items: center;
-  padding: 8px 10px;
+  min-width: 0;
+  padding: 6px 8px;
   background: var(--bg);
   border: 1px solid var(--line);
 }
-.gl-model-ico { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; color: var(--aegis-2); border: 1px solid var(--line-2); background: var(--bg-3); }
-.gl-model-name { font-weight: 700; font-size: var(--fs-sm); }
-.gl-model-tile .badge { grid-row: 1 / span 2; grid-column: 3; }
+.gl-model-ico { grid-row: span 2; display: grid; place-items: center; width: 32px; height: 32px; color: var(--aegis-2); border: 1px solid var(--line-2); background: var(--bg-3); }
+.gl-model-name { font-weight: 700; font-size: var(--fs-sm); line-height: 1.2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-model-key { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.gl-model-dot { grid-row: 1 / span 2; grid-column: 3; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+.gl-model-dot.ok { background: var(--radiant); box-shadow: 0 0 8px color-mix(in srgb, var(--radiant) 70%, transparent); }
+@media (max-width: 520px) { .gl-model-grid { grid-template-columns: minmax(0, 1fr); } }
 .gl-pack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
 .gl-pack > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--bg); border-left: 2px solid var(--radiant); min-width: 0; }
 .gl-pack-k { font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }

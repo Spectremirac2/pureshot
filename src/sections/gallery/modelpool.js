@@ -1,6 +1,6 @@
 // Müze için sınırlı GLB havuzu: yalnızca sergilenen eser ve komşuları bellekte tutulur.
 // core/models.js'teki önbellek hiç boşalmaz (Arena gibi sabit bir kadro yükleyen sahneler için ideal);
-// müze ise 12 eser arasında gezdiği için kendi havuzunu tutar ve uzaklaşan modelleri tamamen serbest bırakır
+// müze ise 18 eser arasında gezdiği için kendi havuzunu tutar ve uzaklaşan modelleri tamamen serbest bırakır
 // (geometri, malzeme, doku ve ImageBitmap). Normalizasyon core/models.js ile aynıdır:
 // taban y=0, merkez x/z=0, yükseklik `height`.
 

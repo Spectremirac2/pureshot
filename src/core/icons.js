@@ -100,6 +100,12 @@ const P = {
   towerDire: '<path d="M7.5 21l1-10h7l1 10"/><path d="M5.5 21h13"/><path d="M8.5 11L5 7.2M15.5 11L19 7.2M10.5 11l-.9-4.3M13.5 11l.9-4.3"/><path d="M12 1.8l1.7 2.4L12 6.6l-1.7-2.4z"/><path d="M6.4 15.4L3.8 14M17.6 15.4l2.6-1.4"/><path d="M10.6 21v-3a1.4 1.4 0 012.8 0v3"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  // Galeri · Salon III (Dokuzun Laneti): kurt, harpi kanadı, tırtıklı kılıç, boynuzlu kalp anıtı, ağaç bekçisi
+  wolf: '<path d="M5 3l2.8 5.2C6.6 9.4 6 11 6 12.5c0 2.2 1.4 3.9 3.2 5.2L12 21l2.8-3.3c1.8-1.3 3.2-3 3.2-5.2 0-1.5-.6-3.1-1.8-4.3L19 3l-4.6 3.4a8 8 0 00-4.8 0z"/><path d="M9.2 11.5l1.4.6M14.8 11.5l-1.4.6M11 17.2h2"/>',
+  harpy: '<path d="M3 20c2-6 6.5-11 16-15.5-1 3.8-2.8 6.4-5.3 8 1.4.2 2.7 0 4-.6-1.6 3.4-4.5 5.3-8.2 5.4 1.1.6 2.3.9 3.6.8C10.4 20.3 6.8 21 3 20z"/><path d="M7 16.5l6-5"/>',
+  greatsword: '<path d="M20.5 3.5L9.8 16.2l-2-2z"/><path d="M17.3 5.1l.9 1.5M14.8 7.3l.9 1.5M12.3 9.5l.9 1.5"/><path d="M5.5 12.5l6 6M7.5 16.5L4.3 19.7"/><circle cx="3.6" cy="20.4" r="1"/>',
+  ancient: '<path d="M6 21l1.5-10.5L12 7l4.5 3.5L18 21"/><path d="M7.5 10.5L4 4.5l4.8 3.2M16.5 10.5L20 4.5l-4.8 3.2"/><path d="M12 12.2l1.8 2.3L12 17l-1.8-2.5z"/><path d="M4 21h16"/>',
+  treant: '<path d="M12 21v-7M9 21h6"/><path d="M12 14c-4.5 0-7-2.3-7-5.3C5 5.8 8 3 12 3s7 2.8 7 5.7c0 3-2.5 5.3-7 5.3z"/><path d="M12 14l-3-3M12 12l2.5-2.5"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

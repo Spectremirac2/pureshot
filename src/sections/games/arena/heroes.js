@@ -24,7 +24,7 @@ export const HEROES = {
     height: 1.6,
     blurb: 'Yayını gerer, bir okla üç DOG deler. Mesafeyi koru, şarjı doldur, sürüyü dizle.',
     base: { hp: 640, mana: 300, hpRegen: 1.6, manaRegen: 9, speed: 5.3, armor: 0, evasion: 0 },
-    grow: { hp: 38, mana: 16, dmg: 0.055 },
+    grow: { hp: 38, mana: 16, dmg: 0.045 },
     attack: null,
     abilities: { q: 'okcu_shot', w: 'okcu_windrun', e: 'okcu_tango', r: 'okcu_dog' },
     talents: {
@@ -67,9 +67,9 @@ export const HEROES = {
     model: 'model-hero-frost',
     height: 1.62,
     blurb: 'Dondurur, kökler, fırtınayı çağırır. Kırılgan ama sürüyü tek büyüyle yere çiviler.',
-    base: { hp: 540, mana: 440, hpRegen: 1.3, manaRegen: 11, speed: 4.9, armor: 0, evasion: 0 },
-    grow: { hp: 36, mana: 26, dmg: 0.055 },
-    attack: { type: 'ranged', range: 6.2, dmg: 34, rate: 1.05, proj: 'ice' },
+    base: { hp: 590, mana: 440, hpRegen: 1.5, manaRegen: 11, speed: 4.95, armor: 0.05, evasion: 0 },
+    grow: { hp: 42, mana: 26, dmg: 0.058 },
+    attack: { type: 'ranged', range: 6.2, dmg: 37, rate: 1.0, proj: 'ice' },
     abilities: { q: 'buz_nova', w: 'buz_chain', e: 'buz_aura', r: 'buz_field' },
     talents: {
       5: [{ id: 'buMana', name: '+120 mana', stat: { mana: 120 } }, { id: 'buAmp', name: '+%15 büyü hasarı', stat: { spell: 0.15 } }],
@@ -89,8 +89,8 @@ export const HEROES = {
     model: 'model-hero-shadow',
     height: 1.52,
     blurb: 'Gölgeden gölgeye sıçrar, kritik vurur, dumanda kaybolur. Hata affetmez ama en hızlı o biçer.',
-    base: { hp: 590, mana: 270, hpRegen: 2.2, manaRegen: 7.5, speed: 5.65, armor: 0.05, evasion: 0.15 },
-    grow: { hp: 44, mana: 14, dmg: 0.055 },
+    base: { hp: 660, mana: 270, hpRegen: 2.6, manaRegen: 7.5, speed: 5.65, armor: 0.08, evasion: 0.2 },
+    grow: { hp: 48, mana: 14, dmg: 0.055 },
     attack: { type: 'melee', range: 1.45, dmg: 39, rate: 0.72 },
     abilities: { q: 'golge_step', w: 'golge_smoke', e: 'golge_crit', r: 'golge_dance' },
     talents: {

@@ -1,8 +1,9 @@
 // 1vDOQUZ Arena — WebGL yoksa zarif 2D yedek görüntü (üstten canvas).
 // Aynı simülasyonu (game.js) çizer; 3D görüntüyle aynı arayüzü sunar.
 
-import { ARENA_R, GATE_ANGLES } from './game.js';
+import { ARENA_R, GATE_ANGLES, RIVER_HALF, ISLAND_R, riverPoint, FOUNTAIN, ROSHAN_PIT, TREES, TOWER_R } from './map.js';
 import { DOG_TYPES, archOf } from './dogs.js';
+import { RUNES } from './items.js';
 import { tok, hexA } from './textures.js';
 
 export function createView2D({ reduced = false } = {}) {
@@ -18,6 +19,7 @@ export function createView2D({ reduced = false } = {}) {
     jade: tok('--radiant', '#43d6a0'),
     dire: tok('--dire', '#e0354b'),
     text: tok('--text', '#f3eadb'),
+    ice: '#9fe8ff',
   };
   let W = 16;
   let H = 9;
@@ -27,6 +29,7 @@ export function createView2D({ reduced = false } = {}) {
   let cz = 0;
   let time = 0;
   let shakeA = 0;
+  let frame = { mode: 'play' };
   const sparks = [];
 
   function resize(w, h) {
@@ -63,11 +66,16 @@ export function createView2D({ reduced = false } = {}) {
   function event(type, d, game) {
     const p = game.player;
     if (type === 'reset') sparks.length = 0;
-    if (type === 'hit') burst(d.dog.x, d.dog.z, archOf(d.dog.type).color, 6);
-    if (type === 'kill') burst(d.dog.x, d.dog.z, col.gold, 14);
+    if (type === 'hit') burst(d.foe.x, d.foe.z, d.foe.kind === 'dog' ? archOf(d.foe.type).color : col.dire, 6);
+    if (type === 'kill') burst(d.foe.x, d.foe.z, col.gold, d.foe.kind === 'boss' ? 40 : 14);
     if (type === 'hurt') { burst(p.x, p.z, col.dire, 6); shake(0.2); }
     if (type === 'ult') { burst(p.x, p.z, col.ember, 30); shake(0.6); }
-    if (type === 'waveClear') burst(0, 0, col.gold, 40);
+    if (type === 'waveClear') burst(p.x, p.z, col.gold, 40);
+    if (type === 'roshanSlam') { burst(d.x, d.z, col.ember, 30); shake(0.6); }
+    if (type === 'fx' && d.kind === 'nova') burst(d.x, d.z, col.ice, 24);
+    if (type === 'fx' && (d.kind === 'spin' || d.kind === 'taunt')) burst(d.x, d.z, col.dire, 18);
+    if (type === 'fx' && d.kind === 'iceBlast') burst(d.x, d.z, col.ice, 4);
+    if (type === 'towerDown') { burst(d.tower.x, d.tower.z, col.gold, 30); shake(0.5); }
   }
 
   function ring(x, z, r, color, w = 2, dash = null) {
@@ -80,13 +88,70 @@ export function createView2D({ reduced = false } = {}) {
     g.stroke();
     g.restore();
   }
+  function disc(x, z, r, color) {
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(sx(x), sy(z), Math.max(1, r * scale), 0, Math.PI * 2);
+    g.fill();
+  }
+  function hpBar(x, z, frac, color, w = 1.2, dy = 0.95) {
+    const bw = scale * w;
+    g.fillStyle = 'rgba(0,0,0,0.7)';
+    g.fillRect(sx(x) - bw / 2, sy(z) - scale * dy, bw, 5);
+    g.fillStyle = color;
+    g.fillRect(sx(x) - bw / 2, sy(z) - scale * dy, bw * Math.max(0, frac), 5);
+  }
+
+  function drawMap() {
+    // arena ve yarılar
+    g.save();
+    g.beginPath();
+    g.arc(sx(0), sy(0), ARENA_R * scale, 0, Math.PI * 2);
+    g.clip();
+    g.fillStyle = '#1b2a1f';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#2a1519';
+    g.beginPath();
+    g.moveTo(sx(-40), sy(-40));
+    g.lineTo(sx(40), sy(-40));
+    g.lineTo(sx(40), sy(40));
+    g.closePath();
+    g.fill();
+    // nehir
+    g.lineCap = 'round';
+    g.strokeStyle = '#1d5a78';
+    g.lineWidth = RIVER_HALF * 2 * scale;
+    g.beginPath();
+    for (let s = -20; s <= 20; s += 0.5) {
+      const p = riverPoint(s);
+      if (s === -20) g.moveTo(sx(p.x), sy(p.z));
+      else g.lineTo(sx(p.x), sy(p.z));
+    }
+    g.stroke();
+    g.restore();
+    disc(0, 0, ISLAND_R, '#2a2236');
+    ring(0, 0, ISLAND_R, 'rgba(233,185,73,0.35)', 2);
+    ring(0, 0, ARENA_R, col.line, 4);
+    for (const a of GATE_ANGLES) {
+      g.fillStyle = hexA(col.ember, 0.35 + 0.15 * Math.sin(time * 8 + a));
+      g.beginPath();
+      g.arc(sx(Math.sin(a) * ARENA_R), sy(Math.cos(a) * ARENA_R), 0.8 * scale, 0, Math.PI * 2);
+      g.fill();
+    }
+    // çeşme, çukur, ağaçlar
+    disc(FOUNTAIN.x, FOUNTAIN.z, 1.35, 'rgba(67,214,160,0.55)');
+    ring(FOUNTAIN.x, FOUNTAIN.z, FOUNTAIN.r, hexA(col.jade, 0.6), 2, [5, 4]);
+    disc(ROSHAN_PIT.x, ROSHAN_PIT.z, ROSHAN_PIT.r, 'rgba(8,6,10,0.85)');
+    ring(ROSHAN_PIT.x, ROSHAN_PIT.z, ROSHAN_PIT.r, 'rgba(255,122,43,0.45)', 2);
+    for (const t of TREES) disc(t.x, t.z, 0.55 * t.s, t.dire ? '#4a1f2a' : '#2f7d4a');
+  }
 
   function render(game, dt, simDt) {
     time += dt;
     const p = game.player;
     const playing = game.state !== 'idle' && game.state !== 'over';
-    const tx = playing ? p.x * 0.7 : 0;
-    const tz = playing ? p.z * 0.7 : 0;
+    const tx = playing || frame.mode === 'select' ? p.x * 0.7 : 0;
+    const tz = playing || frame.mode === 'select' ? p.z * 0.7 : 0;
     cx += (tx - cx) * Math.min(1, dt * 4);
     cz += (tz - cz) * Math.min(1, dt * 4);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -96,60 +161,68 @@ export function createView2D({ reduced = false } = {}) {
     }
     g.fillStyle = col.bg;
     g.fillRect(-20, -20, W + 40, H + 40);
-    // arena
-    const grd = g.createRadialGradient(sx(0), sy(0), 0, sx(0), sy(0), ARENA_R * scale);
-    grd.addColorStop(0, '#2a2236');
-    grd.addColorStop(1, '#16121f');
-    g.fillStyle = grd;
-    g.beginPath();
-    g.arc(sx(0), sy(0), ARENA_R * scale, 0, Math.PI * 2);
-    g.fill();
-    for (let r = 2.5; r < ARENA_R; r += 2.2) ring(0, 0, r, 'rgba(255,255,255,0.05)', 1);
-    ring(0, 0, ARENA_R, col.line, 4);
-    for (const a of GATE_ANGLES) {
-      const x = Math.sin(a) * ARENA_R;
-      const z = Math.cos(a) * ARENA_R;
-      g.fillStyle = hexA(col.ember, 0.35 + 0.15 * Math.sin(time * 8 + a));
-      g.beginPath();
-      g.arc(sx(x), sy(z), 0.8 * scale, 0, Math.PI * 2);
-      g.fill();
+    drawMap();
+    // kuleler
+    for (const t of game.towers) {
+      const c = t.side === 'radiant' ? col.jade : col.dire;
+      g.fillStyle = t.dead ? 'rgba(80,70,80,0.6)' : c;
+      const s = TOWER_R * scale * 1.4;
+      g.fillRect(sx(t.x) - s / 2, sy(t.z) - s / 2, s, s);
+      if (!t.dead) {
+        hpBar(t.x, t.z, t.hp / t.maxHp, c, 1.6, 1.3);
+        if (t.side === 'dire' && Math.hypot(p.x - t.x, p.z - t.z) < t.def.range + 2) ring(t.x, t.z, t.def.range, hexA(col.dire, 0.5), 1.5, [6, 5]);
+      }
+    }
+    // rünler
+    for (const r of game.runes) {
+      const c = RUNES[r.kind].color;
+      disc(r.x, r.z, 0.45 + Math.sin(time * 4) * 0.05, c);
+      ring(r.x, r.z, 0.7, c, 2);
     }
     // eşyalar
     for (const k of game.pickups) {
-      g.fillStyle = col.gold;
+      g.fillStyle = k.kind === 'cheese' ? '#ffd84a' : col.gold;
       g.font = `900 ${Math.round(scale * 0.8)}px Unbounded, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      ring(k.x, k.z, 0.7 + Math.sin(time * 4) * 0.05, col.gold, 3);
-      g.fillText(k.kind === 'aegis' ? 'A' : 'R', sx(k.x), sy(k.z));
+      ring(k.x, k.z, 0.7 + Math.sin(time * 4) * 0.05, k.kind === 'rapierItem' ? col.dire : col.gold, 3);
+      g.fillText(k.kind === 'aegis' ? 'A' : k.kind === 'cheese' ? 'P' : 'R', sx(k.x), sy(k.z));
     }
-    // köpekler
-    for (const d of game.dogs) {
-      const c = archOf(d.type).color;
+    // düşmanlar
+    for (const d of game.foes) {
       let a = d.type === 'ward' ? d.vis : 1;
       if (d.dead) a = Math.max(0, 1 - d.deathT);
       g.globalAlpha = a;
-      g.fillStyle = d.hitFlash > 0 ? '#fff' : DOG_TYPES[d.type].fur;
-      g.beginPath();
-      g.arc(sx(d.x), sy(d.z), d.r * scale * d.scale, 0, Math.PI * 2);
-      g.fill();
-      g.strokeStyle = c;
-      g.lineWidth = 3;
-      g.stroke();
-      g.fillStyle = c;
-      g.beginPath();
-      g.arc(sx(d.x + Math.sin(d.face) * d.r * 0.7), sy(d.z + Math.cos(d.face) * d.r * 0.7), scale * 0.12, 0, Math.PI * 2);
-      g.fill();
-      if (!d.dead) {
-        const bw = scale * 1.2;
-        g.fillStyle = 'rgba(0,0,0,0.7)';
-        g.fillRect(sx(d.x) - bw / 2, sy(d.z) - scale * 0.95, bw, 5);
-        g.fillStyle = col.dire;
-        g.fillRect(sx(d.x) - bw / 2, sy(d.z) - scale * 0.95, bw * Math.max(0, d.hp / d.maxHp), 5);
-        g.fillStyle = col.text;
-        g.font = `800 ${Math.max(9, Math.round(scale * 0.42))}px Unbounded, sans-serif`;
-        g.textAlign = 'center';
-        g.fillText(DOG_TYPES[d.type].short + (d.status === 'pause' ? ' ‖' : d.status === 'afk' ? ' zZ' : ''), sx(d.x), sy(d.z) - scale * 1.15);
+      if (d.kind === 'dog') {
+        const c = archOf(d.type).color;
+        g.fillStyle = d.hitFlash > 0 ? '#fff' : DOG_TYPES[d.type].fur;
+        g.beginPath();
+        g.arc(sx(d.x), sy(d.z), d.r * scale * d.scale, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = d.st.root > 0 ? col.ice : c;
+        g.lineWidth = 3;
+        g.stroke();
+        g.fillStyle = c;
+        g.beginPath();
+        g.arc(sx(d.x + Math.sin(d.face) * d.r * 0.7), sy(d.z + Math.cos(d.face) * d.r * 0.7), scale * 0.12, 0, Math.PI * 2);
+        g.fill();
+        if (!d.dead) {
+          hpBar(d.x, d.z, d.hp / d.maxHp, col.dire);
+          g.fillStyle = col.text;
+          g.font = `800 ${Math.max(9, Math.round(scale * 0.42))}px Unbounded, sans-serif`;
+          g.textAlign = 'center';
+          g.fillText(DOG_TYPES[d.type].short + (d.status === 'pause' ? ' ‖' : d.status === 'afk' ? ' zZ' : ''), sx(d.x), sy(d.z) - scale * 1.15);
+        }
+      } else if (d.kind === 'creep') {
+        g.fillStyle = d.hitFlash > 0 ? '#fff' : d.type === 'ranged' ? '#a0302a' : '#6f7f5a';
+        const s = d.r * scale * 1.6;
+        g.fillRect(sx(d.x) - s / 2, sy(d.z) - s / 2, s, s);
+        if (!d.dead && d.hp < d.maxHp) hpBar(d.x, d.z, d.hp / d.maxHp, col.dire, 0.9, 0.75);
+      } else {
+        disc(d.x, d.z, d.r, d.hitFlash > 0 ? '#fff' : '#6c6377');
+        ring(d.x, d.z, d.r, col.gold, 3);
+        if (d.cast) ring(d.x, d.z, d.cast.r * (1 - d.cast.t / d.cast.dur), d.cast.kind === 'slam' ? col.dire : col.gold, 3);
+        if (!d.dead) hpBar(d.x, d.z, d.hp / d.maxHp, col.gold, 2.4, 1.6);
       }
       g.globalAlpha = 1;
     }
@@ -168,8 +241,11 @@ export function createView2D({ reduced = false } = {}) {
       g.textBaseline = 'middle';
       g.fillText('REPORT!', sx(b.x), sy(b.z));
     }
+    // mermiler
+    for (const pr of game.projs) disc(pr.x, pr.z, pr.kind.startsWith('tower') ? 0.25 : 0.15, pr.kind === 'tower-r' ? col.jade : pr.kind === 'ice' ? col.ice : col.dire);
     // oyuncu
-    if (playing) {
+    const heroCol = game.H ? game.H.color : col.jade;
+    if (playing || game.state === 'idle') {
       if (game.target) ring(game.target.x, game.target.z, 0.75, col.dire, 2, [6, 4]);
       if (p.charging) {
         const L = 11 + 13 * p.charge;
@@ -180,11 +256,13 @@ export function createView2D({ reduced = false } = {}) {
         g.lineTo(sx(p.x + Math.sin(p.face) * L), sy(p.z + Math.cos(p.face) * L));
         g.stroke();
       }
-      ring(p.x, p.z, 0.6, p.windrun > 0 ? col.jade : hexA(col.jade, 0.6), p.aegis ? 4 : 2);
+      if (p.channel) ring(p.x, p.z, 4.8, hexA(col.ice, 0.7), 2, [8, 6]);
+      ring(p.x, p.z, 0.6, p.windrun > 0 ? col.jade : hexA(heroCol, 0.7), p.aegis ? 4 : 2);
       g.save();
+      g.globalAlpha = p.invis > 0 ? 0.35 : 1;
       g.translate(sx(p.x), sy(p.z));
       g.rotate(-p.face + Math.PI);
-      g.fillStyle = p.hurtT > 0 ? col.dire : col.jade;
+      g.fillStyle = p.hurtT > 0 ? col.dire : heroCol;
       g.beginPath();
       g.moveTo(0, -scale * 0.6);
       g.lineTo(scale * 0.4, scale * 0.4);
@@ -192,6 +270,12 @@ export function createView2D({ reduced = false } = {}) {
       g.closePath();
       g.fill();
       g.restore();
+    }
+    // kurye
+    const c = game.courier;
+    if (c.state !== 'home') {
+      disc(c.x, c.z, 0.35, '#8a6a4a');
+      ring(c.x, c.z, 0.45, col.gold, 2);
     }
     // oklar
     g.strokeStyle = col.gold;
@@ -219,5 +303,8 @@ export function createView2D({ reduced = false } = {}) {
     canvas.remove();
   }
 
-  return { kind: '2d', canvas, resize, render, project, groundAt, event, shake, dispose, modelInfo: {} };
+  return {
+    kind: '2d', canvas, resize, render, project, groundAt, event, shake, dispose,
+    modelInfo: () => ({}), setFrame: (f) => { frame = { ...frame, ...f }; }, preload: () => {},
+  };
 }

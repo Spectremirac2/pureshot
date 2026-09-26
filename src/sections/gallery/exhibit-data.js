@@ -1,10 +1,12 @@
 // 3D Müze eser meta verileri (three.js içermez; galeri, katalog ve "Nasıl yapıldı?" sayfası da kullanır).
-// İki salon: Salon I · Efsaneler (sitenin ilk üç eseri) ve Salon II · Arena (1vDOQUZ Arena kadrosu).
+// Üç salon: Salon I · Efsaneler (sitenin ilk üç eseri), Salon II · Arena (1vDOQUZ Arena kadrosu) ve
+// Salon III · Dokuzun Laneti (Arena'nın yakında gelecek hikâye modunun kahramanları, kampları ve boss'ları).
 // Alanlar:
 //   key      fal GLB anahtarı (src/assets/fal/<key>.glb)     id     prosedürel yedeğin kimliği (exhibits.js)
 //   no       Roma rakamıyla genel eser numarası               wing   salon kimliği (WINGS)
 //   height   kaide üstündeki yükseklik (birim)                 yaw    modeli kameraya çevirmek için y dönüşü (radyan)
-//   pitch    DOG! havlamasının perdesi                         arena  true → plakette "Arena’da gör" bağlantısı
+//   pitch    DOG! havlamasının perdesi                         arena  true → plakette "Arena’da gör" bağlantısı,
+//                                                              'soon' → "yakında hikâye modunda" rozeti (+ Arena'ya git)
 //   fallbackArt / fallbackArch   WebGL yoksa 2D önizleme görseli (yoksa ikonlu kart çizilir)
 // Eserler Dota arketiplerinden esinlenen özgün tasarımlardır; hiçbirine Valve kahraman adı verilmez.
 
@@ -23,9 +25,14 @@ export const WINGS = [
     label: 'Salon II · Arena',
     lore: '1vDOQUZ Arena’nın kadrosu: kahramanlar, creep’ler, boss, kuleler ve kurye.',
   },
+  {
+    id: 'lanet',
+    no: 'III',
+    name: 'Dokuzun Laneti',
+    label: 'Salon III · Dokuzun Laneti',
+    lore: 'Arena’nın yakında gelecek hikâye modu: bitmeyen bir pub maçı, ruhları DOG’a dönen oyuncular ve laneti kıracak tek bir 1vDOQUZ. Anlatıcı: Kurye.',
+  },
 ];
-
-const MAT_ARENA = 'fal.ai Trellis 2 · kaynak görsel Nano Banana 2';
 
 export const EXHIBITS = [
   // ------------------------------------------------------------------ Salon I · Efsaneler
@@ -91,7 +98,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 0.72,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Kırmızı derili, boynuzlu miğferli ork savaşçısı; çift ağızlı baltası kendisinden büyük. Arena’da takım savaşına ilk o dalar. Planı tek kelime: “Dal.” İkinci kelimeyi hâlâ düşünüyor.',
   },
@@ -107,7 +113,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 1.4,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Kapüşonlu buz büyücüsü; asasının ucundaki kristal hiç erimiyor. Arena’da uzaktan yavaşlatır, dondurur, sonra çayını sakince yudumlar. Takım savaşında paniğe kapılmamanın sırrı: soğukkanlılık, kelimenin tam anlamıyla.',
   },
@@ -123,7 +128,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 1.15,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Mor kapüşonlu gölge suikastçı ve iki parlayan hançeri. Arena’da arkadan yaklaşır, iki vuruşta işini bitirir, sonra yine ortadan kaybolur. Haritada göremiyorsan büyük ihtimalle tam arkandadır.',
   },
@@ -139,7 +143,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 1.05,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Çivili sopası ve kafatası kalkanıyla koridorun emektarı goblin. Dalga dalga gelir, son vuruşun kimde kaldığını hiç dert etmez. Maaşı yok, izni yok, motivasyonu hep tam.',
   },
@@ -155,7 +158,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 1.25,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Kırmızı cübbeli goblin büyücü; asasındaki kızıl küre her atışta biraz daha parlıyor. Piyadelerin arkasına saklanıp uzaktan dürtüyor. Arena dersi bir: önce onu kes, sonra tartış.',
   },
@@ -171,7 +173,6 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 0.55,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Taştan yontulmuş, boynuzlu, iri yarı bir canavar. Çukurunda uyur; uyandırılmaktan hiç hoşlanmaz. Çukuru bilenler ona başka bir adla sesleniyor ama burada yüksek sesle söylemeyelim, uyanmasın. Salon I’deki kupanın nereden “ödünç” alındığını da o biliyor.',
   },
@@ -183,11 +184,10 @@ export const EXHIBITS = [
     name: 'Radiant Kulesi',
     kicker: 'Arena yapısı · Radiant',
     icon: 'tower',
-    height: 1.7,
+    height: 1.9,
     yaw: 0,
     pitch: 0.9,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Beyaz taş, altın süsler, tepesinde yeşil kristal. Arena’da koridoru korur; menziline dalan kahramanlara kristalinden kısa bir ders verir. Sloganı kapısında yazılı: “Kule altına girme.”',
   },
@@ -199,11 +199,10 @@ export const EXHIBITS = [
     name: 'Dire Kulesi',
     kicker: 'Arena yapısı · Dire',
     icon: 'towerDire',
-    height: 1.7,
+    height: 1.85,
     yaw: 0,
     pitch: 0.8,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Kara taş, sivri dikenler, kızıl kristal. Karşıdaki kuzeni kadar kibar değil; ilk uyarıyla son uyarıyı aynı anda yapar. 1vDOQUZ gecelerinin en uzun “kule altı” DOG listesi bu dikenlerin dibinde yazıldı.',
   },
@@ -219,11 +218,102 @@ export const EXHIBITS = [
     yaw: 0,
     pitch: 1.3,
     arena: true,
-    material: MAT_ARENA,
     desc:
       'Kanatlı, heybeli, sabrı taştan bir eşek. Arena’da eşyaları taşır, arada bir yanlış kahramana götürür. Heybede ne olduğunu sorma; büyük ihtimalle birinin unuttuğu Tango.',
     fallbackArt: 'portrait-kurye',
     fallbackArch: 'kurye',
+  },
+
+  // ------------------------------------------------------------------ Salon III · Dokuzun Laneti
+  {
+    key: 'model-hero-storm',
+    id: 'storm',
+    no: 'XIII',
+    wing: 'lanet',
+    name: 'Şimşek Ruhu',
+    kicker: 'Hikâye modu · açılabilir kahraman',
+    icon: 'bolt',
+    height: 1.55,
+    yaw: 0,
+    pitch: 1.35,
+    arena: 'soon',
+    desc:
+      'Mavi tenli, saçları kıvılcım saçan şimşek büyücüsü; atkısı ve minik bıyığıyla fazla ciddi görünmemeye çalışıyor. Haritanın bir ucundan öbürüne göz açıp kapayana kadar varıyor, sonra “Ben mi yaptım?” diye soruyor. Laneti kıranlara katılmak için sırada.',
+  },
+  {
+    key: 'model-hero-treant',
+    id: 'treant',
+    no: 'XIV',
+    wing: 'lanet',
+    name: 'Ağaç Bekçisi',
+    kicker: 'Hikâye modu · açılabilir kahraman',
+    icon: 'treant',
+    height: 1.55,
+    yaw: 0,
+    pitch: 0.62,
+    arena: 'soon',
+    desc:
+      'Fıçı gövdeli yaşlı bir ağaç: yosun sakal, sonbahar yapraklarından taç, omuzlarda mantarlar, göğsünde yanan bir fener ve kabuktan kalkan. Müzenin en ağır eseri; acelesi yok, zaten yüz yıldır aynı koridoru bekliyor.',
+  },
+  {
+    key: 'model-neutral-wolf',
+    id: 'wolf',
+    no: 'XV',
+    wing: 'lanet',
+    name: 'Orman Kurdu',
+    kicker: 'Hikâye modu · tarafsız kamp',
+    icon: 'wolf',
+    height: 1.15,
+    yaw: 0,
+    pitch: 0.95,
+    arena: 'soon',
+    desc:
+      'Koyu gri-mavi postlu, kemik kolyeli, sarı gözleri karanlıkta parlayan orman kurdu. Kurye’nin anlattığına göre o da bir zamanlar pub maçındaki oyunculardanmış; DOG olmasına bir adım kala ormana kaçmış. Kampını farm’layana hâlâ aynı bakışı atıyor: “Yine mi sen?”',
+  },
+  {
+    key: 'model-neutral-harpy',
+    id: 'harpy',
+    no: 'XVI',
+    wing: 'lanet',
+    name: 'Harpi',
+    kicker: 'Hikâye modu · tarafsız kamp',
+    icon: 'harpy',
+    height: 1.35,
+    yaw: 0,
+    pitch: 1.5,
+    arena: 'soon',
+    desc:
+      'Turkuaz ve mor tüylü, pençeli, kanatlı kuş-kadın. Kampına yaklaşanı önce tepeden süzer, sonra bütün sürüyle dalar. Hikâye modunda farm’ın bedava olmadığını ilk o öğretecek.',
+  },
+  {
+    key: 'model-boss-general',
+    id: 'general',
+    no: 'XVII',
+    wing: 'lanet',
+    name: 'Dire Generali',
+    kicker: 'Hikâye modu · III. bölüm boss’u',
+    icon: 'greatsword',
+    height: 1.6,
+    yaw: 0,
+    pitch: 0.6,
+    arena: 'soon',
+    desc:
+      'Kara-kızıl dikenli zırhıyla goblin-ork komutan ve boyundan büyük tırtıklı kılıcı. Dokuzun Laneti’nin üçüncü bölümünde dokuz DOG’un başında o duruyor. Emirleri kısa: “Dalın.” Tanıdık geldiyse Salon II’deki Balta’ya selam söyle.',
+  },
+  {
+    key: 'model-boss-ancient',
+    id: 'ancient',
+    no: 'XVIII',
+    wing: 'lanet',
+    name: 'Sonsuz Pub’ın Kalbi',
+    kicker: 'Hikâye modu · final boss’u',
+    icon: 'ancient',
+    height: 1.6,
+    yaw: 0,
+    pitch: 0.45,
+    arena: 'soon',
+    desc:
+      'Kökleri yere işlemiş, boynuzlu obsidyen bir anıt; ortasında kızıl bir kalp kristali atıyor. Hiç bitmeyen pub maçının laneti buradan yayılıyor, ruhları DOG’a çeviren de bu kalp. 1vDOQUZ’un son durağı: kalp kırılınca maç biter, herkes insan olarak evine döner.',
   },
 ];
 
@@ -233,5 +323,15 @@ export const wingExhibits = (wingId) => EXHIBITS.filter((e) => e.wing === wingId
 /** Salon kaydı. */
 export const wingOf = (ex) => WINGS.find((w) => w.id === ex.wing) || WINGS[0];
 
-/** Toplam eser sayısının Roma rakamı (sayaç için: "Eser IV / XII"). */
+/** Adlardaki İngilizce özel adlar: Türkçe büyük harf kuralı "DİRE", "AEGİS" yapmasın. */
+export const EN_WORD = /^(Dire|Radiant|Aegis|Pub)(.*)$/;
+
+/** Kaide plakası gibi canvas metinleri için büyük harf: Türkçe kelimeler tr, İngilizce özel adlar en kuralıyla. */
+export const upperName = (name) =>
+  name.split(' ').map((w) => {
+    const m = w.match(EN_WORD);
+    return m ? m[1].toUpperCase() + m[2].toLocaleUpperCase('tr-TR') : w.toLocaleUpperCase('tr-TR');
+  }).join(' ');
+
+/** Toplam eser sayısının Roma rakamı (sayaç için: "Eser IV / XVIII"). */
 export const TOTAL_NO = EXHIBITS[EXHIBITS.length - 1].no;

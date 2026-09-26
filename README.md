@@ -43,7 +43,7 @@ Gezinme, Dota'nın yetenek çubuğunu taklit eder: ekranın altındaki slotlara 
 | `E` | **Quizler** | `#quizler` | Hangi DOG'sun?, Dota 2 Bilgi Yarışması, DOG mu Değil mi?, Gerçek Hayran Testi, Yetenek Avı (539 yetenek) |
 | `D` | **Karakter Analizleri** | `#karakterler` | DOG Arşivi (oyuncu türleri), kahraman potansiyeli, türleri karşılaştırma, kendi analizin |
 | `F` | **Soru-Cevap** | `#soru-cevap` | Topluluk soruları ve cevapları (kabul edilen cevap), SSS, DOG Kâhini (yerel, yapay zekâ yok) |
-| `T` | **Galeri & 3D Müze** | `#galeri` | fal.ai ile üretilmiş görseller ve 3D modeller (DOG maskotu, okçu kahraman, Aegis) |
+| `T` | **Galeri & 3D Müze** | `#galeri` | fal.ai ile üretilmiş görseller ve üç salonda 18 3D model (Efsaneler, Arena, Dokuzun Laneti) |
 | `Z` | **Kahraman DOG Endeksi** | `#kahramanlar` | 127 Dota 2 kahramanı (resmi portre ve tam boy görseller), hayran yapımı "DOG potansiyeli", ziyaretçi oylaması, tier listesi, Daha DOG mu?, çark |
 
 Ek sayfalar ve sistemler:

@@ -4,6 +4,7 @@
 import { ALL_TYPES, byId } from '../../data/archetypes.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { arts } from './sources.js';
+import { EXHIBITS } from './exhibit-data.js';
 
 export const GROUPS = [
   { id: 'afis', label: 'Afişler', lore: 'Salon duvarı' },
@@ -18,7 +19,8 @@ export const NB2 = 'Nano Banana 2';
 
 /** Beklenen görsel anahtarları (sıra = galeri sırası). */
 export const IMAGE_KEYS = ['hero-keyart', 'poster-dogdogdog', 'poster-1vdoquz', ...ALL_TYPES.map((a) => 'portrait-' + a.id), 'texture-arena'];
-export const MODEL_KEYS = ['model-dog', 'model-archer', 'model-aegis'];
+/** 3D model anahtarları: müzedeki eser sırasıyla (exhibit-data.js tek kaynak). */
+export const MODEL_KEYS = EXHIBITS.map((e) => e.key);
 
 const FIXED = {
   'hero-keyart': {
@@ -60,8 +62,8 @@ export function metaFor(key) {
   if (key.startsWith('poster-')) return { key, group: 'afis', title: key.slice(7).toUpperCase(), kicker: 'Afiş', desc: 'Salon duvarına asılan bir afiş.', model: PRO, ratio: '16 / 9', spec: '16:9' };
   if (key.startsWith('texture-')) return { key, group: 'doku', title: key.slice(8), kicker: 'Doku', desc: 'Döşenebilir bir doku.', model: NB2, ratio: '1 / 1', spec: '1:1' };
   if (key.startsWith('src3d-')) {
-    const names = { dog: 'DOG maskotu', archer: 'Okçu kahraman', aegis: 'Aegis kupası' };
-    const n = names[key.slice(6)] || key.slice(6);
+    const ex = EXHIBITS.find((e) => e.key === 'model-' + key.slice(6));
+    const n = ex ? ex.name : key.slice(6);
     return { key, group: 'ref', title: n, kicker: 'Trellis 2 kaynağı', desc: `${n} için Trellis 2’ye verilen referans görsel. 3D model bu tek kareden çıktı.`, model: NB2, ratio: '1 / 1', spec: '1:1' };
   }
   return { key, group: 'diger', title: key, kicker: 'Görsel', desc: 'fal.ai ile üretilmiş bir görsel.', model: 'fal.ai', ratio: '1 / 1', spec: '' };

@@ -275,7 +275,7 @@ export const ABILITIES = {
   buz_nova: {
     id: 'buz_nova', hero: 'buz', slot: 'q', icon: 'nova', name: 'Buz Novası', targeting: 'point',
     desc: 'Hedef noktada buz patlaması: alan hasarı ve 3 sn %40 yavaşlatma.',
-    levels: [{ mana: 70, cd: 5.5, range: 7.5, radius: 2.5, dmg: 112, slow: 0.4, slowDur: 3 }],
+    levels: [{ mana: 70, cd: 5.5, range: 7.5, radius: 2.6, dmg: 125, slow: 0.4, slowDur: 3 }],
     cast(g, c) {
       const L = c.L;
       const pt = g.aimPoint(L.range);
@@ -409,9 +409,9 @@ export const ABILITIES = {
   },
   golge_crit: {
     id: 'golge_crit', hero: 'golge', slot: 'e', icon: 'crit', name: 'Kan Kokusu', targeting: 'passive',
-    desc: 'Pasif: saldırıların %20 şansla ×2,6 kritik vurur. Gölge Adımı ve Ölüm Dansı da faydalanır.',
-    levels: [{ chance: 0.2, mul: 2.6 }],
-    stats(g, st, c) { st.crit += c.L.chance; st.critMul = Math.max(st.critMul, c.L.mul); },
+    desc: 'Pasif: saldırıların %20 şansla ×2,6 kritik vurur ve vurduğun hasarın %10’u kadar can çalarsın. Gölge Adımı ve Ölüm Dansı da faydalanır.',
+    levels: [{ chance: 0.2, mul: 2.6, lifesteal: 0.1 }],
+    stats(g, st, c) { st.crit += c.L.chance; st.critMul = Math.max(st.critMul, c.L.mul); st.lifesteal = (st.lifesteal || 0) + c.L.lifesteal; },
     hud() { return { passive: true }; },
   },
   golge_dance: {

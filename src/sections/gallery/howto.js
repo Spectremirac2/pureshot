@@ -6,25 +6,33 @@ import { icon } from '../../core/icons.js';
 import { ALL_TYPES } from '../../data/archetypes.js';
 import { proceduralPortrait } from '../../components/portrait.js';
 import { IMAGE_KEYS, MODEL_KEYS, metaFor, proceduralPoster } from './catalog.js';
-import { EXHIBITS } from './exhibit-data.js';
+import { EXHIBITS, WINGS, wingExhibits } from './exhibit-data.js';
 import { art, modelAvailable } from './sources.js';
 
 const EP_PRO = 'fal-ai/nano-banana-pro';
 const EP_NB2 = 'fal-ai/nano-banana-2';
+const EP_NB2_EDIT = 'fal-ai/nano-banana-2/edit';
 const EP_TRELLIS = 'fal-ai/trellis-2';
+// İlk üç eserin referans görselleri sıfırdan çizildi; sonrakiler okçu görseli stil referansı verilerek (edit) üretildi
+const FIRST_REFS = ['src3d-dog', 'src3d-archer', 'src3d-aegis'];
 
 function endpointFor(key) {
   if (key === 'hero-keyart' || key.startsWith('poster-')) return EP_PRO;
   if (key.startsWith('model-')) return EP_TRELLIS;
+  if (key.startsWith('src3d-') && !FIRST_REFS.includes(key)) return EP_NB2_EDIT;
   return EP_NB2;
 }
+
+/** optimize-assets.mjs ile aynı kural: ekranda küçük görünen birimler 512², diğerleri 768² doku. */
+const smallTex = (key) => /^model-(creep-|neutral-|courier)/.test(key);
 
 function outputFor(key) {
   if (key === 'hero-keyart') return '21:9 · 2K';
   if (key.startsWith('poster-')) return '16:9 · 2K';
   if (key.startsWith('portrait-')) return '1:1 · 1K';
   if (key.startsWith('texture-')) return '1:1 · döşenebilir';
-  return 'GLB · doku 1024';
+  if (key.startsWith('model-')) return `GLB · doku ${smallTex(key) ? 512 : 768}²`;
+  return '1:1 · 1K';
 }
 
 function thumb(key, fallback, cls = '') {
@@ -63,13 +71,19 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
       h('div', { class: 'gl-pv-tex', style: art('texture-arena') ? { backgroundImage: `url("${art('texture-arena')}")` } : null, role: 'img', 'aria-label': 'Arena zemini dokusu, 3×3 döşenmiş' }),
     ),
     models: h('div', { class: 'gl-pv gl-pv-models' },
-      EXHIBITS.map((ex) => {
-        const ok = modelAvailable(ex.key);
-        return h('div', { class: 'gl-model-tile' },
-          h('span', { class: 'gl-model-ico', 'aria-hidden': 'true' }, icon(ex.icon, { size: 22 })),
-          h('span', { class: 'gl-model-name' }, ex.name),
-          h('span', { class: 'mono xsmall dim' }, ex.key + '.glb'),
-          h('span', { class: `badge ${ok ? 'jade' : ''}` }, ok ? 'GLB hazır' : 'bekleniyor'),
+      WINGS.map((w) => {
+        const list = wingExhibits(w.id);
+        return h('div', { class: 'gl-model-wing' },
+          h('span', { class: 'gl-model-wing-h xsmall' }, w.label, h('span', { class: 'num dim' }, ` · ${list.length}`)),
+          h('ul', { class: 'gl-model-grid', role: 'list' }, list.map((ex) => {
+            const ok = modelAvailable(ex.key);
+            return h('li', { class: 'gl-model-tile', title: `${ex.key}.glb · ${ok ? 'GLB hazır' : 'bekleniyor'}` },
+              h('span', { class: 'gl-model-ico', 'aria-hidden': 'true' }, icon(ex.icon, { size: 18 })),
+              h('span', { class: 'gl-model-name' }, ex.name),
+              h('span', { class: 'mono xsmall dim gl-model-key' }, ex.key + '.glb'),
+              h('span', { class: `gl-model-dot${ok ? ' ok' : ''}`, role: 'img', 'aria-label': ok ? 'GLB hazır' : 'bekleniyor' }),
+            );
+          })),
         );
       }),
       h('button', { class: 'btn ghost sm', type: 'button', onclick: () => onMuseum && onMuseum() }, icon('cube', { size: 16 }), 'Müzede incele'),
@@ -77,7 +91,7 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
     links: h('div', { class: 'gl-pv gl-pv-links' },
       h('div', { class: 'gl-pack' },
         h('div', null, h('span', { class: 'gl-pack-k xsmall' }, 'Görseller'), h('span', { class: 'gl-pack-v' }, 'sharp → WebP'), h('span', { class: 'xsmall dim' }, 'portre başına 65–115 KB')),
-        h('div', null, h('span', { class: 'gl-pack-k xsmall' }, '3D modeller'), h('span', { class: 'gl-pack-v' }, 'glTF-Transform → meshopt'), h('span', { class: 'xsmall dim' }, 'model başına 1,3–1,5 MB → 420–470 KB')),
+        h('div', null, h('span', { class: 'gl-pack-k xsmall' }, '3D modeller'), h('span', { class: 'gl-pack-v' }, 'glTF-Transform → meshopt'), h('span', { class: 'xsmall dim' }, 'model başına 0,9–1,9 MB → 220–740 KB · doku 768² / 512²')),
       ),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary sm', type: 'button', onclick: () => onMuseum && onMuseum() }, icon('cube', { size: 16 }), '3D Müze'),
@@ -107,23 +121,23 @@ export function mountHowto(el, ctx, { onMuseum, onArt } = {}) {
       title: 'Portreler, doku ve 3D referansları',
       tool: 'fal.ai · Nano Banana 2',
       toolLang: 'en',
-      text: '11 DOG portresi (1:1, 1K), kenarları dikişsiz birleşen arena zemini ve 3D modellere kaynak olacak üç referans görsel: DOG maskotu, okçu kahraman, Aegis kupası. Referans görseller siteye konmadı; yalnızca bir sonraki adımın girdisiydi.',
-      chips: [EP_NB2, '1:1 · 1K'],
+      text: `11 DOG portresi (1:1, 1K), kenarları dikişsiz birleşen arena zemini ve 3D modellere kaynak olacak ${EXHIBITS.length} referans görsel. Önce üçü sıfırdan çizildi: DOG maskotu, okçu kahraman, Aegis kupası. Arena ve hikâye modu kadrosundaki ${EXHIBITS.length - 3} karakter ise okçu görseli stil referansı olarak verilip düzenleme (edit) uç noktasıyla üretildi; böylece hepsi aynı chibi ailesinden. Referans görseller siteye konmadı, yalnızca bir sonraki adımın girdisiydi.`,
+      chips: [EP_NB2, EP_NB2_EDIT, '1:1 · 1K'],
       preview: 'portraits',
     },
     {
       title: 'Görselden 3D',
       tool: 'fal.ai · Trellis 2',
       toolLang: 'en',
-      text: 'Her referans görsel Trellis 2 ile dokulu bir GLB modele dönüştü: çözünürlük 1024, doku 1024, yaklaşık 30 bin üçgene indirgeme ve yeniden ağ örme (remesh). Sonuç model başına yaklaşık 28,5 bin üçgen ve 1024×1024 doku: web için hafif, müze kaidesi için yeterince detaylı.',
-      chips: [EP_TRELLIS, 'GLB · ~28,5k üçgen · 1024 doku'],
+      text: `Her referans görsel Trellis 2 ile dokulu bir GLB modele dönüştü: çözünürlük 1024, doku 1024, üçgen indirgeme ve yeniden ağ örme (remesh). ${EXHIBITS.length} modelin hepsi 19–30 bin üçgen arasında: kahramanlar, boss’lar ve kuleler üst uçta, creep’ler, kamp canavarları ve kurye yaklaşık 19,5 bin. Web için hafif, müze kaidesi için yeterince detaylı.`,
+      chips: [EP_TRELLIS, `${EXHIBITS.length} GLB · 19–30k üçgen`],
       preview: 'models',
     },
     {
       title: 'Sıkıştır ve siteye yerleştir',
       tool: 'sharp · glTF-Transform · three.js',
       toolLang: 'en',
-      text: 'Görseller sharp ile WebP’ye, modeller glTF-Transform ile meshopt sıkıştırmasına geçti. Sonra hepsi sitenin paketine girdi: three.js sahneleri, 1vDOQUZ Arena oyunu ve bu müze. Bir dosya eksik kalırsa bileşen prosedürel bir yedeğe geçiyor; duvarlar hiçbir zaman boş kalmıyor.',
+      text: 'Görseller sharp ile WebP’ye, modeller glTF-Transform ile meshopt sıkıştırmasına ve WebP dokulara geçti: dokular 768², ekranda küçük görünen creep’ler, kamp canavarları ve kurye 512². Sonra hepsi sitenin paketine girdi: three.js sahneleri, 1vDOQUZ Arena oyunu ve bu müze. Müze aynı anda yalnızca sergilenen eseri ve iki komşusunu bellekte tutuyor; bir dosya eksik kalırsa kaide prosedürel bir yedeğe geçiyor, duvarlar hiçbir zaman boş kalmıyor.',
       chips: ['WebP', 'meshopt', 'three.js'],
       preview: 'links',
     },

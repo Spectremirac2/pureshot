@@ -673,8 +673,8 @@ function buildCreepRanged(pal) {
 function buildRoshan(pal, stoneMap) {
   const root = new THREE.Group();
   const sphere = new THREE.SphereGeometry(1, 32, 24);
-  const rock = std('#8a8098', { roughness: 0.92, map: stoneMap || null });
-  const rockDark = std('#5a526a', { roughness: 0.95, map: stoneMap || null });
+  const rock = std('#d2cbe0', { roughness: 0.92, map: stoneMap || null });
+  const rockDark = std('#a39bb6', { roughness: 0.95, map: stoneMap || null });
   const ivory = std('#eadcbc', { roughness: 0.45 });
   const eye = glow(pal.ember || '#ff6a2b', 2);
   const body = new THREE.Group();
@@ -710,7 +710,8 @@ function buildRoshan(pal, stoneMap) {
 
 function buildTower(pal, stoneMap, dire) {
   const root = new THREE.Group();
-  const stone = std(dire ? '#3a3040' : '#e9e2d0', { roughness: 0.85, map: stoneMap || null });
+  // Taş dokusu koyu tonlu: yalnızca Dire kulesinde; Radiant beyaz kalsın
+  const stone = dire ? std('#5a4e66', { roughness: 0.85, map: stoneMap || null }) : std('#efe8d8', { roughness: 0.7 });
   const trim = dire ? std('#6a2030', { metalness: 0.6, roughness: 0.4 }) : std(pal.aegis || '#e9b949', { metalness: 1, roughness: 0.28 });
   const col = dire ? pal.dire || '#e0354b' : pal.radiant || '#43d6a0';
   const gem = glow(col, 1.6);
@@ -811,6 +812,221 @@ function buildCourier(pal) {
   return root;
 }
 
+// ------------------------------------------------------------------ Salon III · Dokuzun Laneti
+function buildStorm() {
+  const c = chibi({ skin: '#5a8fe0', cloth: '#1f3f7a', pants: '#162c55', trim: '#e9b949', boots: '#16223f' });
+  const spark = glow('#8fe3ff', 1.8);
+  const scarf = std('#f0c040', { roughness: 0.7 });
+  // parlayan saç: tepe ve arkada kıvılcım tutamları
+  const hair = new THREE.Group();
+  hair.position.set(0, 0.16, -0.04);
+  c.head.add(hair);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    add(hair, new THREE.ConeGeometry(0.07, 0.3, 8), spark, [Math.cos(a) * 0.14, 0.1, Math.sin(a) * 0.12 - 0.04], [Math.sin(a) * -0.5 - 0.3, 0, Math.cos(a) * 0.6]);
+  }
+  add(hair, c.sphere, spark, [0, 0.02, -0.04], null, [0.22, 0.12, 0.2]);
+  // atkı + bıyık
+  add(c.body, new THREE.TorusGeometry(0.17, 0.05, 10, 32), scarf, [0, 0.76, 0.02], [Math.PI / 2 - 0.2, 0, 0]);
+  const tail = add(c.body, new THREE.BoxGeometry(0.08, 0.28, 0.03), scarf, [0.1, 0.62, -0.18], [0.4, 0, 0.3]);
+  for (const s of [-1, 1]) add(c.head, new THREE.CapsuleGeometry(0.014, 0.07, 4, 8), std('#1a1f3a', { roughness: 0.6 }), [s * 0.045, -0.1, 0.27], [0, 0, s * 1.2]);
+  // elde kıvılcım küresi
+  const orb = add(c.handR, c.sphere, spark, [0.02, 0.1, 0.02], null, 0.07);
+  c.root.userData.tick = (t) => {
+    c.body.position.y = Math.sin(t * 2.6) * 0.012;
+    hair.rotation.y = Math.sin(t * 3) * 0.08;
+    spark.emissiveIntensity = 1.5 + Math.sin(t * 9) * 0.35 + (Math.sin(t * 23) > 0.9 ? 0.8 : 0);
+    orb.scale.setScalar(0.07 * (1 + Math.sin(t * 7) * 0.12));
+    tail.rotation.z = 0.3 + Math.sin(t * 4) * 0.12;
+  };
+  c.root.userData.themed = [];
+  return c.root;
+}
+
+function buildTreant(pal) {
+  const root = new THREE.Group();
+  const sphere = new THREE.SphereGeometry(1, 28, 20);
+  const bark = std('#6b4a2e', { roughness: 0.95 });
+  const barkDark = std('#4a3220', { roughness: 0.95 });
+  const moss = std('#5f8a3a', { roughness: 0.9 });
+  const leaf = std('#d9822b', { roughness: 0.7, side: THREE.DoubleSide });
+  const leaf2 = std('#b8451f', { roughness: 0.7, side: THREE.DoubleSide });
+  const cap = std('#c9423a', { roughness: 0.6 });
+  const lamp = glow(pal.aegis2 || '#f6d98a', 2);
+  const body = new THREE.Group();
+  root.add(body);
+  // fıçı gövde + halkalar + kökler
+  const trunk = new THREE.LatheGeometry([[0.28, 0.02], [0.36, 0.2], [0.4, 0.5], [0.37, 0.8], [0.3, 1.0], [0.24, 1.08]].map(([r, y]) => new THREE.Vector2(r, y)), 32);
+  add(body, trunk, bark);
+  for (const y of [0.3, 0.72]) add(body, new THREE.TorusGeometry(y < 0.5 ? 0.395 : 0.385, 0.018, 6, 40), barkDark, [0, y, 0], [Math.PI / 2, 0, 0]);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    limb(root, 0.05, barkDark, [Math.cos(a) * 0.26, 0.12, Math.sin(a) * 0.26], [Math.cos(a) * 0.46, 0.02, Math.sin(a) * 0.46]);
+  }
+  // göğüste fener
+  add(body, new RoundedBoxGeometry(0.16, 0.2, 0.08, 2, 0.02), barkDark, [0, 0.56, 0.37]);
+  const flame = add(body, sphere, lamp, [0, 0.56, 0.41], null, [0.05, 0.07, 0.03]);
+  // yüz: oyuk gözler + yosun sakal
+  for (const s of [-1, 1]) add(body, sphere, lamp, [s * 0.1, 0.9, 0.3], null, [0.035, 0.025, 0.02]);
+  add(body, sphere, moss, [0, 0.74, 0.3], null, [0.18, 0.14, 0.08]);
+  for (let i = 0; i < 5; i++) add(body, new THREE.ConeGeometry(0.035, 0.18, 6), moss, [(i - 2) * 0.06, 0.62, 0.33], [Math.PI, 0, (i - 2) * 0.1]);
+  // yaprak tacı
+  const crown = new THREE.Group();
+  crown.position.y = 1.08;
+  body.add(crown);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    add(crown, new THREE.CircleGeometry(0.1, 5), i % 2 ? leaf : leaf2, [Math.cos(a) * 0.2, 0.06 + (i % 3) * 0.03, Math.sin(a) * 0.2], [-0.9, a, 0]);
+  }
+  // omuzlarda mantarlar
+  for (const s of [-1, 1]) {
+    add(body, new THREE.CylinderGeometry(0.025, 0.03, 0.08, 8), std('#efe3cf'), [s * 0.3, 0.98, 0.02]);
+    add(body, new THREE.SphereGeometry(0.08, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), cap, [s * 0.3, 1.02, 0.02]);
+  }
+  // kollar: sağda kabuk kalkan
+  limb(body, 0.07, bark, [0.36, 0.78, 0], [0.5, 0.4, 0.14]);
+  limb(body, 0.07, bark, [-0.36, 0.78, 0], [-0.5, 0.4, 0.14]);
+  const shield = new THREE.Group();
+  shield.position.set(-0.52, 0.42, 0.22);
+  body.add(shield);
+  add(shield, new THREE.CylinderGeometry(0.22, 0.24, 0.05, 9), barkDark, [0, 0, 0], [Math.PI / 2, 0, 0.2]);
+  add(shield, new THREE.TorusGeometry(0.2, 0.02, 6, 24), bark, [0, 0, 0.03]);
+  root.userData.tick = (t) => {
+    body.rotation.z = Math.sin(t * 0.7) * 0.02;
+    crown.rotation.y = Math.sin(t * 0.6) * 0.1;
+    lamp.emissiveIntensity = 1.8 + Math.sin(t * 5) * 0.3 + Math.sin(t * 13) * 0.15;
+    flame.scale.y = 0.07 * (1 + Math.sin(t * 6) * 0.1);
+  };
+  root.userData.themed = [];
+  return root;
+}
+
+function buildWolf() {
+  const root = new THREE.Group();
+  const sphere = new THREE.SphereGeometry(1, 28, 20);
+  const fur = std('#4a5468', { roughness: 0.85 });
+  const furLight = std('#8a93a6', { roughness: 0.9 });
+  const dark = std('#15161c', { roughness: 0.3 });
+  const eye = glow('#ffd54a', 2);
+  const bone = std('#eadcbc', { roughness: 0.5 });
+  add(root, sphere, fur, [0, 0.5, -0.02], null, [0.24, 0.24, 0.42]);
+  add(root, sphere, furLight, [0, 0.44, 0.04], null, [0.18, 0.17, 0.34]);
+  for (const [x, z] of [[-0.13, 0.24], [0.13, 0.24], [-0.13, -0.26], [0.13, -0.26]]) {
+    add(root, new THREE.CapsuleGeometry(0.06, 0.24, 4, 10), fur, [x, 0.2, z]);
+    add(root, sphere, dark, [x, 0.05, z + 0.03], null, [0.07, 0.045, 0.085]);
+  }
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.56, -0.42);
+  root.add(tail);
+  add(tail, new THREE.ConeGeometry(0.08, 0.36, 12), fur, [0, 0.06, -0.14], [-1.1, 0, 0]);
+  const head = new THREE.Group();
+  head.position.set(0, 0.76, 0.36);
+  root.add(head);
+  add(head, sphere, fur, [0, 0, 0], null, [0.2, 0.19, 0.19]);
+  add(head, sphere, furLight, [0, -0.06, 0.16], null, [0.11, 0.09, 0.14]);
+  add(head, sphere, dark, [0, -0.03, 0.3], null, [0.04, 0.03, 0.025]);
+  for (const s of [-1, 1]) {
+    add(head, sphere, eye, [s * 0.08, 0.04, 0.16], null, [0.035, 0.025, 0.02]);
+    add(head, new THREE.ConeGeometry(0.06, 0.16, 4), fur, [s * 0.11, 0.2, -0.02], [0, 0, -s * 0.25]);
+  }
+  // kemik kolye
+  add(root, new THREE.TorusGeometry(0.17, 0.014, 6, 28), std('#6b4228'), [0, 0.66, 0.3], [-0.6, 0, 0]);
+  for (let i = -2; i <= 2; i++) add(root, new THREE.CapsuleGeometry(0.014, 0.06, 4, 6), bone, [i * 0.055, 0.58 - Math.abs(i) * 0.02, 0.43 - Math.abs(i) * 0.02], [0.3, 0, i * 0.3]);
+  root.userData.tick = (t) => {
+    head.rotation.y = Math.sin(t * 0.8) * 0.2;
+    head.rotation.x = Math.sin(t * 1.3) * 0.05;
+    tail.rotation.y = Math.sin(t * 5) * 0.3;
+    eye.emissiveIntensity = 1.6 + Math.sin(t * 2) * 0.5;
+  };
+  root.userData.themed = [];
+  return root;
+}
+
+function buildHarpy() {
+  const c = chibi({ skin: '#e8c8b0', cloth: '#3f8f8a', pants: '#2c5f5c', trim: '#8b5fb0', trimMetal: false, boots: '#e0b04a', hood: null });
+  const feather = std('#3aa39a', { roughness: 0.6, side: THREE.DoubleSide });
+  const feather2 = std('#7a4fa8', { roughness: 0.6, side: THREE.DoubleSide });
+  const talon = std('#e0b04a', { roughness: 0.4, metalness: 0.2 });
+  // saç tüyleri
+  for (let i = 0; i < 7; i++) {
+    const a = -0.9 + (i / 6) * 1.8;
+    add(c.head, new THREE.ConeGeometry(0.06, 0.34, 6), i % 2 ? feather : feather2, [Math.sin(a) * 0.2, 0.2, -0.1 - Math.cos(a) * 0.05], [-0.9, 0, -a * 0.8]);
+  }
+  const wings = [];
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Group();
+    wing.position.set(s * 0.2, 0.66, -0.08);
+    c.body.add(wing);
+    for (let i = 0; i < 6; i++) {
+      const t = i / 5;
+      const ang = lerp(0.9, -0.5, t);
+      add(wing, featherGeo(lerp(0.62, 0.3, t), 0.12), i % 2 ? feather2 : feather, [0, -t * 0.05, -0.012 * i], [0, 0, s > 0 ? ang : Math.PI - ang]);
+    }
+    wings.push([wing, s]);
+    for (let k = -1; k <= 1; k++) add(c.root, new THREE.ConeGeometry(0.015, 0.07, 6), talon, [s * 0.1 + k * 0.03, 0.02, 0.15], [Math.PI / 2, 0, 0]);
+  }
+  c.root.userData.tick = (t) => {
+    c.root.position.y = 0.02 + Math.sin(t * 2.5) * 0.02;
+    for (const [w, s] of wings) w.rotation.y = -s * (0.15 + Math.sin(t * 3.4) * 0.3);
+  };
+  c.root.userData.themed = [];
+  return c.root;
+}
+
+function buildGeneral(pal) {
+  const c = chibi({ skin: '#6f8a4a', cloth: '#1c1418', pants: '#141014', trim: pal.direDeep || '#8f1d2c', helmet: '#26181c', tusks: true, pads: true, eyeGlow: pal.dire || '#e0354b', wide: 1.2, boots: '#141014' });
+  const steel = std('#3a3a44', { metalness: 0.9, roughness: 0.35 });
+  const edge = std('#b9bcc6', { metalness: 1, roughness: 0.25 });
+  const crimson = std(pal.dire || '#e0354b', { roughness: 0.5, metalness: 0.4 });
+  // omuz dikenleri
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) add(c.body, new THREE.ConeGeometry(0.03, 0.14, 6), steel, [s * (0.24 + k * 0.04) * 1.2, 0.76 + k * 0.01, -0.04 + k * 0.04], [0, 0, -s * (0.4 + k * 0.25)]);
+  add(c.body, new THREE.BoxGeometry(0.12, 0.3, 0.02), crimson, [0, 0.36, 0.23]);
+  // tırtıklı dev kılıç: sağ elde, omuza yaslı
+  const sword = new THREE.Group();
+  sword.rotation.set(0, 0, -0.35);
+  c.handR.add(sword);
+  add(sword, new THREE.CylinderGeometry(0.022, 0.022, 0.2, 8), std('#2a1a14'), [0, 0, 0]);
+  add(sword, new THREE.BoxGeometry(0.26, 0.04, 0.05), crimson, [0, 0.11, 0]);
+  add(sword, new THREE.BoxGeometry(0.12, 0.9, 0.025), steel, [0, 0.58, 0]);
+  for (let i = 0; i < 6; i++) add(sword, new THREE.ConeGeometry(0.028, 0.06, 4), edge, [0.07, 0.24 + i * 0.13, 0], [0, 0, -Math.PI / 2]);
+  add(sword, new THREE.ConeGeometry(0.06, 0.16, 4), steel, [0, 1.1, 0], [0, Math.PI / 4, 0], [1, 1, 0.3]);
+  c.root.userData.tick = (t) => {
+    c.body.position.y = Math.sin(t * 1.6) * 0.01;
+    c.head.rotation.y = Math.sin(t * 0.6) * 0.1;
+    sword.rotation.z = -0.35 + Math.sin(t * 1.2) * 0.03;
+  };
+  c.root.userData.themed = [];
+  return c.root;
+}
+
+function buildAncient(pal, stoneMap) {
+  const root = new THREE.Group();
+  const obsidian = std('#221b2c', { roughness: 0.35, metalness: 0.4, map: stoneMap || null });
+  const rootsMat = std('#3a2a24', { roughness: 0.9 });
+  const heart = glow(pal.dire || '#e0354b', 2.2);
+  const ivory = std('#cfc2a8', { roughness: 0.5 });
+  // sivri anıt: sekizgen gövde
+  add(root, new THREE.CylinderGeometry(0.34, 0.5, 0.3, 8), obsidian, [0, 0.15, 0]);
+  add(root, new THREE.CylinderGeometry(0.16, 0.36, 0.9, 8), obsidian, [0, 0.75, 0]);
+  add(root, new THREE.ConeGeometry(0.16, 0.36, 8), obsidian, [0, 1.38, 0]);
+  for (const s of [-1, 1]) {
+    add(root, hornGeo(0.08, 0.55, 0.6, s), ivory, [s * 0.2, 0.95, 0], [0, 0, s * 0.35]);
+    add(root, new THREE.ConeGeometry(0.06, 0.4, 6), obsidian, [s * 0.34, 0.5, 0.05], [0, 0, -s * 0.5]);
+  }
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    limb(root, 0.04, rootsMat, [Math.cos(a) * 0.4, 0.2, Math.sin(a) * 0.4], [Math.cos(a) * 0.72, 0.02, Math.sin(a) * 0.72]);
+  }
+  const core = add(root, new THREE.OctahedronGeometry(0.12), heart, [0, 0.78, 0.22], null, [0.9, 1.3, 0.6]);
+  root.userData.tick = (t) => {
+    const beat = Math.pow(Math.max(0, Math.sin(t * 3.2)), 8) + Math.pow(Math.max(0, Math.sin(t * 3.2 - 0.6)), 8) * 0.6;
+    heart.emissiveIntensity = 1.6 + beat * 2.2;
+    core.scale.set(0.9 + beat * 0.12, 1.3 + beat * 0.15, 0.6);
+  };
+  root.userData.themed = [];
+  return root;
+}
+
 const BUILDERS = {
   dog: (pal) => buildDog(pal),
   archer: (pal) => buildArcher(pal),
@@ -824,6 +1040,12 @@ const BUILDERS = {
   'tower-radiant': (pal, stone) => buildTower(pal, stone, false),
   'tower-dire': (pal, stone) => buildTower(pal, stone, true),
   courier: (pal) => buildCourier(pal),
+  storm: () => buildStorm(),
+  treant: (pal) => buildTreant(pal),
+  wolf: () => buildWolf(),
+  harpy: () => buildHarpy(),
+  general: (pal) => buildGeneral(pal),
+  ancient: (pal, stone) => buildAncient(pal, stone),
 };
 
 /**

@@ -6,7 +6,7 @@
 
 import { DOG_TYPES } from './dogs.js';
 import { ROSHAN_PIT, DIRE_GATE, TOWER_R, TOWER_SPOTS, pushOut } from './map.js';
-import { DMG, applyStatus, dealDamage, newStatus, slowMul } from './combat.js';
+import { DMG, applyStatus, dealDamage, newStatus } from './combat.js';
 
 const DOG_BASE = { kind: 'dog', armor: 0, magicResist: 0, attackType: 'melee', bounty: { gold: 38, xp: 45, score: 100 }, model: 'model-dog', height: 0.9 };
 
@@ -258,7 +258,7 @@ export function thinkRoshan(e, g, dt) {
     }
     return STOP;
   }
-  return { mx: ux, mz: uz, spd: e.speed * slowMul(e) };
+  return { mx: ux, mz: uz, spd: e.speed };
 }
 
 // ------------------------------------------------------------------ kuleler

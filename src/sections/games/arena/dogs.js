@@ -30,11 +30,12 @@ export const archOf = (id) => ARCH[id] || { id, name: id, color: '#ff6a2b' };
 export function waveScale(n) {
   const k = n - 1;
   return {
-    hp: 1 + 0.26 * k + 0.02 * k * k,
+    // Arena 2.0: kahraman artık seviye atlayıp eşya aldığı için geç dalgalar daha sert ölçeklenir
+    hp: 1 + 0.26 * k + 0.035 * k * k,
     speed: Math.min(1.42, 1 + 0.045 * k),
-    dmg: 1 + 0.12 * k,
-    interval: Math.max(0.65, 1.45 - 0.09 * k),
-    elites: n >= 4 ? Math.min(4, 1 + Math.floor((n - 4) / 2)) : 0,
+    dmg: 1 + 0.12 * k + 0.006 * k * k,
+    interval: Math.max(0.6, 1.45 - 0.09 * k),
+    elites: n >= 4 ? Math.min(6, 1 + Math.floor((n - 4) / 2)) : 0,
   };
 }
 

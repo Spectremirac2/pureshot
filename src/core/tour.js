@@ -36,7 +36,7 @@ const SLOT_COPY = {
   arena: 'Ultin hazır. 3D arenada dokuz kişiye karşı tek başına: gerçek 1vDOQUZ. Bahane yok, bekleme süresi yok.',
   karakterler: '10 DOG türü, radar grafikleri ve saha notları. Takımdaki DOG’un türü burada teşhis edilir.',
   'soru-cevap': 'Topluluğa sor, DOG Kâhini’ne danış, SSS’e göz at. Kâhin “ward al” diyorsa, al.',
-  galeri: 'fal.ai afişleri ve döndürüp inceleyebileceğin 3D modeller: DOG maskotu, okçu ve Aegis.',
+  galeri: 'fal.ai afişleri ve üç salonda 18 3D eser: DOG maskotu, Arena kahramanları, Roshan’ın kuzeni ve dahası.',
   kahramanlar: 'Eşya slotun: 127 kahramanın DOG endeksi, tier listesi ve “Daha DOG mu?”. Pick’ten önce bir bak.',
 };
 
