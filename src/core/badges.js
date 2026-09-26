@@ -66,7 +66,12 @@ export const THRESHOLDS = {
   hafiza: 600, // puan (1000 − hamle×20 − sn×5)
   rune: 300, // ms ortalama — DÜŞÜK iyi
   arena: 1200, // ≈ ilk dalga: 9 DOG × 100 + 300 dalga bonusu
-  arenaEfsane: 6000, // ≈ 3–4 dalga
+  arenaEfsane: 10000, // Arena 2.0/3.0 puanlaması: ≈ 5–6 dalga
+  arenaRoshan: 1, // kesilen Roshan (picks['arena:roshan'])
+  arenaDalga: 10, // ulaşılan en yüksek dalga (picks['arena:dalga'])
+  arenaHero: 1200, // Dört Yüz: dört ana kahramanın her biriyle en az bu kadar puan (picks['arena:h:<id>'])
+  arenaStory: 5, // Lanet Kırıcı: biten hikâye bölümü (picks['arena:story'], 1–5)
+  arenaLanet: 5, // Lanet Ustası: 5. dalgaya ulaşılan en yüksek Lanet seviyesi (picks['arena:lanet'])
   dogdleSharp: 2, // tahmin — DÜŞÜK iyi
   portre: 3000, // puan (10 tur × 100–500, seri çarpanı ×2'ye kadar)
   invoker: 15, // büyü / 60 sn
@@ -100,6 +105,9 @@ const pickNum = (me, key) => Math.max(0, Number(me && me.picks ? me.picks[key] :
 const dogCount = (me) => Math.max(0, Number(me && me.dog) || 0);
 const jokeLikes = (me) => Object.keys((me && me.likes) || {}).filter((k) => k.startsWith('jk:')).length;
 const T = THRESHOLDS;
+/** Dört Yüz rozetinin kahramanları (Arena 2.0'ın dört ana kahramanı; heroes.js kimlikleri). */
+const ARENA_HEROES = ['okcu', 'balta', 'buz', 'golge'];
+const arenaHeroCount = (me) => ARENA_HEROES.filter((id) => pickNum(me, `arena:h:${id}`) >= T.arenaHero).length;
 
 /** "En iyin: …" ilerleme metni için birim biçimleyici. */
 const unit = (u) => (n) => `${fmtNum(n)} ${u}`;
@@ -146,6 +154,26 @@ export const BADGES = [
   { id: 'arena-efsane', group: 'oyun', game: 'arena', name: 'Arena Efsanesi', icon: 'crown', color: 'var(--aegis-2)',
     how: `Arena’da ${fmtNum(T.arenaEfsane)} puan topla.`,
     test: atLeast('arena', T.arenaEfsane), progress: upTo('arena', T.arenaEfsane, unit('puan')) },
+  { id: 'roshan-avcisi', group: 'oyun', game: 'arena', name: 'Roshan Avcısı', icon: 'skull', color: 'var(--aegis)',
+    how: 'Arena’da Kaya Canavarı’nı (Roshan) kes. Aegis senin, peynir de.',
+    test: (me) => pickNum(me, 'arena:roshan') >= T.arenaRoshan },
+  { id: 'on-dalga', group: 'oyun', game: 'arena', name: 'On Dalga', icon: 'flag', color: 'var(--radiant)',
+    how: `Arena’da ${T.arenaDalga}. dalgaya ulaş. Dokuz DOG’u on kez dizmek gibi.`,
+    test: (me) => pickNum(me, 'arena:dalga') >= T.arenaDalga,
+    progress: (me) => { const v = pickNum(me, 'arena:dalga'); return v > 0 ? { pct: Math.min(1, v / T.arenaDalga), text: `En iyi dalgan: ${v}` } : null; } },
+  { id: 'dort-yuz', group: 'oyun', game: 'arena', name: 'Dört Yüz', icon: 'mask', color: 'var(--arcane)',
+    how: `Okçu, Balta, Buz Cadısı ve Gölge’nin her biriyle ilk dalgayı temizle (${fmtNum(T.arenaHero)} puan).`,
+    test: (me) => arenaHeroCount(me) >= ARENA_HEROES.length, progress: count(arenaHeroCount, ARENA_HEROES.length, 'kahraman') },
+  { id: 'lanet-ustasi', group: 'oyun', game: 'arena', name: 'Lanet Ustası', icon: 'flame', color: 'var(--dire)',
+    how: `Arena’da Lanet ${T.arenaLanet} ya da üstüyle 5. dalgaya ulaş. İsteğe bağlı acı.`,
+    test: (me) => pickNum(me, 'arena:lanet') >= T.arenaLanet,
+    progress: (me) => { const v = pickNum(me, 'arena:lanet'); return v > 0 ? { pct: Math.min(1, v / T.arenaLanet), text: `En yüksek Lanet: ${v}` } : null; } },
+  { id: 'kurye-yoldasi', group: 'oyun', game: 'arena', name: 'Kurye’nin Yoldaşı', icon: 'courier', color: 'var(--radiant)',
+    how: 'Arena hikâyesi Dokuzun Laneti’nde I. bölümü (Nehir Kıyısı) bitir.',
+    test: (me) => pickNum(me, 'arena:story') >= 1 },
+  { id: 'lanet-kirici', group: 'oyun', game: 'arena', name: 'Lanet Kırıcı', icon: 'ancient', color: 'var(--ember)',
+    how: `Dokuzun Laneti’nin ${T.arenaStory} bölümünü de bitir: DOG’lar yeniden takım arkadaşı olsun.`,
+    test: (me) => pickNum(me, 'arena:story') >= T.arenaStory, progress: count((me) => pickNum(me, 'arena:story'), T.arenaStory, 'bölüm') },
   { id: 'report', group: 'oyun', game: 'dogavi', name: 'Report Makinesi', icon: 'paw', color: 'var(--ember)',
     how: `DOG Avı’nda ${fmtNum(T.dogavi)} puan.`,
     test: atLeast('dogavi', T.dogavi), progress: upTo('dogavi', T.dogavi, unit('puan')) },

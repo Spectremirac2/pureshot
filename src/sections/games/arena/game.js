@@ -1,20 +1,21 @@
-// 1vDOQUZ Arena 2.0 — oyun simülasyonu (görüntüden bağımsız).
+// 1vDOQUZ Arena 3.0 — oyun simülasyonu (görüntüden bağımsız).
 // Sabit zaman adımıyla ilerler; görüntü katmanı (3D ya da 2D yedek) durumu okur ve emit() olaylarından efekt üretir.
 //
 // Genişletme noktaları (bkz. docs/oyunlar/arena.md → Mimari):
-//   createGame(emit, config)  config = { mode: 'endless'|'story', heroId, seed, modifiers: {}, waves: null|[…], objectives: [] }
-//   g.on(type, fn) / g.off     olay veri yolu: runStart, waveStart, waveEnd, unitKilled, bossKilled, itemBought,
-//                              levelUp, runEnd (+ görsel olaylar: hit, kill, fx, …)
+//   createGame(emit, config)  config = { mode, heroId, seed, curse, modifiers, waves, objectives, meta, mission }
+//   g.on(type, fn) / g.off     olay veri yolu (runStart, waveStart, waveEnd, unitKilled, bossKilled, itemBought,
+//                              levelUp, objective, runEnd + görsel olaylar)
 //   g.hooks                    { beforeDamage, afterDamage, onKill, onStep } dizileri
+//   g.spawnUnit(id, opts)      hikâye görevleri için birim/boss doğurma (units.js kimlikleri)
 //   Hasar: combat.js dealDamage · Durumlar: combat.js applyStatus
 
 import { buildWave, waveScale, thinkDog, tryBite, archOf, TYPE_IDS, DOG_TYPES } from './dogs.js';
-import { heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, HERO_IDS } from './heroes.js';
-import { ITEMS, SLOTS, RUNES, RUNE_IDS } from './items.js';
-import { ABILITIES, abilityCtx } from './abilities.js';
-import { DMG, applyStatus, dealDamage, newStatus, tickStatus, slowMul, mitigation } from './combat.js';
-import { makeCreep, makeRoshan, makeTowers, thinkCreep, thinkRoshan, stepTowers, collide } from './units.js';
-import { ARENA_R, PLAY_R, DOG_GATES, FOUNTAIN, RUNE_SPOTS, DIRE_GATE, TOWER_R, ROSHAN_PIT, pushOut } from './map.js';
+import { heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, HERO_IDS, ATTR, HERO_MR, ABILITY_MAX, STATS_MAX, abilityCap, attrAt } from './heroes.js';
+import { ITEMS, SLOTS, RUNES, RUNE_IDS, NEUTRALS, NEUTRAL_IDS, neutralTier, NEUTRAL_PER_TIER, totalCost, isRecipe } from './items.js';
+import { ABILITIES, abilityCtx, STATS_BONUS } from './abilities.js';
+import { DMG, applyStatus, dealDamage, newStatus, tickStatus, slowMul, dispel, cantCast, cantAttack } from './combat.js';
+import { UNITS, CAMP_UNITS, unitId, makeCreep, makeBoss, makeNeutral, makeTowers, THINK, stepTowers, collide } from './units.js';
+import { ARENA_R, PLAY_R, DOG_GATES, FOUNTAIN, RUNE_SPOTS, DIRE_GATE, TOWER_R, ROSHAN_PIT, CAMPS, pushOut, steerAround } from './map.js';
 import { seeded, shuffle } from '../../../core/dom.js';
 
 export { ARENA_R, PLAY_R, GATE_ANGLES } from './map.js';
@@ -27,20 +28,74 @@ export const BREAK_T = 16;
 const FIRST_RUNE = 14;
 const RUNE_EVERY = 40;
 const MAX_CREEPS = 8;
+const MAX_FOES = 40;
 const LAST_HIT = 10; // son vuruş altın bonusu (+dalga)
 const HERO_R = 0.35;
-
-/** Varsayılan koşu ayarı. modifiers: startGold, startLevel, heroHp, heroDmg, enemyHp, enemyDmg, gold, xp (çarpanlar). */
-export const DEFAULT_CONFIG = { mode: 'endless', heroId: 'okcu', seed: null, modifiers: {}, waves: null, objectives: [] };
+export const DAY_LEN = 120;
+export const NIGHT_LEN = 120;
+export const NIGHT_VISION = 8.5;
+const TOWER_VISION = 6;
+const WARD_VISION = 8;
+const CAMP_EVERY = 60;
+const FIRST_CAMP = 18;
+export const BUYBACK_CD = 150;
+const BUYBACK_WINDOW = 6;
+const DEATH_LOSS = 0.4; // ölünce güvenilmez altının kaybedilen oranı
+/** Sonsuz modda her 5. dalganın bossu (tek katlar Roshan). */
+const ENDLESS_BOSSES = ['boss_feedalfa', 'boss_shadow', 'boss_general', 'boss_ancient'];
 
 /**
- * Varsayılan dalga üreticisi. Hikâye modu config.waves ile aynı şemada dalga verebilir:
- *   { dogs: ['feed', …], elites: n, creepSquads: n, boss: null|'roshan' }
+ * Varsayılan koşu ayarı.
+ * modifiers: startGold, startLevel, heroHp, heroDmg, enemyHp, enemyDmg, enemySpeed, bossHp, gold, xp (çarpanlar),
+ *            shopCost (çarpan), noCourier, alwaysNight, dayLen, nightLen, roshanEvery, extraElites, noBuyback,
+ *            noCamps, scoreMul, autoLearn
+ * meta (progression.js applyMeta): { startItems: [id], mastery, variants: { abilityId: key }, bonus: { stat… } }
+ * mission (story.js): { waves, objectives, boss, dialogue, victory: 'objectives'|'waves', failOnObjective }
  */
-export function defaultWave(n) {
-  const boss = n % 5 === 0;
-  if (boss) return { dogs: shuffle(TYPE_IDS).slice(0, 5), elites: Math.max(0, waveScale(n).elites - 1), creepSquads: 0, boss: 'roshan' };
-  return { dogs: buildWave(n), elites: waveScale(n).elites, creepSquads: Math.min(3, 1 + Math.floor((n - 1) / 3)), boss: null };
+export const DEFAULT_CONFIG = { mode: 'endless', heroId: 'okcu', seed: null, curse: 0, modifiers: {}, waves: null, objectives: [], meta: null, mission: null };
+
+/**
+ * Lanet seviyeleri (1–10) → varsayılan değiştiriciler (birikimli). Açık `modifiers` alanları bunları ezer.
+ * Skor çarpanı: 1 + 0,12 × lanet.
+ */
+export function curseMods(level = 0) {
+  const n = Math.max(0, Math.min(10, Math.floor(level) || 0));
+  const m = {};
+  if (n <= 0) return m;
+  if (n >= 1) m.enemySpeed = 1.1;
+  if (n >= 2) m.enemyHp = 1.15;
+  if (n >= 3) m.shopCost = 1.2;
+  if (n >= 4) { m.dayLen = 60; m.nightLen = 180; }
+  if (n >= 5) m.noCourier = true;
+  if (n >= 6) m.enemyDmg = 1.2;
+  if (n >= 7) m.roshanEvery = 4;
+  if (n >= 8) m.extraElites = 2;
+  if (n >= 9) m.alwaysNight = true;
+  if (n >= 10) m.gold = 0.75;
+  m.scoreMul = 1 + 0.12 * n;
+  return m;
+}
+export const CURSE_TEXT = [
+  '', 'DOG’lar %10 hızlı', 'Düşman canı +%15', 'Dükkân %20 pahalı', 'Geceler uzun', 'Kurye yok',
+  'Düşman hasarı +%20', 'Roshan her 4 dalgada', '+2 elit', 'Hep gece', 'Altın −%25',
+];
+
+/**
+ * Varsayılan dalga üreticisi. Hikâye modu mission.waves (ya da config.waves) ile aynı şemada dalga verebilir:
+ *   { dogs: ['feed', …], elites: n, creepSquads: n, boss: null|'roshan'|'boss_general'|…, bossLevel: k,
+ *     bossAt: 'pit'|'center'|'dire'|'gate'|{x,z}, units: [{ id, n, at, elite, counted, delay, k }],
+ *     night: true|false, camps: true|false, text: 'duyuru' }
+ */
+export function defaultWave(n, mods = {}) {
+  const every = mods.roshanEvery || 5;
+  const ws = waveScale(n);
+  const elites = Math.min(8, ws.elites + (mods.extraElites || 0));
+  if (n % every === 0) {
+    const idx = n / every;
+    const boss = idx % 2 === 1 ? 'boss_roshan' : ENDLESS_BOSSES[(idx / 2 - 1) % ENDLESS_BOSSES.length];
+    return { dogs: shuffle(TYPE_IDS).slice(0, boss === 'boss_roshan' ? 5 : 4), elites: Math.max(0, elites - 1), creepSquads: 0, boss, bossLevel: idx };
+  }
+  return { dogs: buildWave(n), elites, creepSquads: Math.min(3, 1 + Math.floor((n - 1) / 3)), boss: null };
 }
 
 export function createGame(emit, config = {}) {
@@ -74,6 +129,9 @@ export function createGame(emit, config = {}) {
     pickups: [],
     towers: [],
     runes: [],
+    remnants: [],
+    wards: [],
+    camps: [],
     courier: { state: 'home', x: FOUNTAIN.x, z: FOUNTAIN.z, y: 0, face: 0, items: [], t: 0 },
     queue: [],
     spawnT: 0,
@@ -81,6 +139,7 @@ export function createGame(emit, config = {}) {
     dogsLeft: 0,
     dogsTotal: 9,
     bossWave: false,
+    bossId: null,
     breakT: 0,
     dyingT: 0,
     slowmo: 0,
@@ -93,14 +152,29 @@ export function createGame(emit, config = {}) {
     tangosStolen: 0,
     goldEarned: 0,
     lastHits: 0,
+    denies: 0,
     creepKills: 0,
+    neutralKills: 0,
+    campsCleared: 0,
+    runesTaken: 0,
+    bossesKilled: 0,
     roshans: 0,
     towersDown: 0,
+    buybacks: 0,
+    deaths: 0,
+    direMorale: 0,
     heroVisible: true,
     lastSeenX: 0,
     lastSeenZ: 0,
     target: null,
     lastAuto: true,
+    isNight: false,
+    dayT: 0,
+    forceNight: null,
+    campT: FIRST_CAMP,
+    neutralDrops: { 1: 0, 2: 0, 3: 0 },
+    neutralStash: [],
+    objectives: [],
     H: null,
     heroId: 'okcu',
     player: null,
@@ -109,6 +183,7 @@ export function createGame(emit, config = {}) {
     cdMax: { q: 1, w: 1, e: 1, r: 1 },
     hooks: { beforeDamage: [], afterDamage: [], onKill: [], onStep: [] },
     rng: Math.random,
+    timers: [],
   };
   g.nextId = () => nextId++;
   g.rand = () => g.rng();
@@ -128,27 +203,37 @@ export function createGame(emit, config = {}) {
     const all = listeners.get('*');
     if (all) for (const fn of all) { try { fn(type, d, g); } catch (e) { console.error(e); } }
   };
+  /** Simülasyon zamanında gecikmeli iş (yetenek yankıları, boss dalgaları). */
+  g.later = (t, fn) => { g.timers.push({ t, fn }); };
+
+  // Boss'lara ek hasar (orman eşyası), yakın dövüş kahramanına blok dengesi
+  g.hooks.beforeDamage.push((gg, s, t, a) => (s === gg.player && t.kind === 'boss' && gg.stat.bossDmg ? a * (1 + gg.stat.bossDmg) : undefined));
 
   // ---------------------------------------------------------------- kahraman
   function newPlayer(H) {
     return {
       hero: H.id,
       x: 0, z: 0, vx: 0, vz: 0, kx: 0, kz: 0, face: Math.PI, moving: 0,
-      hp: H.base.hp, maxHp: H.base.hp, mana: H.base.mana, maxMana: H.base.mana,
-      level: 1, xp: 0, gold: 0,
+      hp: 100, maxHp: 100, mana: 100, maxMana: 100,
+      level: 1, xp: 0, gold: 0, goldR: 0,
       items: new Array(SLOTS).fill(null),
+      neutral: null,
       tal: new Set(), talentChoice: {}, talentPending: [],
-      abilityLv: { q: 1, w: 1, e: 1, r: 1 },
+      abilityLv: { q: 1, w: 0, e: 0, r: 0 }, statsLv: 0, skillPoints: 0,
       st: newStatus(),
       charging: false, chargeT: 0, charge: 0, pendingFire: -1,
       aimX: 0, aimZ: -4,
-      windrun: 0, rapier: 0, tangoCharges: 0, tangoRegen: 0,
+      windrun: 0, windrunK: 1.6, windrunEv: 0.8, evadeBuff: 0, rapier: 0, tangoCharges: 0, tangoRegen: 0,
       heals: [],
-      invis: 0, smokeT: 0, smokeBonus: false, bkb: 0, haste: 0, dd: 0, regenRune: 0,
-      callArmor: 0, cullHaste: 0, auraT: 0, spinT: 0, helixIcd: 0, swing: 0,
-      channel: null, dance: null,
+      invis: 0, smokeT: 0, smokeK: 0, smokeBonus: null, guiseT: 0, guiseK: 0, guiseBonus: null, guiseHeal: 0,
+      bkb: 0, haste: 0, hasteBuff: 0, hasteBuffK: 1, dd: 0, regenRune: 0, cyclone: 0, lsBuff: 0, lsBuffK: 1,
+      callArmor: 0, callArmorK: 0, barkT: 0, barkArmor: 0, barkRegen: 0, barkBlock: 0, mekT: 0, mekArmor: 0,
+      bonusArmor: 0, blockBuff: 0, shield: 0, magShield: 0, magShieldT: 0,
+      cullHaste: 0, auraT: 0, spinT: 0, helixIcd: 0, swing: 0, overload: false,
+      channel: null, dance: null, ball: null,
       atkCd: 0, atkWind: 0, atkTarget: null,
       aegis: false, invuln: 0, hurtT: 0, recoil: 0, dead: false, reviveT: 0, lastHurt: -99,
+      buybackCd: 0,
       inFountain: false, inRiver: false,
     };
   }
@@ -160,44 +245,69 @@ export function createGame(emit, config = {}) {
     }
   }
 
-  /** Türetilmiş statları seviye, eşya, yetenek ağacı ve pasiflerden yeniden hesaplar. */
+  /** Türetilmiş statları özellikler, seviye, eşya, yetenek ağacı ve pasiflerden yeniden hesaplar. */
   function recalc() {
     const p = g.player;
     const H = g.H;
     const L = p.level;
     const b = H.base;
-    const sum = { hp: 0, mana: 0, dmg: 0, dmgMul: 0, speed: 0, evasion: [], atkSpeed: 0, manaRegen: 0, hpRegen: 0, burn: 0, aghs: 0, spell: 0, crit: 0, cleave: 0 };
+    const sum = {
+      hp: 0, mana: 0, dmg: 0, dmgMul: 0, speed: 0, evasion: [], atkSpeed: 0, manaRegen: 0, hpRegen: 0, burn: 0, aghs: 0, spell: 0,
+      crit: [], critMul: 0, cleave: 0, lifesteal: 0, spellLifesteal: 0, armor: 0, magicResist: [], statusRes: [],
+      str: 0, agi: 0, int: 0, all: 0, primary: 0, block: 0, blockChance: 0, vision: 0, bossDmg: 0,
+    };
     const add = (s) => {
       if (!s) return;
       for (const [k, v] of Object.entries(s)) {
-        if (k === 'evasion') sum.evasion.push(v);
+        if (Array.isArray(sum[k])) sum[k].push(v);
+        else if (k === 'critMul' || k === 'blockChance') sum[k] = Math.max(sum[k] || 0, v);
         else sum[k] = (sum[k] || 0) + v;
       }
     };
     for (const it of p.items) if (it) add(ITEMS[it.id]?.stat);
+    if (p.neutral) add(NEUTRALS[p.neutral.id]?.stat);
     for (const lv of TALENT_LEVELS) {
       const i = p.talentChoice[lv];
-      if (i != null) add(H.talents[lv][i].stat);
+      if (i != null && H.talents[lv]) add(H.talents[lv][i].stat);
     }
+    if (g.meta && g.meta.bonus) add(g.meta.bonus);
     const m = g.mods;
+    const extra = p.statsLv * STATS_BONUS.per + sum.all;
+    const attr = {
+      str: attrAt(H, 'str', L) + sum.str + extra + (H.attr === 'str' ? sum.primary : 0),
+      agi: attrAt(H, 'agi', L) + sum.agi + extra + (H.attr === 'agi' ? sum.primary : 0),
+      int: attrAt(H, 'int', L) + sum.int + extra + (H.attr === 'int' ? sum.primary : 0),
+    };
+    const prod = (list) => list.reduce((a, e) => a * (1 - e), 1);
+    const ranged = !H.attack || H.attack.type === 'ranged';
+    const aspd = attr.agi * ATTR.asPerAgi + sum.atkSpeed;
     const st = {
-      maxHp: Math.round((b.hp + H.grow.hp * (L - 1) + sum.hp) * (m.heroHp || 1)),
-      maxMana: Math.round(b.mana + H.grow.mana * (L - 1) + sum.mana),
-      hpRegen: b.hpRegen + 0.12 * (L - 1) + sum.hpRegen,
-      manaRegen: b.manaRegen + 0.18 * (L - 1) + sum.manaRegen,
+      str: attr.str, agi: attr.agi, int: attr.int, primary: H.attr,
+      maxHp: Math.round((b.hp + attr.str * ATTR.hpPerStr + sum.hp) * (m.heroHp || 1)),
+      maxMana: Math.round(b.mana + attr.int * ATTR.manaPerInt + sum.mana),
+      hpRegen: b.hpRegen + attr.str * ATTR.regenPerStr + sum.hpRegen,
+      manaRegen: b.manaRegen + attr.int * ATTR.mregenPerInt + sum.manaRegen,
       speed: b.speed + sum.speed,
-      armor: b.armor,
-      evasion: 1 - [b.evasion, ...sum.evasion].reduce((a, e) => a * (1 - e), 1),
-      dmgMul: (1 + H.grow.dmg * (L - 1)) * (1 + sum.dmgMul),
-      spellAmp: 1 + sum.spell,
-      atkDmg: (H.attack ? H.attack.dmg : 0) + sum.dmg + 3 * (L - 1),
-      atkRate: (H.attack ? H.attack.rate : 1) / (1 + sum.atkSpeed),
+      armor: b.armor + attr.agi * ATTR.armorPerAgi + sum.armor,
+      evasion: 1 - (1 - (b.evasion || 0)) * prod(sum.evasion),
+      magicResist: 1 - (1 - HERO_MR) * prod(sum.magicResist),
+      statusRes: 1 - prod(sum.statusRes),
+      dmgMul: 1 + sum.dmgMul,
+      spellAmp: 1 + attr.int * ATTR.ampPerInt + sum.spell,
+      atkDmg: (H.attack ? H.attack.dmg : H.baseDmg || 0) + attr[H.attr] * ATTR.dmgPerPrimary + sum.dmg,
+      atkSpeed: aspd,
+      atkRate: Math.max(0.25, (H.attack ? H.attack.bat : 1) / (1 + aspd / 100)),
       burn: sum.burn,
       aghs: sum.aghs > 0,
-      crit: sum.crit,
-      critMul: 2,
+      crit: 1 - prod(sum.crit),
+      critMul: Math.max(sum.critMul || 0, sum.crit.length ? 2 : 0),
       cleave: sum.cleave,
-      lifesteal: sum.lifesteal || 0,
+      lifesteal: sum.lifesteal,
+      spellLifesteal: sum.spellLifesteal,
+      block: sum.block * (ranged ? 0.5 : 1),
+      blockChance: Math.min(1, sum.blockChance),
+      vision: sum.vision,
+      bossDmg: sum.bossDmg,
     };
     forAbilities((A, c) => { if (A.stats) A.stats(g, st, c); });
     g.stat = st;
@@ -223,7 +333,7 @@ export function createGame(emit, config = {}) {
     g.player.mana = g.player.maxMana;
     g.cds = { q: 0, w: 0, e: 0, r: 0 };
     g.cdMax = { q: 1, w: 1, e: 1, r: 1 };
-    forAbilities((A, c) => { if (A.init) A.init(g, c); });
+    forAbilities((A, c) => { if (A.onLearn) A.onLearn(g, c); });
     g.emit('heroChange', { heroId: H.id });
   };
 
@@ -232,18 +342,19 @@ export function createGame(emit, config = {}) {
   g.dmgMul = (spell) => g.stat.dmgMul * (g.doubleDmg() ? 2 : 1) * (spell ? g.stat.spellAmp : 1) * (g.mods.heroDmg || 1);
   g.canAct = () => {
     const p = g.player;
-    return (g.state === 'playing' || g.state === 'break') && !p.dead && !(p.st.stun > 0) && !p.dance;
+    return (g.state === 'playing' || g.state === 'break') && !p.dead && !(p.st.stun > 0) && !(p.st.hex > 0) && !(p.st.fear > 0) && !p.dance && !p.ball && !(p.cyclone > 0);
   };
   g.setCd = (key, v) => { g.cds[key] = v; g.cdMax[key] = Math.max(0.01, v); };
   g.breakInvis = () => {
     const p = g.player;
-    if (p.invis > 0) { p.invis = 0; p.smokeT = 0; g.emit('invisEnd', {}); }
+    if (p.invis > 0) { p.invis = 0; p.smokeT = 0; p.guiseT = 0; g.emit('invisEnd', {}); }
   };
+  g.variant = (abilityId) => (g.meta && g.meta.variants ? g.meta.variants[abilityId] || null : null);
 
   /** Hedef seçimi: elle nişan noktasına yakın düşman, yoksa otomatik hedef, yoksa menzildeki en yakın. */
   g.pickTarget = (range) => {
     const p = g.player;
-    const ok = (e) => e && !e.dead && e.spawnT <= 0 && !e.demo && Math.hypot(e.x - p.x, e.z - p.z) <= range + e.r;
+    const ok = (e) => e && !e.dead && e.kind !== 'tower' && e.spawnT <= 0 && !e.demo && e.seen !== false && !(e.invuln > 0 && e.kind !== 'boss') && Math.hypot(e.x - p.x, e.z - p.z) <= range + e.r;
     if (!g.lastAuto) {
       const f = g.foeNear(p.aimX, p.aimZ, 2.2);
       if (ok(f)) return f;
@@ -255,8 +366,7 @@ export function createGame(emit, config = {}) {
     let best = null;
     let bd = Infinity;
     for (const e of g.foes) {
-      if (e.dead || e.spawnT > 0 || e.demo || e === exclude) continue;
-      if (e.type === 'ward' && e.vis < 0.35) continue;
+      if (e.dead || e.spawnT > 0 || e.demo || e === exclude || e.seen === false) continue;
       const d = Math.hypot(e.x - x, e.z - z) - e.r;
       if (d <= range && d < bd) { bd = d; best = e; }
     }
@@ -273,16 +383,67 @@ export function createGame(emit, config = {}) {
     return { x: p.x + dx, z: p.z + dz };
   };
 
+  // ---------------------------------------------------------------- yetenek puanları
+  g.abilityLevel = (key) => (key === 'stats' ? g.player.statsLv : g.player.abilityLv[key] || 0);
+  g.maxAbilityLevel = (key) => {
+    if (key === 'stats') return STATS_MAX;
+    const A = ABILITIES[g.H.abilities[key]];
+    return A ? Math.min(ABILITY_MAX[key], A.levels.length) : 0;
+  };
+  /** Bu yetenek şimdi öğrenilebilir mi? */
+  g.canLearn = (key) => {
+    const p = g.player;
+    if (p.skillPoints <= 0) return false;
+    if (key === 'stats') return p.statsLv < STATS_MAX;
+    const lv = p.abilityLv[key] || 0;
+    return lv < g.maxAbilityLevel(key) && lv < abilityCap(key, p.level);
+  };
+  g.learnable = () => ['q', 'w', 'e', 'r', 'stats'].filter((k) => g.canLearn(k));
+  /** Yetenek puanı harca (Q W E R ya da 'stats' = özellik bonusu). */
+  g.learn = (key) => {
+    const p = g.player;
+    if (!g.canLearn(key)) { g.emit('learnFail', { key }); return false; }
+    p.skillPoints -= 1;
+    if (key === 'stats') p.statsLv += 1;
+    else {
+      p.abilityLv[key] = (p.abilityLv[key] || 0) + 1;
+      const c = abilityCtx(g, key);
+      if (c && c.A.onLearn) c.A.onLearn(g, c);
+    }
+    recalc();
+    g.emit('learn', { key, level: g.abilityLevel(key), points: p.skillPoints });
+    return true;
+  };
+  /** Otomatik dağıtım: önce ulti, sonra kahramanın yapı sırası, en son özellik bonusu. */
+  g.autoLearn = () => {
+    const p = g.player;
+    let guard = 30;
+    while (p.skillPoints > 0 && guard-- > 0) {
+      let k = null;
+      if (g.canLearn('r')) k = 'r';
+      else {
+        const counts = { q: 0, w: 0, e: 0, r: 0 };
+        for (const key of g.H.build || ['q', 'w', 'e']) {
+          counts[key] += 1;
+          if ((p.abilityLv[key] || 0) < counts[key] && g.canLearn(key)) { k = key; break; }
+        }
+        if (!k) k = ['q', 'w', 'e'].find((x) => g.canLearn(x)) || (g.canLearn('stats') ? 'stats' : null);
+      }
+      if (!k) break;
+      g.learn(k);
+    }
+  };
+
   /** Genel yetenek kullanımı (Q W E R). */
   g.cast = (key) => {
     const p = g.player;
     const c = abilityCtx(g, key);
-    if (!c) return false;
+    if (!c) { if (g.canAct()) g.emit('unlearned', { key }); return false; }
     const { A, L } = c;
     if (A.targeting === 'charge') { g.chargeStart(); return true; }
     if (!g.canAct()) return false;
     if (A.targeting === 'passive') { g.emit('passive', { key }); return false; }
-    if (p.st.silence > 0) { g.emit('silenced', { key }); return false; }
+    if (cantCast(p)) { g.emit('silenced', { key }); return false; }
     if (p.channel) return false;
     if (g.cds[key] > 0) { g.emit('notReady', { key }); return false; }
     const mana = A.ownCost ? 0 : (L.mana || 0);
@@ -292,6 +453,7 @@ export function createGame(emit, config = {}) {
     p.mana -= mana;
     if (!A.ownCost || L.cd) g.setCd(key, c.cd != null ? c.cd : L.cd);
     if (!A.keepInvis) g.breakInvis();
+    forAbilities((B, cc) => { if (B.onCast) B.onCast(g, key, cc); });
     g.emit('cast', { key, id: A.id, hero: g.heroId, ult: !!A.ult });
     return true;
   };
@@ -304,6 +466,7 @@ export function createGame(emit, config = {}) {
     const c = abilityCtx(g, 'q');
     if (!c || c.A.targeting !== 'charge') return g.cast('q');
     if (!g.canAct() || p.charging) return false;
+    if (cantCast(p)) { g.emit('silenced', { key: 'q' }); return false; }
     p.charging = true;
     p.chargeT = 0;
     p.charge = 0;
@@ -326,6 +489,7 @@ export function createGame(emit, config = {}) {
     g.emit('chargeEnd', {});
     if (!g.canAct()) return;
     const c = abilityCtx(g, 'q');
+    if (!c) return;
     if (g.cds.q > 0) p.pendingFire = ch;
     else c.A.fire(g, ch, c);
   };
@@ -339,16 +503,21 @@ export function createGame(emit, config = {}) {
 
   /** HUD için yetenek slot durumu. */
   g.slotState = (key) => {
-    const c = abilityCtx(g, key);
-    if (!c) return {};
-    const { A, L } = c;
     const p = g.player;
+    const lv = p.abilityLv[key] || 0;
+    const A = ABILITIES[g.H.abilities[key]];
+    const learn = g.canLearn(key);
+    if (!lv) return { locked: true, lv: 0, max: A ? A.levels.length : 4, learn, cdFrac: 0, cdLeft: 0, extra: '' };
+    const c = abilityCtx(g, key);
+    const { L } = c;
     const base = {
+      lv, max: A.levels.length, learn,
       cdFrac: g.cds[key] / (g.cdMax[key] || 1),
       cdLeft: g.cds[key],
       noMana: !A.ownCost && (L.mana || 0) > p.mana,
       extra: A.targeting === 'passive' ? '' : String(L.mana || ''),
       passive: A.targeting === 'passive',
+      silenced: cantCast(p),
     };
     return A.hud ? { ...base, ...A.hud(g, c) } : base;
   };
@@ -356,28 +525,70 @@ export function createGame(emit, config = {}) {
   g.execThreshold = () => {
     if (g.heroId !== 'balta' || g.cds.r > 0) return 0;
     const c = abilityCtx(g, 'r');
-    return c.A.threshold(g, c.L);
+    return c ? c.A.threshold(g, c.L) : 0;
   };
 
   // ---------------------------------------------------------------- saldırı
+  /** Kahraman saldırısı isabet ettikten sonra: eşya etkileri (şimşek, zırh kırma), pasifler. */
+  function afterHeroAttack(target, dealt, opts = {}) {
+    if (!target || target.kind === 'tower') return;
+    const p = g.player;
+    for (const it of p.items) {
+      if (!it) continue;
+      const pr = ITEMS[it.id].proc;
+      if (!pr) continue;
+      if (pr.kind === 'shred' && !target.dead) applyStatus(g, target, 'shred', pr.dur, { k: pr.k, pierce: true });
+      if (pr.kind === 'chain' && !opts.noProc && g.rand() < pr.chance) chainLightning(target, pr);
+    }
+    if (p.tal.has('goDeso') && !target.dead) applyStatus(g, target, 'amp', 4, { k: 0.2 });
+    forAbilities((A, c) => { if (A.onAttack) A.onAttack(g, target, { dmg: dealt, ...opts }, c); });
+  }
+  function chainLightning(first, pr) {
+    const p = g.player;
+    const hit = new Set();
+    let cur = first;
+    let px = p.x;
+    let pz = p.z;
+    for (let i = 0; i < pr.jumps && cur; i++) {
+      hit.add(cur.id);
+      g.emit('fx', { kind: 'zap', x0: px, z0: pz, x1: cur.x, z1: cur.z, hero: true });
+      dealDamage(g, p, cur, pr.dmg * g.dmgMul(true), DMG.MAG, { src: 'chain' });
+      px = cur.x;
+      pz = cur.z;
+      let next = null;
+      let bd = pr.range;
+      for (const e of g.foes) {
+        if (e.dead || e.spawnT > 0 || hit.has(e.id) || e.seen === false) continue;
+        const d = Math.hypot(e.x - px, e.z - pz);
+        if (d < bd) { bd = d; next = e; }
+      }
+      cur = next;
+    }
+  }
+
   g.attackHit = (target, opts = {}) => {
     const p = g.player;
     if (!target || target.dead) return 0;
     let dmg = (g.stat.atkDmg + (opts.extra || 0)) * g.dmgMul(false);
-    const crit = !!opts.forceCrit || (g.stat.crit > 0 && g.rand() < g.stat.crit);
-    if (crit) dmg *= g.stat.critMul;
     const isTower = target.kind === 'tower';
-    let ambush = false;
-    if (p.smokeBonus && !isTower) { dmg *= 1.8; ambush = true; p.smokeBonus = false; }
+    let ambush = null;
+    if (p.smokeBonus && !isTower) { dmg *= p.smokeBonus.mul; ambush = { stun: p.smokeBonus.stun }; p.smokeBonus = null; }
+    let guise = null;
+    if (p.guiseBonus && !isTower && p.invis > 0) { dmg += p.guiseBonus.dmg; guise = p.guiseBonus; p.guiseBonus = null; }
     const dx = target.x - p.x;
     const dz = target.z - p.z;
     const len = Math.hypot(dx, dz) || 1;
     p.face = Math.atan2(dx, dz);
     p.swing = 1;
-    const dealt = dealDamage(g, p, target, dmg, DMG.PHYS, { src: opts.src || 'attack', crit, attack: true, structure: isTower, knock: 0.45, dirX: dx / len, dirZ: dz / len, lifesteal: isTower ? 0 : g.stat.lifesteal || 0 });
+    const lsK = p.lsBuff > 0 ? p.lsBuffK : 1;
+    const dealt = dealDamage(g, p, target, dmg, DMG.PHYS, {
+      src: opts.src || 'attack', attack: true, forceCrit: !!opts.forceCrit, structure: isTower, knock: 0.45, dirX: dx / len, dirZ: dz / len,
+      lifesteal: isTower ? 0 : (g.stat.lifesteal || 0) * lsK,
+    });
     if (!isTower) {
-      if (ambush && !target.dead) { applyStatus(g, target, 'stun', 0.6); g.emit('fx', { kind: 'ambush', foe: target }); }
-      if (g.stat.cleave > 0) {
+      if (ambush && !target.dead) { applyStatus(g, target, 'stun', ambush.stun); g.emit('fx', { kind: 'ambush', foe: target }); }
+      if (guise && !target.dead) { applyStatus(g, target, 'root', guise.root); g.emit('fx', { kind: 'leech', foe: target, dur: guise.root }); }
+      if (g.stat.cleave > 0 && dealt > 0) {
         for (const e of g.foes) {
           if (e === target || e.dead || e.spawnT > 0) continue;
           const ex = e.x - target.x;
@@ -388,16 +599,14 @@ export function createGame(emit, config = {}) {
         }
         g.emit('fx', { kind: 'cleave', x: target.x, z: target.z, face: p.face });
       }
-      if (p.tal.has('goDeso')) applyStatus(g, target, 'amp', 4, { k: 0.2 });
-      if (crit) g.emit('fx', { kind: 'crit', foe: target, dmg: Math.round(dealt) });
     }
     g.breakInvis();
-    forAbilities((A, c) => { if (A.onAttack) A.onAttack(g, target, { dmg: dealt, crit }, c); });
+    afterHeroAttack(target, dealt, opts);
     return dealt;
   };
 
   function validTarget(t) {
-    return t && !t.dead && (t.kind === 'tower' || t.spawnT <= 0);
+    return t && !t.dead && (t.kind === 'tower' || (t.spawnT <= 0 && t.seen !== false));
   }
   function edgeDist(t) {
     const p = g.player;
@@ -405,6 +614,7 @@ export function createGame(emit, config = {}) {
   }
   function chooseAttackTarget(range) {
     const p = g.player;
+    if (g.focus && validTarget(g.focus) && edgeDist(g.focus) <= range && (g.focus.kind !== 'tower' || g.focus.side === 'dire' || g.focus.hp <= g.focus.maxHp * 0.12)) return g.focus;
     if (!g.lastAuto) {
       const f = g.foeNear(p.aimX, p.aimZ, 1.8);
       if (f && edgeDist(f) <= range) return f;
@@ -413,6 +623,8 @@ export function createGame(emit, config = {}) {
     const f = g.nearestFoe(p.x, p.z, range, null);
     if (f) return f;
     for (const t of g.towers) if (!t.dead && t.side === 'dire' && edgeDist(t) <= range) return t;
+    // deny: canı %12'nin altındaki kendi kulen (Dire'a sevinç yok)
+    for (const t of g.towers) if (!t.dead && t.side === 'radiant' && t.hp <= t.maxHp * 0.12 && edgeDist(t) <= range) return t;
     return null;
   }
 
@@ -426,12 +638,12 @@ export function createGame(emit, config = {}) {
       if (p.atkWind <= 0) {
         const t = p.atkTarget;
         p.atkTarget = null;
-        if (validTarget(t) && edgeDist(t) <= A.range + 0.7 && g.canAct()) {
+        if (validTarget(t) && edgeDist(t) <= A.range + 0.7 && g.canAct() && !cantAttack(p)) {
           if (A.type === 'ranged') {
-            let dmg = g.stat.atkDmg * g.dmgMul(false);
-            const crit = g.stat.crit > 0 && g.rand() < g.stat.crit;
-            if (crit) dmg *= g.stat.critMul;
-            g.fireProj({ from: p, kind: A.proj || 'ice', target: t, dmg, type: DMG.PHYS, speed: 17, y: 1.25, crit, heroAttack: true });
+            const dmg = g.stat.atkDmg * g.dmgMul(false);
+            let bonus = null;
+            if (p.guiseBonus && p.invis > 0 && t.kind !== 'tower') { bonus = p.guiseBonus; p.guiseBonus = null; }
+            g.fireProj({ from: p, kind: A.proj || 'ice', target: t, dmg: dmg + (bonus ? bonus.dmg : 0), type: DMG.PHYS, speed: 17, y: 1.25, heroAttack: true, guise: bonus });
             p.face = Math.atan2(t.x - p.x, t.z - p.z);
             p.swing = 1;
             g.breakInvis();
@@ -440,7 +652,7 @@ export function createGame(emit, config = {}) {
       }
       return;
     }
-    if (!g.canAct() || p.channel || p.charging || p.atkCd > 0) return;
+    if (!g.canAct() || cantAttack(p) || p.channel || p.charging || p.atkCd > 0) return;
     if (p.invis > 0 && moving) return; // görünmezken yürürken saldırma (pusu için dur)
     const t = chooseAttackTarget(A.range);
     if (!t) return;
@@ -455,7 +667,7 @@ export function createGame(emit, config = {}) {
     const pr = {
       id: nextId++, kind: o.kind, x: o.x ?? o.from.x, z: o.z ?? o.from.z, y: o.y ?? 1,
       target: o.target, tx: o.target.x, tz: o.target.z, speed: o.speed || 14, dmg: o.dmg, type: o.type || DMG.PHYS,
-      from: o.from, crit: !!o.crit, heroAttack: !!o.heroAttack, alive: true, life: 4,
+      from: o.from, heroAttack: !!o.heroAttack, guise: o.guise || null, alive: true, life: 4,
     };
     g.projs.push(pr);
     g.emit('proj', { proj: pr });
@@ -478,10 +690,15 @@ export function createGame(emit, config = {}) {
         pr.x = pr.tx;
         pr.z = pr.tz;
         if (tAlive) {
-          const opts = { src: pr.kind, attack: true, crit: pr.crit, structure: t.kind === 'tower' };
-          dealDamage(g, pr.from, t, pr.dmg, pr.type, opts);
+          const hero = pr.heroAttack;
+          const opts = { src: pr.kind, attack: true, structure: t.kind === 'tower' };
+          if (hero) opts.lifesteal = (g.stat.lifesteal || 0) * (p.lsBuff > 0 ? p.lsBuffK : 1);
+          const dealt = dealDamage(g, pr.from, t, pr.dmg, pr.type, opts);
           if (pr.kind === 'ice' && !t.dead && t !== p) applyStatus(g, t, 'slow', 0.8, { k: 0.15 });
-          if (pr.heroAttack && pr.crit && t !== p) g.emit('fx', { kind: 'crit', foe: t });
+          if (hero && t !== p) {
+            if (pr.guise && !t.dead) { applyStatus(g, t, 'root', pr.guise.root); g.emit('fx', { kind: 'leech', foe: t, dur: pr.guise.root }); }
+            afterHeroAttack(t, dealt, {});
+          }
         }
         g.projs.splice(i, 1);
         g.emit('projEnd', { proj: pr, hit: tAlive });
@@ -493,18 +710,10 @@ export function createGame(emit, config = {}) {
     }
   }
 
-  // ---------------------------------------------------------------- hasar alma / verme (combat.js çağırır)
-  g.damageHero = (amount, type, source, opts = {}) => {
+  // ---------------------------------------------------------------- hasar uygulama (combat.js çağırır)
+  g.hurtHero = (a, type, source, opts = {}) => {
     const p = g.player;
-    if (p.dead || p.invuln > 0 || g.state === 'over' || g.state === 'idle') return 0;
-    if (opts.attack && type === DMG.PHYS) {
-      const ev = 1 - (1 - g.stat.evasion) * (1 - (p.windrun > 0 ? 0.8 : 0));
-      if (ev > 0 && g.rand() < ev) { g.emit('evade', { src: source }); return 0; }
-    }
-    let a = amount;
-    if (type === DMG.MAG && p.bkb > 0) a *= 0.4;
-    if (type !== DMG.PURE) a *= (1 - g.stat.armor) * (p.callArmor > 0 ? 0.6 : 1);
-    a = Math.max(1, Math.round(a));
+    if (p.dead || p.invuln > 0 || p.cyclone > 0 || g.state === 'over' || g.state === 'idle') return 0;
     p.hp -= a;
     p.hurtT = 0.35;
     p.lastHurt = g.time;
@@ -512,30 +721,33 @@ export function createGame(emit, config = {}) {
     g.waveDamage += a;
     g.emit('hurt', { dmg: a, src: source, type });
     forAbilities((A, c) => { if (A.onHurt) A.onHurt(g, a, source, c); });
+    if (p.channel && opts.src !== 'dot' && a > p.maxHp * 0.25) g.endChannel(true);
     if (p.hp <= 0) { p.hp = 0; playerDown(); }
     return a;
   };
-  /** Geriye dönük uyum: DOG ısırıkları vb. */
-  g.hurtPlayer = (dmg, src, opts = {}) => dealDamage(g, src, g.player, dmg, opts.type || DMG.PHYS, opts);
+  /** Geriye dönük adlar. */
+  g.damageHero = (amount, type, source, opts) => dealDamage(g, source, g.player, amount, type, opts);
+  g.hurtPlayer = (dmg, src, opts = {}) => {
+    let d = dmg;
+    if (src && src.type === 'ward' && g.isNight) d *= 1.3;
+    return dealDamage(g, src, g.player, d, opts.type || DMG.PHYS, opts);
+  };
   g.slowPlayer = (t) => {
     if (applyStatus(g, g.player, 'slow', t, { k: 0.45 })) g.emit('slowed', {});
   };
   g.heal = (amount, { quiet = false } = {}) => {
     const p = g.player;
-    if (p.dead) return;
+    if (p.dead || !(amount > 0)) return;
     p.hp = Math.min(p.maxHp, p.hp + amount);
     if (!quiet) g.emit('heal', { amount: Math.round(amount) });
   };
 
-  g.damageFoe = (e, amount, type, source, opts = {}) => {
+  g.hurtFoe = (e, a, type, source, opts = {}, crit = false) => {
     if (e.dead || e.spawnT > 0) return 0;
     if (e.kind === 'dog') {
       if (e.type === 'afk' && e.state === 'afk') { e.state = 'awake'; g.emit('wake', { foe: e }); }
       if (e.type === 'farm' && (e.state === 'farm' || e.state === 'flee')) applyStatus(g, e, 'stun', 0.25);
     }
-    let a = amount * mitigation(e, type);
-    if (e.st.amp > 0) a *= 1 + e.st.ampK;
-    a = Math.max(1, Math.round(a));
     e.hp -= a;
     e.hitFlash = 0.16;
     const kb = e.kind === 'boss' ? 0.12 : 1;
@@ -544,18 +756,17 @@ export function createGame(emit, config = {}) {
     if (source === g.player) {
       e.aggroT = 3;
       if (e.kind === 'boss') e.angry = true;
+      if (e.kind === 'neutral' && e.state !== 'return') e.aggroT = 5;
     }
-    if (!opts.quiet || a >= 60) g.emit('hit', { foe: e, dog: e, dmg: a, big: a >= 110, src: opts.src, crit: !!opts.crit });
+    if (!opts.quiet || a >= 60) g.emit('hit', { foe: e, dog: e, dmg: a, big: a >= 110, src: opts.src, crit, type });
+    if (crit && source === g.player) g.emit('fx', { kind: 'crit', foe: e, dmg: a });
     if (e.hp <= 0) killFoe(e, source, opts);
     return a;
   };
+  g.damageFoe = (e, amount, type, source, opts) => dealDamage(g, source, e, amount, type, opts);
 
-  g.damageTower = (t, amount, type, source, opts = {}) => {
+  g.hurtTower = (t, a, type, source, opts = {}) => {
     if (t.dead) return 0;
-    if (t.side === 'radiant' && (source === g.player || !source || source.kind === 'tower')) return 0;
-    if (t.side === 'dire' && source && source !== g.player && source.kind !== 'tower') return 0;
-    if (type === DMG.MAG && !opts.structure) return 0; // büyüler binalara işlemez
-    const a = Math.max(1, Math.round(amount * mitigation(t, type)));
     t.hp -= a;
     t.hitFlash = 0.14;
     if (!opts.quiet) g.emit('towerHit', { tower: t, dmg: a });
@@ -568,23 +779,52 @@ export function createGame(emit, config = {}) {
         g.towersDown += 1;
         if (byHero) {
           const B = t.def.bounty;
-          addGold(B.gold);
+          addGold(B.gold, true);
           g.addXp(B.xp);
-          g.score += B.score;
+          addScore(B.score);
         }
+        progress('towers', 1);
+      } else if (byHero) {
+        // DENY: kendi kuleni son vuruşla yıktın — Dire creep'leri coşmaz
+        g.denies += 1;
+        g.addXp(80);
+        g.emit('deny', { tower: t, x: t.x, z: t.z });
+        failObjective('protect');
+      } else {
+        g.direMorale += 1;
+        g.emit('direMorale', { n: g.direMorale });
+        failObjective('protect');
       }
-      g.emit('towerDown', { tower: t, byHero });
+      g.emit('towerDown', { tower: t, byHero, deny: byHero && t.side === 'radiant' });
     }
     return a;
   };
+  g.damageTower = (t, amount, type, source, opts) => dealDamage(g, source, t, amount, type, opts);
 
-  function addGold(n) {
-    const v = Math.round(n * (g.mods.gold || 1));
-    g.player.gold += v;
+  // ---------------------------------------------------------------- ekonomi
+  /** Altın ekle. reliable: güvenilir altın (ölünce kaybolmaz). Dönen: eklenen. */
+  function addGold(n, reliable = false) {
+    const v = Math.max(0, Math.round(n * (g.mods.gold || 1)));
+    const p = g.player;
+    p.gold += v;
+    if (reliable) p.goldR += v;
     g.goldEarned += v;
+    progress('gold', v);
     return v;
   }
   g.addGold = addGold;
+  /** Harca: önce güvenilmez altın gider. */
+  function spend(n) {
+    const p = g.player;
+    p.gold = Math.max(0, p.gold - n);
+    p.goldR = Math.min(p.goldR, p.gold);
+  }
+  g.spend = spend;
+  g.unreliable = () => Math.max(0, g.player.gold - g.player.goldR);
+  function addScore(n) {
+    g.score += Math.round(n * (g.mods.scoreMul || 1));
+  }
+  g.addScore = addScore;
 
   g.addXp = (n) => {
     const p = g.player;
@@ -594,6 +834,7 @@ export function createGame(emit, config = {}) {
     while (p.level < MAX_LEVEL && p.xp >= xpFor(p.level)) {
       p.xp -= xpFor(p.level);
       p.level += 1;
+      p.skillPoints += 1;
       up = true;
       if (TALENT_LEVELS.includes(p.level)) {
         p.talentPending.push(p.level);
@@ -601,7 +842,12 @@ export function createGame(emit, config = {}) {
       }
       g.emit('levelUp', { level: p.level });
     }
-    if (up) recalc();
+    if (p.level >= MAX_LEVEL) p.xp = 0;
+    if (up) {
+      recalc();
+      if (g.mods.autoLearn || g.autoSkill) g.autoLearn();
+      progress('level', 0);
+    }
   };
 
   g.chooseTalent = (level, idx) => {
@@ -621,25 +867,41 @@ export function createGame(emit, config = {}) {
     e.dead = true;
     e.hp = 0;
     e.deathT = 0;
+    e.cast = null;
     const byHero = source === p || (source && source.hero === g.heroId);
     const killer = byHero ? 'hero' : source && source.kind === 'tower' ? 'tower' : 'other';
     g.kills += 1;
     g.killsByType[e.type] = (g.killsByType[e.type] || 0) + 1;
     const B = e.bounty;
     let gold = 0;
-    if (e.kind === 'boss') gold = addGold(B.gold);
-    else if (byHero) {
+    if (e.kind === 'boss') gold = addGold(B.gold, true);
+    else if (e.kind === 'neutral') {
+      if (byHero) { gold = addGold(B.gold + LAST_HIT * 0.5); g.lastHits += 1; }
+      g.neutralKills += 1;
+    } else if (byHero) {
       gold = addGold(B.gold + 2 * (g.wave - 1) + LAST_HIT + g.wave);
       g.lastHits += 1;
     } else gold = addGold(Math.round((B.gold + 2 * (g.wave - 1)) * 0.35));
-    g.addXp(B.xp + (e.kind === 'dog' ? 5 * (g.wave - 1) : 0));
-    g.score += B.score;
+    if (e.kind !== 'neutral' || byHero) g.addXp(B.xp + (e.kind === 'dog' ? 5 * (g.wave - 1) : 0));
+    addScore(B.score);
     if (e.kind === 'creep') g.creepKills += 1;
-    for (const it of p.items) if (it && it.id === 'wand') it.charges = Math.min(ITEMS.wand.maxCharges, (it.charges || 0) + 1);
+    if (!e.summon || byHero) for (const it of p.items) if (it && (it.id === 'wand' || it.id === 'stick')) it.charges = Math.min(ITEMS[it.id].maxCharges, (it.charges || 0) + 1);
     if (opts.src === 'ult') g.ultKills += 1;
     if (e.counted) g.dogsLeft = Math.max(0, g.dogsLeft - 1);
+    if (e.guardOf) e.guardOf.guards = Math.max(0, (e.guardOf.guards || 0) - 1);
+    // Kurye Köpeği ganimeti: indirirsen çaldığı geri gelir (DENY)
+    if (e.loot && byHero) {
+      if (e.loot.gold) { p.gold += e.loot.gold; }
+      if (e.loot.tango) {
+        if (g.heroId === 'okcu' && p.abilityLv.e > 0) p.tangoCharges += e.loot.tango;
+        else if (!addItem('tango')) p.gold += 45;
+      }
+      g.denies += 1;
+      g.emit('lootBack', { foe: e, gold: e.loot.gold || 0, tango: e.loot.tango || 0 });
+    }
     g.emit('kill', { foe: e, dog: e, by: killer, lastHit: byHero, gold, chain: g.chain });
-    g.emit('unitKilled', { unit: e, type: e.type, kind: e.kind, by: killer });
+    g.emit('unitKilled', { unit: e, type: e.type, id: e.def ? e.def.id : `dog_${e.type}`, kind: e.kind, by: killer, lastHit: byHero });
+    progress('kill', 1, e);
     // Dota duyuruları: yalnızca DOG / boss ve kahramanın öldürdükleri
     if (byHero && (e.kind === 'dog' || e.kind === 'boss')) {
       if (!g.firstBlood) { g.firstBlood = true; g.emit('firstBlood', { foe: e }); }
@@ -649,13 +911,16 @@ export function createGame(emit, config = {}) {
       g.bestChain = Math.max(g.bestChain, g.chain);
       if (g.chain >= 2) {
         const m = MULTI[Math.min(5, g.chain)];
-        g.score += m[1];
+        addScore(m[1]);
         g.emit('multikill', { n: g.chain, label: m[0], bonus: m[1], foe: e });
       }
       g.streak += 1;
-      if (STREAK[g.streak]) g.emit('streak', { n: g.streak, label: STREAK[g.streak] });
+      if (STREAK[g.streak]) {
+        const bounty = addGold(20 * (g.streak - 2), true);
+        g.emit('streak', { n: g.streak, label: STREAK[g.streak], gold: bounty });
+      }
     }
-    if (e.kind === 'dog' && e.type === 'rapier' && !e.thief) {
+    if (e.kind === 'dog' && e.type === 'rapier' && !e.thief && !e.summon) {
       const pk = { id: nextId++, kind: 'rapier', x: e.x, z: e.z, t: 0, life: 12 };
       g.pickups.push(pk);
       g.emit('drop', { pickup: pk });
@@ -665,17 +930,27 @@ export function createGame(emit, config = {}) {
       g.pickups.push(pk);
       g.emit('drop', { pickup: pk, rapierItem: true });
     }
+    if (e.kind === 'neutral' && e.camp) campCheck(e.camp, byHero);
     if (e.kind === 'boss') {
-      g.roshans += 1;
-      const ag = { id: nextId++, kind: 'aegis', x: e.x + 0.6, z: e.z + 0.6, t: 0, life: Infinity };
-      const ch = { id: nextId++, kind: 'cheese', x: e.x - 0.8, z: e.z + 0.2, t: 0, life: Infinity };
-      g.pickups.push(ag, ch);
-      g.emit('roshanDown', { foe: e });
-      g.emit('bossKilled', { boss: 'roshan', k: g.roshans, by: killer });
+      g.bossesKilled += 1;
+      const id = e.def.id;
+      if (id === 'boss_roshan') {
+        g.roshans += 1;
+        const ag = { id: nextId++, kind: 'aegis', x: e.x + 0.6, z: e.z + 0.6, t: 0, life: Infinity };
+        const ch = { id: nextId++, kind: 'cheese', x: e.x - 0.8, z: e.z + 0.2, t: 0, life: Infinity };
+        g.pickups.push(ag, ch);
+        g.emit('roshanDown', { foe: e });
+      } else {
+        // diğer bosslar: garanti orman eşyası + ödül rünü
+        dropNeutral(e.x, e.z, Math.max(2, neutralTier(g.wave)), true);
+        g.emit('bossDown', { foe: e, boss: id });
+      }
+      for (const o of g.foes) if (o.summon && !o.dead) { o.gone = true; }
+      g.emit('bossKilled', { boss: id === 'boss_roshan' ? 'roshan' : id, id, k: id === 'boss_roshan' ? g.roshans : g.bossesKilled, by: killer });
     }
     for (const fn of g.hooks.onKill) fn(g, e, source);
     forAbilities((A, c) => { if (A.onKill) A.onKill(g, e, c); });
-    if (g.state === 'playing' && g.dogsLeft === 0 && g.queue.length === 0) waveClear();
+    if (g.state === 'playing' && g.dogsLeft === 0 && g.queue.length === 0 && !g.pendingUnits) waveClear();
   }
 
   // ---------------------------------------------------------------- DOG'lar
@@ -689,14 +964,14 @@ export function createGame(emit, config = {}) {
       face: Math.atan2(-x, -z),
       r: T.r * (elite ? 1.15 : 1),
       maxHp: Math.round(T.hp * hpMul), hp: 0,
-      speed: T.speed * sc.speed * (elite ? 1.05 : 1),
+      speed: T.speed * sc.speed * (elite ? 1.05 : 1) * (g.mods.enemySpeed || 1),
       dmg: T.dmg * sc.dmg * (elite ? 1.3 : 1) * (g.mods.enemyDmg || 1),
-      armor: elite ? 0.1 : 0, magicResist: 0,
+      armor: elite ? 2 : 0, magicResist: 0, armorBuff: 0, shield: 0, magShield: 0, spellImmune: 0, invuln: 0,
       elite, demo, scale: elite ? 1.15 : 1, seed: Math.random() * 100,
       state: 'go', t: 1.5 + Math.random() * 2,
       st: newStatus(), windup: 0, attackCd: 0.8, lunge: 0, hitFlash: 0,
       spawnT: demo ? 0 : 0.55, dead: false, deathT: 0,
-      vis: 1, status: null, dist: 99, canBite: true,
+      vis: 1, status: null, dist: 99, canBite: true, seen: true,
       farmT: 0, coinT: 1, stealCd: 0,
       bounty: { gold: 38 + (elite ? 20 : 0), xp: 45 + (elite ? 20 : 0), score: 100 },
       counted: !demo,
@@ -726,12 +1001,112 @@ export function createGame(emit, config = {}) {
     g.emit('spawn', { foe: d, dog: d, gate: gate.a });
     return d;
   }
+  /** Belirli yerde DOG doğur (boss çağırmaları, görevler). opts: { x, z, elite, summon, counted } */
+  g.spawnDog = (type, opts = {}) => {
+    if (g.foes.length >= MAX_FOES) return null;
+    const t = DOG_TYPES[type] ? type : TYPE_IDS[Math.floor(g.rand() * TYPE_IDS.length)];
+    const d = makeDog(t, { x: opts.x ?? 0, z: opts.z ?? 0, wave: Math.max(1, g.wave), elite: !!opts.elite });
+    const r = Math.hypot(d.x, d.z);
+    if (r > PLAY_R - 0.5) { d.x *= (PLAY_R - 0.5) / r; d.z *= (PLAY_R - 0.5) / r; }
+    d.counted = !!opts.counted;
+    d.summon = !!opts.summon;
+    if (d.summon) d.bounty = { gold: Math.round(d.bounty.gold * 0.5), xp: Math.round(d.bounty.xp * 0.5), score: 40 };
+    if (d.counted) { g.dogsLeft += 1; g.dogsTotal += 1; }
+    if (type === 'farm' || type === 'afk' || type === 'mid') d.state = 'go';
+    g.foes.push(d);
+    g.emit('spawn', { foe: d, dog: d, summon: d.summon });
+    return d;
+  };
+  g.spawnDogAtGate = (type, opts = {}) => {
+    if (g.foes.length >= MAX_FOES) return null;
+    const a = DOG_GATES[Math.floor(g.rand() * DOG_GATES.length)];
+    return g.spawnDog(type, { ...opts, x: Math.sin(a) * (PLAY_R - 0.6), z: Math.cos(a) * (PLAY_R - 0.6) });
+  };
+  /** Creep doğur (boss takviyesi). types: ['melee','ranged'] · opts: { x, z, summon, counted } */
+  g.spawnCreeps = (types, opts = {}) => {
+    let alive = 0;
+    for (const e of g.foes) if (e.kind === 'creep' && !e.dead) alive += 1;
+    let k = 0;
+    for (const t of types) {
+      if (alive >= MAX_CREEPS || g.foes.length >= MAX_FOES) break;
+      const a = Math.random() * Math.PI * 2;
+      const x = (opts.x ?? DIRE_GATE.x) + Math.sin(a) * 1.4;
+      const z = (opts.z ?? DIRE_GATE.z) + Math.cos(a) * 1.4;
+      const e = makeCreep(g, t, Math.max(1, g.wave), x, z);
+      e.summon = !!opts.summon;
+      e.counted = !!opts.counted;
+      if (e.counted) { g.dogsLeft += 1; g.dogsTotal += 1; }
+      g.foes.push(e);
+      g.emit('spawn', { foe: e, quiet: k > 0 });
+      alive += 1;
+      k += 1;
+    }
+    return k;
+  };
+
+  /**
+   * Görev/senaryo için birim doğurma. id: units.js kimliği ya da kısa ad
+   *   ('boss_general' | 'general' | 'roshan' | 'dog_feed' | 'feed' | 'neutral_wolf' | 'creep_melee' …)
+   * opts: { n, at: 'pit'|'center'|'dire'|'gate'|'camp:<id>'|{x,z}, x, z, elite, counted (dalga sayacına girer),
+   *         k (boss güç seviyesi), aggro (orman birimleri hemen saldırsın, varsayılan true) }
+   * Dönen: doğan birimler dizisi.
+   */
+  g.spawnUnit = (idIn, opts = {}) => {
+    const id = unitId(idIn);
+    const out = [];
+    if (!id) { console.warn('Arena: bilinmeyen birim', idIn); return out; }
+    const U = UNITS[id];
+    const n = Math.max(1, opts.n || 1);
+    let at = opts.at;
+    if (opts.x != null) at = { x: opts.x, z: opts.z };
+    const campSpot = typeof at === 'string' && at.startsWith('camp:') ? CAMPS.find((c) => c.id === at.slice(5)) : null;
+    const pos = (i) => {
+      if (campSpot) return { x: campSpot.x + Math.sin(i * 2.1) * 1.2, z: campSpot.z + Math.cos(i * 2.1) * 1.2 };
+      if (at && typeof at === 'object') return { x: at.x + (n > 1 ? Math.sin(i * 2.1) * 1.2 : 0), z: at.z + (n > 1 ? Math.cos(i * 2.1) * 1.2 : 0) };
+      if (at === 'center') return { x: Math.sin(i * 2.1) * 1.5, z: Math.cos(i * 2.1) * 1.5 };
+      if (at === 'pit') return { x: ROSHAN_PIT.x + Math.sin(i * 2.1), z: ROSHAN_PIT.z + Math.cos(i * 2.1) };
+      if (at === 'dire') return { x: DIRE_GATE.x * 0.9 + Math.sin(i * 2.1), z: DIRE_GATE.z * 0.9 + Math.cos(i * 2.1) };
+      const a = DOG_GATES[(i + Math.floor(g.rand() * 3)) % DOG_GATES.length];
+      return { x: Math.sin(a) * (PLAY_R - 0.8), z: Math.cos(a) * (PLAY_R - 0.8) };
+    };
+    for (let i = 0; i < n; i++) {
+      if (g.foes.length >= MAX_FOES) break;
+      const pt = pos(i);
+      let e = null;
+      if (U.kind === 'dog') {
+        e = g.spawnDog(U.type, { x: pt.x, z: pt.z, elite: !!opts.elite, counted: opts.counted !== false });
+      } else if (U.kind === 'creep') {
+        e = makeCreep(g, U.type, Math.max(1, g.wave), pt.x, pt.z);
+        e.counted = opts.counted !== false;
+        if (e.counted) { g.dogsLeft += 1; g.dogsTotal += 1; }
+        g.foes.push(e);
+        g.emit('spawn', { foe: e });
+      } else if (U.kind === 'neutral') {
+        e = makeNeutral(g, id, Math.max(1, g.wave), pt.x, pt.z, null);
+        e.counted = opts.counted !== false;
+        if (opts.aggro !== false) { e.aggroT = 999; e.woke = true; }
+        if (e.counted) { g.dogsLeft += 1; g.dogsTotal += 1; }
+        g.foes.push(e);
+        g.emit('spawn', { foe: e });
+      } else if (U.kind === 'boss') {
+        e = makeBoss(g, id, { k: opts.k || opts.bossLevel || 1, at: at && at !== 'gate' ? at : undefined, counted: opts.counted !== false });
+        if (e.counted) { g.dogsLeft += 1; g.dogsTotal += 1; }
+        g.foes.push(e);
+        g.emit('spawn', { foe: e, boss: true });
+        g.emit('bossSpawn', { foe: e, boss: id });
+        if (id === 'boss_roshan') g.emit('roshanSpawn', { foe: e });
+      }
+      if (e) out.push(e);
+    }
+    return out;
+  };
 
   g.kuryeTouch = (d) => {
     const p = g.player;
     if (g.heroId === 'okcu' && p.tangoCharges > 0) {
       p.tangoCharges -= 1;
       g.tangosStolen += 1;
+      d.loot = { ...(d.loot || {}), tango: ((d.loot && d.loot.tango) || 0) + 1 };
       g.emit('tangoStolen', { foe: d });
       return;
     }
@@ -740,12 +1115,14 @@ export function createGame(emit, config = {}) {
       tango.charges -= 1;
       if (tango.charges <= 0) p.items[p.items.indexOf(tango)] = null;
       g.tangosStolen += 1;
+      d.loot = { ...(d.loot || {}), tango: ((d.loot && d.loot.tango) || 0) + 1 };
       g.emit('tangoStolen', { foe: d });
       return;
     }
-    const steal = Math.min(p.gold, 18 + 4 * g.wave);
+    const steal = Math.min(g.unreliable(), 18 + 4 * g.wave);
     if (steal > 0) {
-      p.gold -= steal;
+      spend(steal);
+      d.loot = { ...(d.loot || {}), gold: ((d.loot && d.loot.gold) || 0) + steal };
       g.emit('goldStolen', { foe: d, gold: steal });
       return;
     }
@@ -757,14 +1134,26 @@ export function createGame(emit, config = {}) {
     g.emit('bubble', { bubble: b, foe: d, dog: d });
   };
 
-  // ---------------------------------------------------------------- ölüm / Aegis
+  // ---------------------------------------------------------------- ölüm / Aegis / geri alma
+  g.buybackCost = () => {
+    const p = g.player;
+    return Math.round(150 + 25 * p.level + 12 * Math.max(1, g.wave));
+  };
+  g.canBuyback = () => {
+    const p = g.player;
+    return !g.mods.noBuyback && p.buybackCd <= 0 && p.gold >= g.buybackCost();
+  };
+
   function playerDown() {
     const p = g.player;
     p.charging = false;
     p.charge = 0;
     if (p.channel) g.endChannel(true);
     p.dance = null;
+    p.ball = null;
     g.streak = 0;
+    g.deaths += 1;
+    failObjective('noDeath');
     if (p.aegis) {
       p.aegis = false;
       p.dead = true;
@@ -773,29 +1162,53 @@ export function createGame(emit, config = {}) {
       return;
     }
     p.dead = true;
+    // ölüm cezası: güvenilmez altının bir kısmı düşer
+    const lost = Math.round(g.unreliable() * DEATH_LOSS);
+    if (lost > 0) spend(lost);
     g.state = 'dying';
-    g.dyingT = 1.8;
-    g.emit('death', {});
+    const bb = g.canBuyback();
+    g.dyingT = bb ? BUYBACK_WINDOW : 1.8;
+    g.buybackOpen = bb;
+    g.emit('death', { lost, buyback: bb ? { cost: g.buybackCost(), window: BUYBACK_WINDOW } : null });
   }
+  /** Geri al (buyback): ölüm ekranında, altın öde ve çeşmede diril. */
+  g.buyback = () => {
+    const p = g.player;
+    if (g.state !== 'dying' || !p.dead || !g.buybackOpen || !g.canBuyback()) return false;
+    const cost = g.buybackCost();
+    spend(cost);
+    p.buybackCd = BUYBACK_CD;
+    g.buybacks += 1;
+    g.buybackOpen = false;
+    g.state = g.dogsLeft === 0 && g.queue.length === 0 ? 'break' : 'playing';
+    if (g.state === 'break' && !(g.breakT > 0)) g.breakT = BREAK_T;
+    p.x = FOUNTAIN.x + 1.2;
+    p.z = FOUNTAIN.z - 1.2;
+    p.vx = 0; p.vz = 0; p.kx = 0; p.kz = 0;
+    revive({ buyback: true, cost });
+    return true;
+  };
 
-  function revive() {
+  function revive({ buyback = false, cost = 0 } = {}) {
     const p = g.player;
     p.dead = false;
     p.hp = p.maxHp;
     p.mana = p.maxMana;
     p.invuln = 2.5;
-    for (const k of ['stun', 'root', 'slow', 'silence']) p.st[k] = 0;
-    for (const d of g.foes) {
-      if (d.dead) continue;
-      const dx = d.x - p.x;
-      const dz = d.z - p.z;
-      const L = Math.hypot(dx, dz) || 1;
-      if (L < 6) {
-        d.kx += (dx / L) * 4;
-        d.kz += (dz / L) * 4;
-        applyStatus(g, d, 'stun', 1);
-        d.windup = 0;
-        d.cast = null;
+    dispel(g, p, { strong: true });
+    if (!buyback) {
+      for (const d of g.foes) {
+        if (d.dead) continue;
+        const dx = d.x - p.x;
+        const dz = d.z - p.z;
+        const L = Math.hypot(dx, dz) || 1;
+        if (L < 6) {
+          d.kx += (dx / L) * 4;
+          d.kz += (dz / L) * 4;
+          applyStatus(g, d, 'stun', 1);
+          d.windup = 0;
+          if (d.kind !== 'boss') d.cast = null;
+        }
       }
     }
     // İlahi Kılıç düşer: Kurye Köpeği kapar
@@ -816,7 +1229,7 @@ export function createGame(emit, config = {}) {
       g.emit('spawn', { foe: thief, dog: thief, quiet: true });
       g.emit('rapierStolen', { foe: thief });
     }
-    g.emit('revive', {});
+    g.emit('revive', { buyback, cost });
   }
 
   // ---------------------------------------------------------------- eşyalar ve dükkân
@@ -825,8 +1238,10 @@ export function createGame(emit, config = {}) {
     return Math.hypot(p.x - FOUNTAIN.x, p.z - FOUNTAIN.z) < FOUNTAIN.r + 0.6;
   };
   g.usedSlots = () => g.player.items.filter(Boolean).length + g.courier.items.length;
+  g.itemCost = (id) => Math.round((ITEMS[id]?.cost || 0) * (g.mods.shopCost || 1));
+  g.totalCost = (id) => Math.round(totalCost(id) * (g.mods.shopCost || 1));
 
-  function addItem(id) {
+  function addItem(id, extra = {}) {
     const p = g.player;
     const I = ITEMS[id];
     if (!I) return false;
@@ -836,33 +1251,71 @@ export function createGame(emit, config = {}) {
     }
     const i = p.items.indexOf(null);
     if (i < 0) return false;
-    p.items[i] = { id, cd: 0, charges: I.charges != null ? I.charges : null };
+    p.items[i] = { id, cd: 0, charges: I.charges != null ? I.charges : null, ...extra };
     recalc();
     return true;
   }
   g.addItem = addItem;
 
+  /**
+   * Satın alma planı: tarifli eşyada sahip olunan bileşenler (çantada, rezerve olmayan) düşülür.
+   * Dönen: { cost, use: [çanta indeksleri], missing: [bileşen kimlikleri], slotsNeeded }
+   */
+  g.buyPlan = (id) => {
+    const I = ITEMS[id];
+    const p = g.player;
+    if (!I) return null;
+    if (!isRecipe(id)) return { cost: g.itemCost(id), use: [], missing: [], owned: [] };
+    const taken = new Set();
+    const use = [];
+    const missing = [];
+    for (const comp of I.components) {
+      const idx = p.items.findIndex((it, k) => it && it.id === comp && !taken.has(k) && !it.reserved);
+      if (idx >= 0) { taken.add(idx); use.push(idx); } else missing.push(comp);
+    }
+    let cost = g.itemCost(id);
+    for (const m of missing) cost += g.totalCost(m);
+    return { cost, use, missing, owned: use.map((k) => p.items[k].id) };
+  };
+
   g.canBuy = (id) => {
     const I = ITEMS[id];
     if (!I || I.drop) return { ok: false, why: 'yok' };
-    if (g.player.gold < I.cost) return { ok: false, why: 'altın' };
-    const stackable = I.stack && (g.hasItem(id) || g.courier.items.includes(id));
-    if (!stackable && g.usedSlots() >= SLOTS) return { ok: false, why: 'çanta' };
-    if (g.player.dead && g.state !== 'break') return { ok: false, why: 'ölü' };
-    return { ok: true };
+    const plan = g.buyPlan(id);
+    if (g.player.gold < plan.cost) return { ok: false, why: 'altın', plan };
+    const stackable = I.stack && (g.hasItem(id) || g.courier.items.some((c) => c.id === id));
+    // tarif: bileşenler yerini boşaltır, sonuç bir yuva kaplar
+    const free = SLOTS - g.usedSlots() + plan.use.length;
+    if (!stackable && free < 1) return { ok: false, why: 'çanta', plan };
+    if (g.player.dead && g.state !== 'break') return { ok: false, why: 'ölü', plan };
+    if (g.mods.noCourier && !g.atFountain() && g.state !== 'idle' && g.state !== 'break') return { ok: false, why: 'kurye', plan };
+    return { ok: true, plan };
   };
 
   g.buy = (id) => {
     const I = ITEMS[id];
     const chk = g.canBuy(id);
     if (!chk.ok) { g.emit('buyFail', { item: I, why: chk.why }); return false; }
-    g.player.gold -= I.cost;
+    const plan = chk.plan;
+    const p = g.player;
+    spend(plan.cost);
     const c = g.courier;
-    if (g.atFountain() || g.state === 'idle') {
+    const instant = g.atFountain() || g.state === 'idle' || (g.mods.noCourier && g.state === 'break');
+    if (plan.use.length && instant) {
+      // bileşenler çantada: anında birleşir
+      for (const k of plan.use) p.items[k] = null;
       addItem(id);
+      g.emit('combine', { item: I, from: plan.owned });
+      g.emit('buy', { item: I, instant: true, combine: true });
+    } else if (instant) {
+      addItem(id);
+      autoCombine();
       g.emit('buy', { item: I, instant: true });
     } else {
-      c.items.push(id);
+      // kurye getirir; sahip olunan bileşenler rezerve edilir, teslimde birleşir
+      const reserved = [];
+      for (const k of plan.use) { p.items[k].reserved = true; reserved.push(p.items[k]); }
+      c.items.push({ id, reserved });
       if (c.state !== 'fly') {
         if (c.state === 'home') { c.x = FOUNTAIN.x; c.z = FOUNTAIN.z; }
         c.state = 'fly';
@@ -871,16 +1324,45 @@ export function createGame(emit, config = {}) {
       }
       g.emit('buy', { item: I, courier: true });
     }
-    g.emit('itemBought', { item: I.id, cost: I.cost });
+    g.emit('itemBought', { item: I.id, cost: plan.cost });
+    progress('item', 0);
     return true;
   };
+
+  /** Ücretsiz tarifler (Faz Botları, Güç Nalları…) bileşenler tamamlanınca kendiliğinden birleşir. */
+  function autoCombine() {
+    const p = g.player;
+    let changed = true;
+    let guard = 6;
+    while (changed && guard-- > 0) {
+      changed = false;
+      for (const I of Object.values(ITEMS)) {
+        if (!I.components || !I.components.length || (I.cost || 0) > 0) continue;
+        const taken = new Set();
+        let ok = true;
+        for (const comp of I.components) {
+          const idx = p.items.findIndex((it, k) => it && it.id === comp && !taken.has(k) && !it.reserved);
+          if (idx < 0) { ok = false; break; }
+          taken.add(idx);
+        }
+        if (!ok) continue;
+        const from = [...taken].map((k) => p.items[k].id);
+        for (const k of taken) p.items[k] = null;
+        addItem(I.id);
+        g.emit('combine', { item: I, from, auto: true });
+        changed = true;
+      }
+    }
+    recalc();
+  }
+  g.autoCombine = autoCombine;
 
   g.sell = (slot) => {
     const p = g.player;
     const it = p.items[slot];
-    if (!it) return false;
+    if (!it || it.reserved) return false;
     const I = ITEMS[it.id];
-    const refund = Math.floor((I.cost || 0) / 2);
+    const refund = Math.floor(g.totalCost(it.id) / 2);
     p.items[slot] = null;
     p.gold += refund;
     recalc();
@@ -894,6 +1376,7 @@ export function createGame(emit, config = {}) {
     if (!it) return false;
     const I = ITEMS[it.id];
     if (!I.active) { g.emit('itemPassive', { item: I, slot }); return false; }
+    if (it.reserved) { g.emit('itemNotReady', { item: I, slot }); return false; }
     if (!g.canAct() || p.channel) return false;
     if (it.cd > 0) { g.emit('itemNotReady', { item: I, slot }); return false; }
     if (I.active.mana && p.mana < I.active.mana) { g.emit('noMana', { item: I, slot }); return false; }
@@ -914,20 +1397,21 @@ export function createGame(emit, config = {}) {
     g.emit('itemHeal', { tag });
     return true;
   };
-  g.useWand = (it) => {
+  g.useWand = (it, per = 16) => {
     const n = it.charges || 0;
-    if (n <= 0) { g.emit('itemEmpty', { item: ITEMS.wand }); return false; }
+    if (n <= 0) { g.emit('itemEmpty', { item: ITEMS[it.id] }); return false; }
     const p = g.player;
-    p.hp = Math.min(p.maxHp, p.hp + 16 * n);
-    p.mana = Math.min(p.maxMana, p.mana + 16 * n);
+    p.hp = Math.min(p.maxHp, p.hp + per * n);
+    p.mana = Math.min(p.maxMana, p.mana + per * n);
     it.charges = 0;
-    g.emit('fx', { kind: 'wand', x: p.x, z: p.z, n });
+    g.emit('fx', { kind: 'wand', x: p.x, z: p.z, n, amount: per * n });
     return true;
   };
   /** Göz Açıp Kapayana: hareket ediyorsa hareket yönüne, değilse nişana. */
   g.blinkTo = (maxD) => {
     const p = g.player;
     if (g.time - p.lastHurt < 2) { g.emit('blinkBlocked', {}); return false; }
+    if (p.st.root > 0) { g.emit('rooted', {}); return false; }
     let dx;
     let dz;
     const mv = Math.hypot(g.moveX, g.moveZ);
@@ -970,8 +1454,68 @@ export function createGame(emit, config = {}) {
   g.bkbOn = (t) => {
     const p = g.player;
     p.bkb = t;
-    for (const k of ['stun', 'root', 'slow', 'silence', 'fear', 'taunt']) p.st[k] = 0;
+    dispel(g, p, { strong: true });
     g.emit('fx', { kind: 'bkb', x: p.x, z: p.z });
+    return true;
+  };
+  g.cycloneSelf = (t) => {
+    const p = g.player;
+    p.cyclone = t;
+    if (p.channel) g.endChannel(true);
+    g.chargeCancel();
+    dispel(g, p, { strong: false });
+    g.emit('fx', { kind: 'cyclone', x: p.x, z: p.z, t });
+    return true;
+  };
+  g.magShieldOn = (amount, t) => {
+    const p = g.player;
+    p.magShield = amount;
+    p.magShieldT = t;
+    g.emit('fx', { kind: 'magShield', x: p.x, z: p.z });
+    return true;
+  };
+  g.buffHaste = (t, k, tag) => {
+    const p = g.player;
+    p.hasteBuff = t;
+    p.hasteBuffK = k;
+    g.emit('fx', { kind: tag || 'haste', x: p.x, z: p.z });
+    return true;
+  };
+  g.buffLifesteal = (t, k) => {
+    const p = g.player;
+    p.lsBuff = t;
+    p.lsBuffK = k;
+    g.emit('fx', { kind: 'satanic', x: p.x, z: p.z });
+    return true;
+  };
+  g.mekHeal = (amount, t, armor) => {
+    const p = g.player;
+    g.heal(amount);
+    p.mekT = t;
+    p.mekArmor = armor;
+    for (const tw of g.towers) if (!tw.dead && tw.side === 'radiant' && Math.hypot(tw.x - p.x, tw.z - p.z) < 8) tw.hp = Math.min(tw.maxHp, tw.hp + amount * 1.5);
+    g.emit('fx', { kind: 'mek', x: p.x, z: p.z });
+    return true;
+  };
+  g.useDust = (r, t) => {
+    const p = g.player;
+    let n = 0;
+    for (const e of g.foes) {
+      if (e.dead || Math.hypot(e.x - p.x, e.z - p.z) > r) continue;
+      e.revealT = t;
+      if (e.stealth > 0) e.stealth = Math.min(e.stealth, 0.3);
+      applyStatus(g, e, 'slow', t, { k: 0.2 });
+      n += 1;
+    }
+    g.emit('fx', { kind: 'dust', x: p.x, z: p.z, r, n });
+    return true;
+  };
+  g.placeWard = (life) => {
+    const pt = g.aimPoint(6);
+    if (g.wards.length >= 4) g.wards.shift();
+    const w = { id: nextId++, x: pt.x, z: pt.z, t: 0, life };
+    g.wards.push(w);
+    g.emit('ward', { ward: w });
     return true;
   };
   g.refreshAll = () => {
@@ -989,6 +1533,118 @@ export function createGame(emit, config = {}) {
     return true;
   };
 
+  // ---------------------------------------------------------------- orman eşyaları
+  function dropNeutral(x, z, tier, guaranteed = false) {
+    if (!guaranteed && g.neutralDrops[tier] >= NEUTRAL_PER_TIER) return null;
+    const owned = new Set([g.player.neutral && g.player.neutral.id, ...g.neutralStash, ...g.pickups.filter((k) => k.kind === 'neutral').map((k) => k.item)]);
+    const pool = NEUTRAL_IDS.filter((id) => NEUTRALS[id].tier === tier && !owned.has(id));
+    if (!pool.length) return null;
+    const item = pool[Math.floor(g.rand() * pool.length)];
+    g.neutralDrops[tier] = (g.neutralDrops[tier] || 0) + 1;
+    const pk = { id: nextId++, kind: 'neutral', item, tier, x, z, t: 0, life: Infinity };
+    g.pickups.push(pk);
+    g.emit('neutralDrop', { pickup: pk, item: NEUTRALS[item] });
+    return pk;
+  }
+  g.dropNeutral = dropNeutral;
+  /** Stash'teki orman eşyasını tak (yuvadaki stash'e geçer). */
+  g.equipNeutral = (id) => {
+    const p = g.player;
+    const i = g.neutralStash.indexOf(id);
+    if (i < 0) return false;
+    g.neutralStash.splice(i, 1);
+    if (p.neutral) g.neutralStash.push(p.neutral.id);
+    p.neutral = { id };
+    recalc();
+    g.emit('neutralEquip', { item: NEUTRALS[id] });
+    return true;
+  };
+
+  // ---------------------------------------------------------------- orman kampları
+  function resetCamps() {
+    g.camps = CAMPS.map((c) => ({ ...c, alive: 0, cleared: 0, spawnedAt: -99 }));
+  }
+  function spawnCamp(c, force = false) {
+    if (g.mods.noCamps && !force) return false;
+    if (c.alive > 0) return false;
+    const p = g.player;
+    if (!force && Math.hypot(p.x - c.x, p.z - c.z) < 3) return false; // kamp üstündeysen dolmaz (Dota'daki gibi)
+    const list = CAMP_UNITS[c.id] || ['neutral_wolf'];
+    let k = 0;
+    for (const id of list) {
+      if (g.foes.length >= MAX_FOES) break;
+      const a = (k / list.length) * Math.PI * 2 + 0.6;
+      const e = makeNeutral(g, id, Math.max(1, g.wave), c.x + Math.sin(a) * 0.9, c.z + Math.cos(a) * 0.9, c);
+      g.foes.push(e);
+      g.emit('spawn', { foe: e, quiet: true });
+      k += 1;
+    }
+    c.alive = k;
+    c.spawnedAt = g.time;
+    if (k) g.emit('campSpawn', { camp: c, n: k });
+    return k > 0;
+  }
+  g.spawnCamp = spawnCamp;
+  function campCheck(c, byHero) {
+    c.alive = Math.max(0, c.alive - 1);
+    if (c.alive === 0) {
+      c.cleared += 1;
+      if (byHero) {
+        g.campsCleared += 1;
+        progress('camps', 1);
+        g.emit('campCleared', { camp: c });
+        const tier = neutralTier(g.wave);
+        if (g.rand() < 0.5 || g.campsCleared <= 1) dropNeutral(c.x, c.z, tier);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- gece / gündüz ve görüş
+  function stepDayNight(dt) {
+    const m = g.mods;
+    const dayLen = m.dayLen || DAY_LEN;
+    const nightLen = m.nightLen || NIGHT_LEN;
+    g.dayT += dt;
+    const len = g.dayPhaseNight ? nightLen : dayLen;
+    if (g.dayT >= len) {
+      g.dayT = 0;
+      g.dayPhaseNight = !g.dayPhaseNight;
+    }
+    const night = m.alwaysNight ? true : g.forceNight != null ? g.forceNight : g.dayPhaseNight;
+    if (night !== g.isNight) {
+      g.isNight = night;
+      g.emit('dayNight', { night });
+    }
+  }
+  /** Gece/gündüz bitimine kalan sn (arayüz). */
+  g.dayLeft = () => {
+    if (g.mods.alwaysNight || g.forceNight != null) return Infinity;
+    const len = g.dayPhaseNight ? (g.mods.nightLen || NIGHT_LEN) : (g.mods.dayLen || DAY_LEN);
+    return Math.max(0, len - g.dayT);
+  };
+  g.visionR = () => (g.isNight ? NIGHT_VISION + (g.stat.vision || 0) : 99);
+  function updateVision(dt) {
+    const p = g.player;
+    const night = g.isNight;
+    const vr = g.visionR();
+    // dalganın son DOG'ları hep görünür (gece bulunamayan AFK/Mid dalgayı kilitlemesin)
+    const lastFew = g.state === 'playing' && g.queue.length === 0 && g.dogsLeft <= 2;
+    for (const e of g.foes) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - p.x, e.z - p.z);
+      let seen = true;
+      if (night && e.kind !== 'boss' && d > vr && !(lastFew && e.counted)) {
+        seen = false;
+        for (const t of g.towers) if (!t.dead && t.side === 'radiant' && Math.hypot(e.x - t.x, e.z - t.z) < TOWER_VISION) { seen = true; break; }
+        if (!seen) for (const w of g.wards) if (Math.hypot(e.x - w.x, e.z - w.z) < WARD_VISION) { seen = true; break; }
+      }
+      if (seen && (e.type === 'ward' || e.kind === 'boss') && e.vis < 0.35 && !(e.revealT > 0) && d > 2.2) seen = false;
+      e.seen = seen;
+      if (e.revealT > 0) e.revealT -= dt;
+    }
+  }
+
+  // ---------------------------------------------------------------- kurye
   function stepCourier(dt) {
     const c = g.courier;
     const p = g.player;
@@ -1002,10 +1658,20 @@ export function createGame(emit, config = {}) {
       if (L < 0.9 && !p.dead) {
         const got = [];
         while (c.items.length) {
-          const id = c.items.shift();
-          if (addItem(id)) got.push(ITEMS[id]);
-          else { c.items.unshift(id); break; }
+          const entry = c.items[0];
+          const I = ITEMS[entry.id];
+          // rezerve bileşenler hâlâ çantadaysa birleştir
+          const live = (entry.reserved || []).filter((r) => p.items.includes(r));
+          if (live.length === (entry.reserved || []).length && live.length) {
+            for (const r of live) p.items[p.items.indexOf(r)] = null;
+            if (addItem(entry.id)) { got.push(I); c.items.shift(); g.emit('combine', { item: I, from: live.map((r) => r.id) }); continue; }
+            for (const r of live) { r.reserved = false; addItem(r.id); }
+            break;
+          }
+          for (const r of entry.reserved || []) r.reserved = false;
+          if (addItem(entry.id)) { got.push(I); c.items.shift(); } else break;
         }
+        autoCombine();
         g.emit('courierDeliver', { items: got });
         c.state = 'back';
         return;
@@ -1048,24 +1714,96 @@ export function createGame(emit, config = {}) {
       case 'regen': p.regenRune = R.dur; break;
       case 'invis': p.invis = Math.max(p.invis, R.dur); g.emit('invis', { t: R.dur }); break;
       case 'bounty': {
-        const gold = addGold(55 + 15 * g.wave);
+        const gold = addGold(55 + 15 * g.wave, true);
         g.addXp(60 + 10 * g.wave);
         r.gold = gold;
         break;
       }
       default: break;
     }
+    g.runesTaken += 1;
+    progress('runes', 1);
     g.emit('runeTaken', { rune: r, R });
+  }
+
+  // ---------------------------------------------------------------- görev hedefleri
+  function initObjectives() {
+    const list = (g.mission && g.mission.objectives) || g.config.objectives || [];
+    g.objectives = list.map((o, i) => ({ id: o.id || `h${i + 1}`, ...o, n: o.n || 1, progress: 0, done: false, failed: false }));
+  }
+  function objEmit(o) {
+    g.emit('objective', { id: o.id, done: o.done, failed: o.failed, progress: o.progress, n: o.n, obj: o });
+  }
+  function matchesKill(o, e) {
+    if (!o.unit) return true;
+    const u = o.unit;
+    const id = e.def ? e.def.id : `dog_${e.type}`;
+    return u === id || u === e.kind || u === e.type || u === `dog_${e.type}` || (u === 'boss' && e.kind === 'boss');
+  }
+  /** Hedef ilerlemesi: kind 'kill' | 'boss' | 'waves' | 'runes' | 'camps' | 'towers' | 'gold' | 'level' | 'item' | 'lastHits' */
+  function progress(kind, amount, e) {
+    if (!g.objectives.length || g.state === 'over') return;
+    let changed = false;
+    for (const o of g.objectives) {
+      if (o.done || o.failed) continue;
+      let v = null;
+      if (kind === 'kill' && o.kind === 'kill' && matchesKill(o, e)) v = o.progress + amount;
+      else if (kind === 'kill' && o.kind === 'boss' && e.kind === 'boss' && (!o.boss || unitId(o.boss) === e.def.id)) v = o.progress + 1;
+      else if (kind === 'kill' && o.kind === 'lastHits') v = g.lastHits;
+      else if (kind === o.kind && ['waves', 'runes', 'camps', 'towers'].includes(kind)) v = o.progress + amount;
+      else if (kind === 'gold' && o.kind === 'gold') v = g.goldEarned;
+      else if (kind === 'level' && o.kind === 'level') v = g.player.level;
+      else if (kind === 'item' && o.kind === 'item') v = (g.player.items.some((it) => it && it.id === o.item) || g.courier.items.some((c) => c.id === o.item)) ? o.n : 0;
+      if (v == null || v === o.progress) continue;
+      o.progress = Math.min(o.n, v);
+      if (o.progress >= o.n) o.done = true;
+      changed = true;
+      objEmit(o);
+    }
+    if (changed) checkMission();
+  }
+  g.progress = progress;
+  function failObjective(kind) {
+    for (const o of g.objectives) {
+      if (o.kind !== kind || o.done || o.failed) continue;
+      o.failed = true;
+      objEmit(o);
+      if (!o.optional && g.mission && g.mission.failOnObjective !== false) endRun(false);
+    }
+  }
+  function stepObjectives(dt) {
+    if (!g.objectives.length) return;
+    for (const o of g.objectives) {
+      if (o.done || o.failed) continue;
+      if (o.kind === 'survive') {
+        o.acc = (o.acc || 0) + dt;
+        const v = Math.floor(o.acc);
+        if (v !== o.progress) { o.progress = Math.min(o.t || o.n, v); if (o.progress >= (o.t || o.n)) o.done = true; o.n = o.t || o.n; objEmit(o); if (o.done) checkMission(); }
+      } else if (o.kind === 'time') {
+        o.acc = (o.acc || 0) + dt;
+        if (o.acc > (o.t || 60)) { o.failed = true; objEmit(o); if (!o.optional && g.mission && g.mission.failOnObjective !== false) endRun(false); }
+      }
+    }
+  }
+  function checkMission() {
+    if (!g.mission || g.state === 'over') return;
+    const victory = g.mission.victory || (g.objectives.length ? 'objectives' : 'waves');
+    if (victory !== 'objectives') return;
+    const req = g.objectives.filter((o) => !o.optional && o.kind !== 'time' && o.kind !== 'noDeath' && o.kind !== 'protect');
+    if (req.length && req.every((o) => o.done)) {
+      for (const o of g.objectives) if ((o.kind === 'time' || o.kind === 'noDeath' || o.kind === 'protect') && !o.failed && !o.done) { o.done = true; o.progress = o.n; objEmit(o); }
+      endRun(true);
+    }
   }
 
   // ---------------------------------------------------------------- dalga akışı
   g.waveDef = (n) => {
-    const W = g.config.waves;
+    const W = (g.mission && g.mission.waves) || g.config.waves;
     if (Array.isArray(W)) {
       if (n <= W.length) return W[n - 1];
-      if (g.config.mode === 'story') return null;
+      if (g.config.mode === 'story' || g.mission) return null;
     }
-    return defaultWave(n);
+    return defaultWave(n, g.mods);
   };
 
   function startWave(n) {
@@ -1076,8 +1814,10 @@ export function createGame(emit, config = {}) {
     g.eliteLeft = def.elites || 0;
     g.spawnT = 0.9;
     g.burst = 3;
-    g.bossWave = def.boss === 'roshan';
-    g.dogsLeft = g.queue.length + (g.bossWave ? 1 : 0);
+    const bossId = def.boss ? unitId(def.boss) : null;
+    g.bossWave = !!bossId;
+    g.bossId = bossId;
+    g.dogsLeft = g.queue.length;
     g.dogsTotal = g.dogsLeft;
     g.waveShots = 0;
     g.waveHitShots = 0;
@@ -1085,19 +1825,28 @@ export function createGame(emit, config = {}) {
     g.squadsLeft = def.creepSquads || 0;
     g.creepT = 5;
     g.state = 'playing';
-    // Roshan dalgasından sonraki dalgada yıkılan kuleler yeniden dikilir
-    if (n > 1 && (n - 1) % 5 === 0 && g.towers.some((t) => t.dead)) {
+    g.forceNight = def.night == null ? null : !!def.night;
+    // boss dalgasından sonraki dalgada yıkılan kuleler yeniden dikilir
+    if (n > 1 && g.lastBossWave === n - 1 && g.towers.some((t) => t.dead)) {
       const fresh = makeTowers(g, n);
       g.towers = g.towers.map((t, i) => (t.dead ? fresh[i] : t));
+      g.direMorale = 0;
       g.emit('towersRebuilt', {});
     }
-    if (g.bossWave) {
-      const r = makeRoshan(g, Math.floor(n / 5));
-      g.foes.push(r);
-      g.emit('spawn', { foe: r, boss: true });
-      g.emit('roshanSpawn', { foe: r });
+    if (bossId) {
+      g.lastBossWave = n;
+      g.spawnUnit(bossId, { k: def.bossLevel || Math.max(1, Math.floor(n / 5)), at: def.bossAt, counted: true });
     }
-    g.emit('waveStart', { wave: n, boss: g.bossWave ? 'roshan' : null, dogs: g.queue.length });
+    // görev birimleri (gecikmeli olanlar sayaca baştan girer)
+    g.pendingUnits = 0;
+    for (const u of def.units || []) {
+      if (u.delay > 0) {
+        g.pendingUnits += 1;
+        g.later(u.delay, () => { g.pendingUnits -= 1; if (g.state === 'playing' || g.state === 'dying') g.spawnUnit(u.id, u); });
+      } else g.spawnUnit(u.id, u);
+    }
+    g.emit('waveStart', { wave: n, boss: bossId ? (bossId === 'boss_roshan' ? 'roshan' : bossId) : null, bossId, dogs: g.queue.length, text: def.text || null });
+    if (def.camps && !g.mods.noCamps) for (const c of g.camps) spawnCamp(c);
   }
 
   function spawnSquad() {
@@ -1107,7 +1856,7 @@ export function createGame(emit, config = {}) {
     for (const e of g.foes) if (e.kind === 'creep' && !e.dead) alive += 1;
     let k = 0;
     for (const t of comp) {
-      if (alive >= MAX_CREEPS) break;
+      if (alive >= MAX_CREEPS || g.foes.length >= MAX_FOES) break;
       const x = DIRE_GATE.x - 0.6 * k + (Math.random() - 0.5) * 0.3;
       const z = DIRE_GATE.z + 0.6 * k + (Math.random() - 0.5) * 0.3;
       const e = makeCreep(g, t, n, x, z);
@@ -1129,15 +1878,24 @@ export function createGame(emit, config = {}) {
     else eff = Math.max(0, 1 - g.waveDamage / Math.max(1, p.maxHp * 1.5));
     const bonus = 300 * g.wave;
     const effBonus = Math.round(eff * 400);
-    g.score += bonus + effBonus;
-    const gold = addGold(90 + 15 * g.wave);
+    addScore(bonus + effBonus);
+    const gold = addGold(90 + 15 * g.wave, true);
     p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.25);
     p.mana = Math.min(p.maxMana, p.mana + p.maxMana * 0.5);
-    if (g.heroId === 'okcu' && p.tangoCharges < 3) p.tangoCharges += 1;
-    for (const e of g.foes) if (e.kind === 'creep' && !e.dead) { e.retreat = true; e.windup = 0; }
+    if (g.heroId === 'okcu' && p.abilityLv.e > 0) {
+      const c = abilityCtx(g, 'e');
+      if (c && p.tangoCharges < c.L.charges) p.tangoCharges += 1;
+    }
+    for (const e of g.foes) {
+      if (e.dead) continue;
+      if (e.kind === 'creep') { e.retreat = true; e.windup = 0; }
+      if (e.summon) e.gone = true;
+    }
     g.bubbles.length = 0;
+    g.forceNight = null;
+    progress('waves', 1);
     g.emit('waveClear', { wave: g.wave, bonus, accBonus: effBonus, effBonus, acc: eff, eff, gold, boss: g.bossWave });
-    g.emit('waveEnd', { wave: g.wave, bonus, effBonus, gold, boss: g.bossWave });
+    g.emit('waveEnd', { wave: g.wave, bonus, effBonus, gold, boss: g.bossWave, bossId: g.bossId });
   }
 
   g.skipBreak = () => {
@@ -1146,12 +1904,16 @@ export function createGame(emit, config = {}) {
   };
 
   function endRun(victory = false) {
+    if (g.state === 'over') return;
     g.state = 'over';
     const report = g.report();
     report.victory = victory;
-    g.emit('runEnd', { score: g.score, wave: g.wave, heroId: g.heroId, stats: report, victory });
+    g.emit('runEnd', { mode: g.config.mode, score: g.score, wave: g.wave, heroId: g.heroId, stats: report, victory, objectives: report.objectives, curse: g.config.curse || 0 });
     g.emit('gameOver', { report });
   }
+  g.endRun = endRun;
+  /** Hikâye/senaryo: koşuyu dışarıdan bitir (ör. diyalog sonrası). */
+  g.finish = (victory) => endRun(!!victory);
 
   function resetWorld() {
     g.foes.length = 0;
@@ -1160,22 +1922,32 @@ export function createGame(emit, config = {}) {
     g.pickups.length = 0;
     g.bubbles.length = 0;
     g.runes.length = 0;
+    g.remnants.length = 0;
+    g.wards.length = 0;
+    g.timers.length = 0;
+    g.neutralStash = [];
+    g.neutralDrops = { 1: 0, 2: 0, 3: 0 };
     g.courier = { state: 'home', x: FOUNTAIN.x, z: FOUNTAIN.z, y: 0, face: 0, items: [], t: 0 };
     g.towers = makeTowers(g, 1);
+    resetCamps();
   }
 
   /** Yeni koşu. cfg: DEFAULT_CONFIG alanlarından istenenler. */
   g.start = (cfg = {}) => {
     g.config = { ...g.config, ...cfg };
-    g.mods = { ...(g.config.modifiers || {}) };
+    g.mission = g.config.mission || null;
+    g.meta = g.config.meta || null;
+    g.mods = { ...curseMods(g.config.curse), ...(g.config.modifiers || {}) };
     g.rng = g.config.seed != null ? seeded(Number(g.config.seed) || 1) : Math.random;
     resetWorld();
     g.setHero(g.config.heroId || g.heroId);
     Object.assign(g, {
       time: 0, wave: 0, score: 0, kills: 0, shots: 0, hitShots: 0, killsByType: {},
       chain: 0, lastKill: -10, bestChain: 0, streak: 0, firstBlood: false, slowmo: 0, ultKills: 0, damageTaken: 0,
-      tangosUsed: 0, tangosStolen: 0, dyingT: 0, runeT: FIRST_RUNE, goldEarned: 0, lastHits: 0, creepKills: 0,
-      roshans: 0, towersDown: 0, target: null,
+      tangosUsed: 0, tangosStolen: 0, dyingT: 0, runeT: FIRST_RUNE, goldEarned: 0, lastHits: 0, denies: 0, creepKills: 0,
+      neutralKills: 0, campsCleared: 0, runesTaken: 0, bossesKilled: 0, roshans: 0, towersDown: 0, buybacks: 0, deaths: 0,
+      direMorale: 0, target: null, focus: null, isNight: false, dayT: 0, dayPhaseNight: false, forceNight: null,
+      campT: FIRST_CAMP, lastBossWave: 0, pendingUnits: 0, buybackOpen: false,
     });
     const p = g.player;
     p.x = FOUNTAIN.x + 1.6;
@@ -1183,8 +1955,12 @@ export function createGame(emit, config = {}) {
     p.face = Math.PI * 0.75;
     if (g.mods.startGold) p.gold = g.mods.startGold;
     if (g.mods.startLevel > 1) g.addXp(Array.from({ length: g.mods.startLevel - 1 }, (_, i) => xpFor(i + 1)).reduce((a, b) => a + b, 0));
+    for (const id of (g.meta && g.meta.startItems) || []) if (ITEMS[id]) addItem(id);
+    initObjectives();
+    if (g.mods.alwaysNight) { g.isNight = true; }
     g.emit('reset', {});
-    g.emit('runStart', { heroId: g.heroId, config: g.config });
+    g.emit('runStart', { heroId: g.heroId, config: g.config, mode: g.config.mode, mission: g.mission, curse: g.config.curse || 0 });
+    for (const o of g.objectives) objEmit(o);
     startWave(1);
   };
 
@@ -1192,6 +1968,7 @@ export function createGame(emit, config = {}) {
   g.attract = (heroId) => {
     g.state = 'idle';
     resetWorld();
+    g.isNight = false;
     if (heroId) g.config.heroId = heroId;
     g.setHero(g.config.heroId || g.heroId);
     g.player.face = Math.PI * 0.15;
@@ -1212,6 +1989,7 @@ export function createGame(emit, config = {}) {
     }
     const p = g.player;
     return {
+      mode: g.config.mode,
       heroId: g.heroId,
       wave: g.wave,
       score: g.score,
@@ -1228,11 +2006,22 @@ export function createGame(emit, config = {}) {
       level: p.level,
       gold: g.goldEarned,
       lastHits: g.lastHits,
+      denies: g.denies,
       creepKills: g.creepKills,
+      neutralKills: g.neutralKills,
+      camps: g.campsCleared,
+      runes: g.runesTaken,
       roshans: g.roshans,
+      bosses: g.bossesKilled,
       towers: g.towersDown,
+      buybacks: g.buybacks,
+      deaths: g.deaths,
+      curse: g.config.curse || 0,
       items: p.items.filter(Boolean).map((it) => it.id),
+      neutral: p.neutral ? p.neutral.id : null,
       talents: [...p.tal],
+      abilities: { ...p.abilityLv },
+      objectives: g.objectives.map((o) => ({ id: o.id, kind: o.kind, done: o.done, failed: o.failed, optional: !!o.optional, progress: o.progress, n: o.n })),
     };
   };
 
@@ -1253,11 +2042,21 @@ export function createGame(emit, config = {}) {
     g.moveX = input.mx || 0;
     g.moveZ = input.mz || 0;
     g.lastAuto = input.auto !== false;
+    const live = g.state === 'playing' || g.state === 'break';
 
     for (const k of ['q', 'w', 'e', 'r']) if (g.cds[k] > 0) g.cds[k] = Math.max(0, g.cds[k] - dt);
     for (const it of p.items) if (it && it.cd > 0) it.cd = Math.max(0, it.cd - dt);
-    g.heroVisible = !p.dead && !(p.invis > 0);
+    if (p.buybackCd > 0) p.buybackCd = Math.max(0, p.buybackCd - dt);
+    g.heroVisible = !p.dead && !(p.invis > 0) && !(p.cyclone > 0);
     if (g.heroVisible) { g.lastSeenX = p.x; g.lastSeenZ = p.z; }
+    if (live) stepDayNight(dt);
+
+    // zamanlayıcılar
+    for (let i = g.timers.length - 1; i >= 0; i--) {
+      const t = g.timers[i];
+      t.t -= dt;
+      if (t.t <= 0) { g.timers.splice(i, 1); try { t.fn(); } catch (err) { console.error(err); } }
+    }
 
     // nişan
     const target = input.auto !== false ? g.autoTarget() : null;
@@ -1280,28 +2079,38 @@ export function createGame(emit, config = {}) {
       p.face += dt * 0.35;
     } else if (!p.dead) {
       tickStatus(g, p, dt);
-      const stunned = p.st.stun > 0;
-      if (stunned) {
+      const stunned = p.st.stun > 0 || p.cyclone > 0;
+      if (stunned || p.st.hex > 0 || p.st.fear > 0) {
         if (p.charging) g.chargeCancel();
         if (p.channel) g.endChannel(true);
         p.atkWind = 0;
       }
+      if (p.st.silence > 0 && p.channel) g.endChannel(true);
       // hareket
       let mx = input.mx || 0;
       let mz = input.mz || 0;
+      if (p.st.fear > 0) {
+        const dx = p.x - p.st.fearX;
+        const dz = p.z - p.st.fearZ;
+        const L = Math.hypot(dx, dz) || 1;
+        mx = dx / L;
+        mz = dz / L;
+      }
       const ml = Math.hypot(mx, mz);
       if (ml > 1) { mx /= ml; mz /= ml; }
       moving = ml > 0.15;
       if (p.channel && ml > 0.55 && p.channel.t > 0.3 && !p.tal.has('buWalk')) g.endChannel(true);
       let sp = g.stat.speed;
       if (p.haste > 0) sp *= 1.45;
-      if (p.windrun > 0) sp *= 1.6;
-      if (p.smokeT > 0) sp *= 1.15;
+      if (p.windrun > 0) sp *= p.windrunK || 1.6;
+      if (p.smokeT > 0) sp *= 1 + (p.smokeK || 0.15);
+      if (p.guiseT > 0 && p.invis > 0) sp *= 1 + (p.guiseK || 0);
       if (p.cullHaste > 0) sp *= 1.3;
+      if (p.hasteBuff > 0) sp *= p.hasteBuffK;
       sp *= slowMul(p);
       if (p.charging) sp *= 0.45;
       if (p.channel) sp *= p.tal.has('buWalk') ? 0.6 : 0;
-      if (stunned || p.st.root > 0 || p.dance) sp = 0;
+      if (stunned || p.st.root > 0 || p.dance || p.ball) sp = 0;
       const k = Math.min(1, dt * 14);
       p.vx += (mx * sp - p.vx) * k;
       p.vz += (mz * sp - p.vz) * k;
@@ -1309,7 +2118,7 @@ export function createGame(emit, config = {}) {
       p.z += (p.vz + p.kz) * dt;
       p.kx *= Math.max(0, 1 - dt * 6);
       p.kz *= Math.max(0, 1 - dt * 6);
-      pushOut(p, HERO_R, g.towers);
+      if (!p.ball) pushOut(p, HERO_R, g.towers);
       const pr = Math.hypot(p.x, p.z);
       if (pr > PLAY_R - 0.4) {
         p.x *= (PLAY_R - 0.4) / pr;
@@ -1321,10 +2130,9 @@ export function createGame(emit, config = {}) {
       const adz = p.aimZ - p.z;
       const hasAim = Math.hypot(adx, adz) > 0.3;
       let want = p.face;
-      const busy = p.atkWind > 0 || p.swing > 0.6 || p.dance;
+      const busy = p.atkWind > 0 || p.swing > 0.6 || p.dance || p.ball;
       if (!busy) {
         if (g.H.attack) {
-          // saldıran kahramanlar yürüdükleri yöne bakar; saldırı kendi yönünü ayarlar
           if (ml > 0.1) want = Math.atan2(mx, mz);
           else if (input.auto === false && hasAim) want = Math.atan2(adx, adz);
         } else if ((input.auto === false || g.target || p.charging) && hasAim) want = Math.atan2(adx, adz);
@@ -1349,6 +2157,7 @@ export function createGame(emit, config = {}) {
         mpr += p.maxMana * 0.07;
         if (p.hp >= p.maxHp && p.mana >= p.maxMana) p.regenRune = 0;
       }
+      if (p.barkT > 0) hpr += p.barkRegen;
       for (let i = p.heals.length - 1; i >= 0; i--) {
         const hl = p.heals[i];
         hpr += hl.hps;
@@ -1357,24 +2166,28 @@ export function createGame(emit, config = {}) {
       }
       p.hp = Math.min(p.maxHp, p.hp + hpr * dt);
       p.mana = Math.min(p.maxMana, p.mana + mpr * dt);
-      for (const key of ['windrun', 'rapier', 'invuln', 'haste', 'dd', 'regenRune', 'bkb', 'callArmor', 'cullHaste', 'spinT', 'helixIcd', 'smokeT']) {
+      for (const key of ['windrun', 'rapier', 'invuln', 'haste', 'dd', 'regenRune', 'bkb', 'callArmor', 'cullHaste', 'spinT', 'helixIcd', 'smokeT', 'barkT', 'mekT', 'magShieldT', 'cyclone', 'hasteBuff', 'lsBuff']) {
         if (p[key] > 0) p[key] = Math.max(0, p[key] - dt);
       }
+      if (p.magShieldT <= 0) p.magShield = 0;
+      p.evadeBuff = p.windrun > 0 ? p.windrunEv : 0;
+      p.bonusArmor = (p.callArmor > 0 ? p.callArmorK : 0) + (p.barkT > 0 ? p.barkArmor : 0) + (p.mekT > 0 ? p.mekArmor : 0);
+      p.blockBuff = p.barkT > 0 ? p.barkBlock : 0;
       if (p.invis > 0) {
         p.invis -= dt;
-        if (p.invis <= 0) { p.invis = 0; g.emit('invisEnd', {}); }
+        if (p.invis <= 0) { p.invis = 0; p.guiseT = 0; g.emit('invisEnd', {}); }
       }
-      // yetenek adımları (şarj, kanal, dans, Tango şarjı…)
+      // yetenek adımları (şarj, kanal, dans, top, Tango şarjı…)
       forAbilities((A, c) => { if (A.step) A.step(g, dt, c); });
       stepAttack(dt, moving);
       // Güneş Tacı yanması
-      if (g.stat.burn > 0 && (g.state === 'playing' || g.state === 'break')) {
+      if (g.stat.burn > 0 && live) {
         p.burnAcc = (p.burnAcc || 0) + dt;
         if (p.burnAcc >= 0.5) {
           p.burnAcc -= 0.5;
           const bd = g.stat.burn * 0.5 * g.dmgMul(true);
           for (const e of g.foes) {
-            if (e.dead || e.spawnT > 0 || e.demo) continue;
+            if (e.dead || e.spawnT > 0 || e.demo || e.kind === 'neutral' && !(e.aggroT > 0)) continue;
             if ((e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= (3.2 + e.r) ** 2) dealDamage(g, p, e, bd, DMG.MAG, { src: 'burn', quiet: true });
           }
         }
@@ -1408,8 +2221,8 @@ export function createGame(emit, config = {}) {
         spawnSquad();
       }
     }
-    // rünler (oyun ve mola sırasında)
-    if (g.state === 'playing' || g.state === 'break') {
+    // rünler, kamplar (oyun ve mola sırasında)
+    if (live) {
       g.runeT -= dt;
       if (g.runeT <= 0) { g.runeT = RUNE_EVERY; spawnRune(); }
       for (let i = g.runes.length - 1; i >= 0; i--) {
@@ -1420,8 +2233,22 @@ export function createGame(emit, config = {}) {
           takeRune(r);
         }
       }
+      g.campT -= dt;
+      if (g.campT <= 0) {
+        g.campT = CAMP_EVERY;
+        for (const c of g.camps) spawnCamp(c);
+      }
+      stepObjectives(dt);
     }
+    // ward'lar ve kalıntılar
+    for (let i = g.wards.length - 1; i >= 0; i--) {
+      const w = g.wards[i];
+      w.t += dt;
+      if (w.t >= w.life) { g.wards.splice(i, 1); g.emit('wardGone', { ward: w }); }
+    }
+    stepRemnants(dt);
 
+    updateVision(dt);
     stepFoes(dt);
     stepArrows(dt);
     stepProjs(dt);
@@ -1438,9 +2265,10 @@ export function createGame(emit, config = {}) {
       if (after !== before && after <= 3 && after > 0) g.emit('countdown', { n: after });
       if (g.breakT <= 0) startWave(g.wave + 1);
     }
+    if (g.state === 'playing' && g.dogsLeft === 0 && g.queue.length === 0 && !g.pendingUnits) waveClear();
     if (g.state === 'dying') {
       g.dyingT -= dtReal;
-      if (g.dyingT <= 0) endRun(false);
+      if (g.dyingT <= 0) { g.buybackOpen = false; endRun(false); }
     }
   };
 
@@ -1452,6 +2280,29 @@ export function createGame(emit, config = {}) {
       passiveAcc -= n;
       g.player.gold += n;
       g.goldEarned += n;
+    }
+  }
+
+  function stepRemnants(dt) {
+    const p = g.player;
+    for (let i = g.remnants.length - 1; i >= 0; i--) {
+      const r = g.remnants[i];
+      r.t += dt;
+      if (r.t >= r.life) { g.remnants.splice(i, 1); g.emit('remnantGone', { rem: r }); continue; }
+      if (r.t < r.arm) continue;
+      let trig = false;
+      for (const e of g.foes) {
+        if (e.dead || e.spawnT > 0 || e.demo) continue;
+        if ((e.x - r.x) ** 2 + (e.z - r.z) ** 2 <= (r.trigger + e.r) ** 2) { trig = true; break; }
+      }
+      if (!trig) continue;
+      g.remnants.splice(i, 1);
+      const dmg = r.dmg * g.dmgMul(true);
+      for (const e of g.foes) {
+        if (e.dead || e.spawnT > 0 || e.demo) continue;
+        if ((e.x - r.x) ** 2 + (e.z - r.z) ** 2 <= (r.radius + e.r) ** 2) dealDamage(g, p, e, dmg, DMG.MAG, { src: 'remnant' });
+      }
+      g.emit('fx', { kind: 'remnantBoom', x: r.x, z: r.z, r: r.radius });
     }
   }
 
@@ -1470,14 +2321,16 @@ export function createGame(emit, config = {}) {
       }
       if (d.gone) {
         list.splice(i, 1);
+        if (d.kind === 'neutral' && d.camp) d.camp.alive = Math.max(0, d.camp.alive - 1);
         g.emit('remove', { foe: d, dog: d, gone: true });
         continue;
       }
       if (d.hitFlash > 0) d.hitFlash -= dt;
       if (d.lunge > 0) d.lunge -= dt;
+      if (d.invuln > 0 && d.invuln < 9000) d.invuln -= dt;
       if (d.spawnT > 0) {
         d.spawnT -= dt;
-        if (d.kind !== 'boss') {
+        if (d.kind === 'dog' && !d.summon && !d.demo) {
           const L = Math.hypot(d.x, d.z) || 1;
           d.x -= (d.x / L) * dt * 1.6;
           d.z -= (d.z / L) * dt * 1.6;
@@ -1499,16 +2352,14 @@ export function createGame(emit, config = {}) {
       if (d.kind === 'dog') {
         intent = thinkDog(d, g, dt);
         if (g.state === 'playing' || g.state === 'break') biting = tryBite(d, g, dt);
-      } else if (d.kind === 'creep') {
-        intent = thinkCreep(d, g, dt);
-        biting = d.windup > 0;
       } else {
-        intent = thinkRoshan(d, g, dt);
+        const fn = THINK[d.def.ai] || THINK.creep;
+        intent = fn(d, g, dt);
         biting = d.windup > 0 || !!d.cast;
       }
       let mx = intent.mx;
       let mz = intent.mz;
-      const spd = biting ? 0 : intent.spd * slowMul(d);
+      const spd = biting || d.def?.stationary ? 0 : intent.spd * slowMul(d);
       // ayrışma: birimler üst üste binmesin
       for (const o of list) {
         if (o === d || o.dead) continue;
@@ -1523,8 +2374,11 @@ export function createGame(emit, config = {}) {
           mz += (dz / L) * push;
         }
       }
+      if (spd > 0 && d.status !== 'dash') [mx, mz] = steerAround(d, mx, mz, d.r, g.towers);
       const ml = Math.hypot(mx, mz);
-      if (ml > 1e-4 && spd > 0) {
+      if (d.def?.stationary) {
+        d.vx = 0; d.vz = 0; d.kx = 0; d.kz = 0;
+      } else if (ml > 1e-4 && spd > 0) {
         const nx = mx / Math.max(1, ml);
         const nz = mz / Math.max(1, ml);
         const k = Math.min(1, dt * 10);
@@ -1534,7 +2388,6 @@ export function createGame(emit, config = {}) {
         d.vx *= 1 - Math.min(1, dt * 10);
         d.vz *= 1 - Math.min(1, dt * 10);
         if (ml > 1e-4 && spd === 0) {
-          // yalnızca itilme
           d.x += (mx / Math.max(1, ml)) * dt * 1.2;
           d.z += (mz / Math.max(1, ml)) * dt * 1.2;
         }
@@ -1548,14 +2401,14 @@ export function createGame(emit, config = {}) {
       const dz = d.z - p.z;
       const L = Math.hypot(dx, dz) || 1;
       const min = d.r + 0.32;
-      if (L < min && !p.dead) {
-        d.x = p.x + (dx / L) * min;
-        d.z = p.z + (dz / L) * min;
+      if (L < min && !p.dead && !p.ball && !(p.hasteBuff > 0 && p.hasteBuffK > 1.2)) {
+        if (d.def?.stationary) { p.x = d.x - (dx / L) * min; p.z = d.z - (dz / L) * min; }
+        else { d.x = p.x + (dx / L) * min; d.z = p.z + (dz / L) * min; }
       }
       collide(d, g, d.r);
       // yüz yönü
       let want = d.face;
-      if (d.faceTo != null && (d.kind !== 'dog')) want = biting || spd === 0 ? d.faceTo : Math.hypot(d.vx, d.vz) > 0.3 ? Math.atan2(d.vx, d.vz) : d.faceTo;
+      if (d.faceTo != null && d.kind !== 'dog') want = biting || spd === 0 ? d.faceTo : Math.hypot(d.vx, d.vz) > 0.3 ? Math.atan2(d.vx, d.vz) : d.faceTo;
       else if (d.status === 'dash' || d.windup > 0 || (d.canBite && d.dist < 3 && g.heroVisible)) want = Math.atan2(p.x - d.x, p.z - d.z);
       else if (Math.hypot(d.vx, d.vz) > 0.3) want = Math.atan2(d.vx, d.vz);
       let da = want - d.face;
@@ -1577,7 +2430,7 @@ export function createGame(emit, config = {}) {
       const stepLen = a.speed * dt;
       hits.length = 0;
       for (const d of g.foes) {
-        if (d.dead || d.spawnT > 0 || a.hitSet.has(d.id)) continue;
+        if (d.dead || d.spawnT > 0 || a.hitSet.has(d.id) || (d.kind === 'neutral' && d.state === 'return')) continue;
         const t = Math.max(0, Math.min(stepLen, (d.x - a.x) * a.dx + (d.z - a.z) * a.dz));
         const cx = a.x + a.dx * t;
         const cz = a.z + a.dz * t;
@@ -1598,12 +2451,13 @@ export function createGame(emit, config = {}) {
         const falloff = Math.pow(0.88, a.hits);
         const wasAlive = !d.dead;
         if (d.kind === 'tower') {
-          dealDamage(g, g.player, d, a.dmg * falloff * 0.6, DMG.PHYS, { src: 'arrow', structure: true });
+          dealDamage(g, g.player, d, a.dmg * falloff * 0.6, DMG.PHYS, { src: 'arrow', structure: true, attack: true, trueStrike: true, canCrit: false });
           a.hits += 1;
           stopAt = t;
           break;
         }
-        dealDamage(g, g.player, d, a.dmg * falloff, DMG.PHYS, { dirX: a.dx, dirZ: a.dz, knock: 0.8 + a.charge * 2.2, src: 'arrow' });
+        const dealt = dealDamage(g, g.player, d, a.dmg * falloff, DMG.PHYS, { dirX: a.dx, dirZ: a.dz, knock: 0.8 + a.charge * 2.2, src: 'arrow', attack: true, trueStrike: true, lifesteal: (g.stat.lifesteal || 0) * (g.player.lsBuff > 0 ? g.player.lsBuffK : 1) * 0.6 });
+        if (a.hits === 0) afterHeroAttack(d, dealt, { arrow: true });
         if (wasAlive && d.dead) a.kills += 1;
         a.hits += 1;
         if (a.hits > a.pierce) { stopAt = t; break; }
@@ -1640,14 +2494,14 @@ export function createGame(emit, config = {}) {
       b.x += b.dx * b.speed * dt;
       b.z += b.dz * b.speed * dt;
       let gone = b.life <= 0 || Math.hypot(b.x, b.z) > ARENA_R;
-      if (!gone && !p.dead && (b.x - p.x) ** 2 + (b.z - p.z) ** 2 < 0.62 * 0.62) {
+      if (!gone && !p.dead && !p.ball && (b.x - p.x) ** 2 + (b.z - p.z) ** 2 < 0.62 * 0.62) {
         if (!(p.windrun > 0 && g.rand() < 0.8)) {
-          dealDamage(g, b.owner, p, b.dmg, DMG.MAG, { src: 'report' });
-          if (p.bkb <= 0) {
+          const dealt = dealDamage(g, b.owner, p, b.dmg, DMG.MAG, { src: 'report' });
+          if (dealt > 0 && p.bkb <= 0) {
             g.slowPlayer(2.2);
             g.emit('bubbleHit', { bubble: b });
           }
-        } else g.emit('evade', {});
+        } else g.emit('evade', { hero: true });
         gone = true;
       }
       if (gone) {
@@ -1669,7 +2523,7 @@ export function createGame(emit, config = {}) {
       }
       if (p.dead || g.state === 'idle' || g.state === 'over') continue;
       const rad = k.kind === 'aegis' ? 1.1 : 0.9;
-      const delay = k.kind === 'aegis' || k.kind === 'cheese' ? 1.2 : 0.6;
+      const delay = k.kind === 'aegis' || k.kind === 'cheese' || k.kind === 'neutral' ? 1.0 : 0.6;
       if ((k.x - p.x) ** 2 + (k.z - p.z) ** 2 < rad * rad && k.t > delay) {
         if (k.kind === 'rapierItem') {
           if (!addItem('rapier')) continue; // çanta dolu: yerde bekler
@@ -1686,6 +2540,10 @@ export function createGame(emit, config = {}) {
         if (k.kind === 'cheese') {
           if (!addItem('cheese')) { g.cheese(); k.eaten = true; }
         }
+        if (k.kind === 'neutral') {
+          if (!p.neutral) { p.neutral = { id: k.item }; recalc(); k.equipped = true; }
+          else { g.neutralStash.push(k.item); k.stashed = true; }
+        }
         g.emit('pickup', { pickup: k });
       }
     }
@@ -1696,8 +2554,7 @@ export function createGame(emit, config = {}) {
     let best = null;
     let bd = maxD * maxD;
     for (const d of g.foes) {
-      if (d.dead || d.spawnT > 0 || d.demo) continue;
-      if (d.type === 'ward' && d.vis < 0.35) continue;
+      if (d.dead || d.spawnT > 0 || d.demo || d.seen === false) continue;
       const q = (d.x - x) ** 2 + (d.z - z) ** 2;
       if (q < bd) { bd = q; best = d; }
     }
@@ -1710,15 +2567,25 @@ export function createGame(emit, config = {}) {
     let best = null;
     let bs = Infinity;
     for (const d of g.foes) {
-      if (d.dead || d.spawnT > 0 || d.demo) continue;
-      if (d.type === 'ward' && d.vis < 0.35) continue;
+      if (d.dead || d.spawnT > 0 || d.demo || d.seen === false) continue;
       const dist = Math.hypot(d.x - p.x, d.z - p.z);
       let s = dist;
       if (d.status === 'afk') s += 8;
       if (d.kind === 'boss' && !d.angry) s += 10;
+      if (d.kind === 'boss' && d.invuln > 0) s += 12;
       if (d.kind === 'creep') s += 1.2;
+      if (d.kind === 'neutral' && !(d.aggroT > 0)) s += 9;
       if (d.canBite && dist < 3) s -= 2;
       if (s < bs) { bs = s; best = d; }
+    }
+    return best;
+  };
+  /** Arayüz: en önemli canlı boss (üst çubuk). */
+  g.activeBoss = () => {
+    let best = null;
+    for (const e of g.foes) {
+      if (e.kind !== 'boss' || e.dead || e.demo) continue;
+      if (!best || (e.counted && !best.counted) || (e.angry && !best.angry)) best = e;
     }
     return best;
   };
@@ -1738,24 +2605,43 @@ export function createGame(emit, config = {}) {
       for (const e of [...g.foes]) {
         if (e.dead || !e.counted) continue;
         e.spawnT = 0;
+        e.invuln = 0;
+        e.shield = 0;
         dealDamage(g, g.player, e, e.hp + 10, DMG.PURE, { src: 'dev' });
       }
       if (g.state === 'playing' && g.dogsLeft === 0) waveClear();
     },
-    gold(n = 5000) { g.player.gold += n; },
-    level(n) { const p = g.player; while (p.level < n) g.addXp(xpFor(p.level)); },
+    gold(n = 5000) { addGold(n, true); },
+    level(n) {
+      const p = g.player;
+      let guard = 30;
+      while (p.level < Math.min(MAX_LEVEL, n) && guard-- > 0) { p.xp = xpFor(p.level); g.addXp(0); }
+    },
+    learnAll() { g.autoLearn(); },
+    talents(pick = 0) { for (const lv of [...g.player.talentPending]) g.chooseTalent(lv, typeof pick === 'function' ? pick(lv) : pick); },
     roshan() {
-      const r = makeRoshan(g, Math.max(1, Math.floor(g.wave / 5) || 1));
-      r.counted = false;
-      g.foes.push(r);
-      g.emit('spawn', { foe: r, boss: true });
-      g.emit('roshanSpawn', { foe: r });
+      const [r] = g.spawnUnit('boss_roshan', { k: Math.max(1, Math.floor(g.wave / 5) || 1), counted: false });
       return r;
     },
+    boss(id, opts = {}) { return g.spawnUnit(id, { counted: false, ...opts })[0] || null; },
+    unit(id, opts = {}) { return g.spawnUnit(id, { counted: false, ...opts }); },
+    camps() { for (const c of g.camps) spawnCamp(c, true); return g.camps.map((c) => c.alive); },
+    neutral(id) {
+      const tier = NEUTRALS[id] ? NEUTRALS[id].tier : neutralTier(g.wave);
+      if (NEUTRALS[id]) {
+        const pk = { id: nextId++, kind: 'neutral', item: id, tier, x: g.player.x + 1, z: g.player.z, t: 0, life: Infinity };
+        g.pickups.push(pk);
+        g.emit('neutralDrop', { pickup: pk, item: NEUTRALS[id] });
+        return pk;
+      }
+      return dropNeutral(g.player.x + 1, g.player.z, tier, true);
+    },
+    night(v = true) { g.forceNight = v == null ? null : !!v; stepDayNight(0); return g.isNight; },
     rune(kind) { g.spawnRune(kind); },
     creeps() { spawnSquad(); },
     heal() { const p = g.player; p.hp = p.maxHp; p.mana = p.maxMana; },
     god(v = true) { g.mods.heroHp = v ? 50 : 1; recalc(); g.player.hp = g.player.maxHp; },
+    kill() { const p = g.player; p.invuln = 0; p.aegis = false; dealDamage(g, 'dev', p, p.hp + 9999, DMG.PURE, { src: 'dev' }); },
   };
 
   g.setHero(g.config.heroId || 'okcu');

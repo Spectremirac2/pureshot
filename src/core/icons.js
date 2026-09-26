@@ -106,6 +106,10 @@ const P = {
   greatsword: '<path d="M20.5 3.5L9.8 16.2l-2-2z"/><path d="M17.3 5.1l.9 1.5M14.8 7.3l.9 1.5M12.3 9.5l.9 1.5"/><path d="M5.5 12.5l6 6M7.5 16.5L4.3 19.7"/><circle cx="3.6" cy="20.4" r="1"/>',
   ancient: '<path d="M6 21l1.5-10.5L12 7l4.5 3.5L18 21"/><path d="M7.5 10.5L4 4.5l4.8 3.2M16.5 10.5L20 4.5l-4.8 3.2"/><path d="M12 12.2l1.8 2.3L12 17l-1.8-2.5z"/><path d="M4 21h16"/>',
   treant: '<path d="M12 21v-7M9 21h6"/><path d="M12 14c-4.5 0-7-2.3-7-5.3C5 5.8 8 3 12 3s7 2.8 7 5.7c0 3-2.5 5.3-7 5.3z"/><path d="M12 14l-3-3M12 12l2.5-2.5"/>',
+  // Arena kalıcı ilerleme: Parıltı Taşı (yontulmuş kristal), Kodeks / Aghanim Kütüphanesi (açık kitap), açık kilit
+  shard: '<path d="M12 2.5l5.5 5-5.5 14-5.5-14z"/><path d="M6.5 7.5h11M12 2.5v5M9 7.5l3 14 3-14"/>',
+  book: '<path d="M12 6.5C10 5 7.5 4.5 4 4.5v14c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2v-14c-3.5 0-6 .5-8 2z"/><path d="M12 6.5v14"/><path d="M6.5 8.5c1.5 0 2.8.2 3.8.7M6.5 11.5c1.5 0 2.8.2 3.8.7M13.7 9.2c1-.5 2.3-.7 3.8-.7"/>',
+  unlock: '<rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7.5a4 4 0 017.6-1.7"/><path d="M12 14.5v2.5"/>',
 };
 
 export function icon(name, { size = 20, stroke = 1.8, cls = '' } = {}) {

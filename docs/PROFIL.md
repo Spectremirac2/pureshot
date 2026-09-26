@@ -24,7 +24,7 @@ Dosyalar:
 | `#profil--gorevler` | Günlük Görevler | 3 görev, ilerleme çubukları, İstanbul gece yarısına geri sayım, seri |
 | `#profil--kart` | Fan Kartın | Canvas önizleme, “Görseli indir”, “Panoya kopyala” |
 | `#profil--rekorlar` | Rekorlar | 14 oyun + 5 quiz + “Daha DOG mu?”: en iyi skor, son denemeler çizgisi, deneme sayısı, son oynama; skoru yoksa “Oyna / Çöz” |
-| `#profil--rozetler` | Rozetler | 31 rozet, gruplu (Salon, Oyunlar, Quizler, Topluluk), kilitlilerde ilerleme |
+| `#profil--rozetler` | Rozetler | 37 rozet, gruplu (Salon, Oyunlar, Quizler, Topluluk), kilitlilerde ilerleme |
 | `#profil--veri` | Verilerin | Dışa aktar (JSON), İçe aktar, Sıfırla |
 
 Alt sayfa adresleri ilgili bölüme kaydırır; sayfadaki gezinme çipleri aynı işi yapar (`ctx.setSub` ile adres güncellenir).
@@ -56,14 +56,15 @@ Seviye L için gereken toplam XP: `100·(L−1) + 25·(L−1)·(L−2)` → 0, 1
 |---|---|---|---|---|---|---|---|---|
 | Rütbe | Herald | Guardian | Crusader | Archon | Legend | Ancient | Divine | Immortal |
 
-Örnek: 31 rozetin tamamı + 14 oyun + 5 quiz + “Daha DOG mu?” = 3.700 XP (Seviye 11, Ancient); bir ay boyunca her gün 3 görev +4.500 XP.
+Örnek: 37 rozetin tamamı + 14 oyun + 5 quiz + “Daha DOG mu?” = 4.300 XP (Seviye 12, Ancient); bir ay boyunca her gün 3 görev +4.500 XP.
+(Arena’nın kalıcı ilerleme fazı 6 rozet ekledi: Roshan Avcısı, On Dalga, Dört Yüz, Lanet Ustası, Kurye’nin Yoldaşı, Lanet Kırıcı.)
 Profil açıkken seviye atlanırsa bildirim çıkar.
 
 ## Günlük Görevler (`src/core/quests.js`)
 
 ### Kurallar
 - Gün İstanbul saatine göredir (UTC+3); görevler gece yarısı yenilenir. Gün numarası `questDay(now)` = DOGdle’ın `istanbulDay()`.
-- Her gün havuzdaki 23 şablondan **3 görev**; seçim gün numarasıyla tohumlanır (`seeded(hashStr('csk-gorev-' + gün))`),
+- Her gün havuzdaki 24 şablondan **3 görev**; seçim gün numarasıyla tohumlanır (`seeded(hashStr('csk-gorev-' + gün))`),
   herkes aynı gün aynı görevleri görür. Kısıtlar: en az 1 oyun görevi, en çok 2 oyun görevi, quiz/topluluk/genel
   gruplarından en çok birer tane, aynı oyun iki kez yok. (365 günlük taramayla doğrulandı.)
 - İlerleme oyunlara dokunmadan türetilir: `history.since(istanbulDayStart())` (her `store.me.submitScore` denemesi),
@@ -71,7 +72,8 @@ Profil açıkken seviye atlanırsa bildirim çıkar.
 - Tamamlanan görev günde bir kez kaydedilir ve bildirilir (`fx.toast`, +50 XP); üçü birden bitince seri uzar
   (“Günün üç görevi tamam! Seri: N gün”). Seri, bugün ya da dün tamamlandıysa sürer.
 - 2. tur oyunlarının (kurye, mayin, esya, maraton) puanlaması kesinleşti; ilk sürümdeki “bir kez oyna” görevleri
-  eşikli görevlerle değişti (`kurye200`, `mayinOrta`, `esya1000`, `maraton24`). Havuz yine 23 şablon.
+  eşikli görevlerle değişti (`kurye200`, `mayinOrta`, `esya1000`, `maraton24`). Arena’nın kalıcı ilerleme fazı `arenaRoshan`’ı
+  ekledi: havuz 24 şablon (Arena iki görevle ~%24 günde çıkar; 400 günlük taramada kısıtlar temiz).
 
 ### Havuz
 
@@ -86,6 +88,7 @@ Profil açıkken seviye atlanırsa bildirim çıkar.
 | `hafiza500` | oyun | DOG Hafıza’da 500+ puan | en iyi ≥ 500 |
 | `portre1500` | oyun | Portre Avı’nda 1.500+ puan | en iyi ≥ 1500 |
 | `arena1200` | oyun | 1vDOQUZ Arena’da ilk dalgayı temizle | en iyi ≥ 1200 |
+| `arenaRoshan` | oyun | 1vDOQUZ Arena’da Roshan’ı kes | `picks['arena:roshan']` − günün görüntüsündeki değer (`snap.ar`) ≥ 1 |
 | `bingo1` | oyun | DOG Bingo’da bir çizgi tamamla | en iyi ≥ 1 |
 | `kurye200` | oyun | Uçan Kurye’de 200+ metre uç | en iyi ≥ 200 (rozet 300’de) |
 | `mayinOrta` | oyun | Mayın Tarlası’nda Orta tahtayı temizle | `mayin` denemesi (yalnızca kazanılan Orta tahtası skor yazar) |
@@ -117,10 +120,11 @@ yüklenmeden basılan DOG’lar sayılmaz; bu yüzden izleyicinin uygulama açı
 | `csk:hist` | history.js | `{ id: [{ s, t }] }` son 20 deneme/oyun |
 | `csk:hist:n` | history.js | `{ id: n }` ömür boyu deneme sayısı (`history.count(id)`; ilk sayımda liste uzunluğundan başlar) |
 | `csk:qz:last` | quizzes/ui.js | quizlerin son sonucu (`at` zamanı) — yalnızca okunur |
-| `csk:quests:snap` | quests.js | `{ day, at, dog, likes: [jk:…], scores, mt }` günün anlık görüntüsü (`mt`: 24:00’e varan Maraton sayacı; eski görüntüde yoksa ilk okumada eklenir) |
+| `csk:quests:snap` | quests.js | `{ day, at, dog, likes: [jk:…], scores, mt, ar }` günün anlık görüntüsü (`mt`: 24:00’e varan Maraton sayacı, `ar`: Arena’da kesilen Roshan sayacı; eski görüntüde yoksa ilk okumada eklenir) |
 | `csk:quests:log` | quests.js | `{ total, days: { gün: [görev id] } (son 60 gün), streak: { last, count, best } }` |
 | `csk:profile:since` | profile.js | üyelik tarihi (ms) |
 | `csk:local-fan-id` | store.js | fan kimliği (yalnızca okunur; üyelik tarihi için) |
+| `csk:arena:meta:v1` | arena/progression.js | Arena kalıcı ilerlemesi: Parıltı, ustalık, Kütüphane, Lanet, Kodeks (dışa aktarmada `extra` içinde; içe alınınca doğrulanır — [ARENA-ILERLEME.md](ARENA-ILERLEME.md)) |
 
 `sessionStorage['csk-flash']` sıfırlama/içe aktarma sonrası tek seferlik bildirim içindir.
 

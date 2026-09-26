@@ -56,6 +56,15 @@ export const TOWER_SPOTS = [
   { id: 'd2', side: 'dire', x: 2.05, z: -7.55 },
 ];
 export const TOWER_R = 0.78; // çarpışma yarıçapı
+/**
+ * Orman kampları (Arena 3.0): dalgalar arasında farm fırsatı. Her dakika boşsa yeniden dolar.
+ * x,z: kamp merkezi · leash: birimler bu yarıçaptan uzağa çekilirse evine döner ve iyileşir.
+ */
+export const CAMPS = [
+  { id: 'kurt', name: 'Kurt İni', x: 2.4, z: 7.6, leash: 5.2, side: 'radiant' },
+  { id: 'harpi', name: 'Harpi Yuvası', x: -9.2, z: -2.2, leash: 5.2, side: 'radiant' },
+  { id: 'koru', name: 'Yaşlı Koru', x: 7.9, z: 2.9, leash: 5.2, side: 'dire' },
+];
 export const DIRE_GATE = { x: Math.sin(GATES.tr) * (PLAY_R - 0.4), z: Math.cos(GATES.tr) * (PLAY_R - 0.4) };
 export const RADIANT_GATE = { x: Math.sin(GATES.bl) * (PLAY_R - 0.4), z: Math.cos(GATES.bl) * (PLAY_R - 0.4) };
 
@@ -147,4 +156,42 @@ export function pushOut(u, rad, towers) {
       }
     }
   }
+}
+
+/**
+ * Yerel engelden kaçınma (yol bulma yok, ucuz): hareket yönünün önündeki ağaç/kuleye çarpacaksa teğet yönde
+ * kaydırır. Birimlerin kule ya da ağaç arkasında takılı kalmasını önler. Dönen: [mx, mz] (aynı büyüklük).
+ */
+export function steerAround(u, mx, mz, rad, towers, look = 1.7) {
+  const L = Math.hypot(mx, mz);
+  if (L < 1e-4) return [mx, mz];
+  const dx = mx / L;
+  const dz = mz / L;
+  let bt = look;
+  let bx = 0;
+  let bz = 0;
+  let hit = false;
+  const check = (ox, oz, or) => {
+    const rx = ox - u.x;
+    const rz = oz - u.z;
+    const t = rx * dx + rz * dz;
+    if (t < -0.2 || t > bt) return;
+    const px = rx - dx * t;
+    const pz = rz - dz * t;
+    if (px * px + pz * pz < (or + rad + 0.08) ** 2) { bt = Math.max(0, t); bx = rx; bz = rz; hit = true; }
+  };
+  for (const t of TREES) {
+    if (Math.abs(t.x - u.x) > look + 1 || Math.abs(t.z - u.z) > look + 1) continue;
+    check(t.x, t.z, t.r);
+  }
+  if (towers) for (const t of towers) if (!t.dead) check(t.x, t.z, TOWER_R);
+  if (!hit) return [mx, mz];
+  const s = bx * dz - bz * dx;
+  const sg = s >= 0 ? 1 : -1;
+  const tx = -sg * dz;
+  const tz = sg * dx;
+  const nx = dx * 0.25 + tx;
+  const nz = dz * 0.25 + tz;
+  const nl = Math.hypot(nx, nz) || 1;
+  return [(nx / nl) * L, (nz / nl) * L];
 }

@@ -1,10 +1,11 @@
-// 1vDOQUZ Arena 2.0 — kahraman seçim ekranı. 3D önizleme: arena sahnesinin kendisi (kamera seçili kahramana
-// yaklaşır ve döner tabla gibi döndürür); WebGL yoksa amblem kartı görünür.
+// 1vDOQUZ Arena 3.0 — kahraman seçim ekranı. 3D önizleme: arena sahnesinin kendisi (kamera seçili kahramana
+// yaklaşır ve döner tabla gibi döndürür); WebGL yoksa amblem kartı görünür. Kilitli kahramanlar (Şimşek Ruhu,
+// Ağaç Bekçisi) Aghanım Kütüphanesi'nden açılır; kilitliyken incelenebilir ama arenaya girilemez.
 
 import { h, clear, fmtNum } from '../../../core/dom.js';
 import { icon } from '../../../core/icons.js';
-import { HEROES, HERO_IDS, heroBars } from './heroes.js';
-import { ABILITIES } from './abilities.js';
+import { HEROES, HERO_IDS, heroBars, isHeroUnlocked, ATTR_NAMES, ATTR, TALENT_LEVELS } from './heroes.js';
+import { ABILITIES, levelValues } from './abilities.js';
 import { glyph } from './glyphs.js';
 
 const KEYS = ['q', 'w', 'e', 'r'];
@@ -13,20 +14,26 @@ function stars(n) {
   return h('span', { class: 'ar-stars', 'aria-label': `Zorluk ${n}/3` }, [1, 2, 3].map((i) => h('span', { class: i <= n ? 'on' : '', html: glyph('star') })));
 }
 
+/** Kısa ipucu: mana · bekleme (seviye dizileriyle). */
 export function abilityTip(A) {
-  const L = A.levels[0];
   const bits = [];
   if (A.targeting === 'passive') bits.push('Pasif');
   else {
-    const mana = A.costText || (L.mana ? String(L.mana) : '0');
-    bits.push(`Mana ${mana}`);
-    bits.push(`Bekleme ${A.cdText || (String(L.cd).replace('.', ',') + ' sn')}`);
+    const mana = A.costText || levelValues(A, 'mana');
+    bits.push(`Mana ${mana || '0'}`);
+    bits.push(`Bekleme ${A.cdText || `${levelValues(A, 'cd')} sn`}`);
   }
+  bits.push(A.ult ? 'Seviye 6/12/18' : '4 seviye');
   return bits.join(' · ');
 }
 
+/** Ayrıntılı seviye tablosu satırları: [['Hasar', '90/140/190/240'], …] */
+export function abilityRows(A) {
+  return (A.show || []).map(([label, field, unit]) => [label, levelValues(A, field, unit)]);
+}
+
 /**
- * opts: { heroId, bestFor(id) → number|null, onPick(id), onStart(), extras: [düğüm…] (ayarlar/kontroller) }
+ * opts: { heroId, bestFor(id) → number|null, onPick(id), onStart(), extras: [düğüm…] (ayarlar/kontroller), devUnlock? }
  */
 export function buildSelect(opts) {
   let current = HEROES[opts.heroId] ? opts.heroId : 'okcu';
@@ -37,6 +44,7 @@ export function buildSelect(opts) {
     const H = HEROES[id];
     const best = h('span', { class: 'ar-hero-best num' });
     tabBest[id] = best;
+    const lock = h('span', { class: 'ar-hero-lock', html: glyph('lock'), hidden: true });
     const b = h('button', {
       class: 'ar-hero-tab', type: 'button', role: 'radio', 'aria-checked': 'false', dataset: { hero: id },
       style: { '--hc': H.color },
@@ -47,7 +55,9 @@ export function buildSelect(opts) {
         h('span', { class: 'ar-hero-role' }, H.role),
         h('span', { class: 'ar-hero-meta' }, stars(H.diff), best),
       ),
+      lock,
     );
+    b._lock = lock;
     b.addEventListener('click', () => pick(id, true));
     b.addEventListener('keydown', (e) => {
       const i = HERO_IDS.indexOf(current);
@@ -61,32 +71,54 @@ export function buildSelect(opts) {
   const name = h('h3', { class: 'ar-sel-name' });
   const title = h('span', { class: 'ar-sel-title' });
   const blurb = h('p', { class: 'ar-sel-blurb' });
+  const attrs = h('div', { class: 'ar-sel-attrs', 'aria-label': 'Özellikler (1. seviye + seviye başına artış)' });
   const bars = h('div', { class: 'ar-sel-bars' });
   const kit = h('div', { class: 'ar-sel-kit', role: 'list', 'aria-label': 'Yetenekler' });
   const tip = h('div', { class: 'ar-sel-tip', 'aria-live': 'polite' });
   const aghs = h('p', { class: 'ar-sel-aghs xsmall' });
+  const talents = h('details', { class: 'ar-sel-tal xsmall' });
   const emblem = h('div', { class: 'ar-sel-emblem', 'aria-hidden': 'true' });
+  const lockNote = h('div', { class: 'ar-sel-locknote', hidden: true });
   const startBtn = h('button', { class: 'btn primary lg ar-start-btn', type: 'button', disabled: true }, icon('play', { size: 18 }), h('span', null, 'Yükleniyor…'));
   const bestTxt = h('span', { class: 'ar-start-best small muted' });
+  let ready = false;
 
   function showTip(A, key) {
     clear(tip);
+    const rows = abilityRows(A);
     tip.append(
       h('strong', null, `${key.toUpperCase()} · ${A.name}`, A.ult ? h('span', { class: 'ar-tip-ult' }, 'ULTİ') : null),
       h('span', { class: 'ar-tip-meta' }, abilityTip(A)),
       h('span', { class: 'ar-tip-desc' }, A.desc),
+      rows.length ? h('span', { class: 'ar-tip-rows' }, rows.map(([l, v]) => h('span', null, `${l} `, h('b', { class: 'num' }, v)))) : null,
     );
   }
 
   function render() {
     const H = HEROES[current];
-    for (const id of HERO_IDS) tabs[id].setAttribute('aria-checked', String(id === current));
-    for (const id of HERO_IDS) tabs[id].tabIndex = id === current ? 0 : -1;
+    const unlocked = isHeroUnlocked(current);
+    for (const id of HERO_IDS) {
+      tabs[id].setAttribute('aria-checked', String(id === current));
+      tabs[id].tabIndex = id === current ? 0 : -1;
+      const lk = !isHeroUnlocked(id);
+      tabs[id].classList.toggle('locked', lk);
+      tabs[id]._lock.hidden = !lk;
+      tabs[id].setAttribute('aria-label', `${HEROES[id].name}, ${HEROES[id].role}${lk ? ', kilitli' : ''}`);
+    }
     root.style.setProperty('--hc', H.color);
     name.textContent = H.name;
     title.textContent = H.title;
     blurb.textContent = H.blurb;
     emblem.innerHTML = glyph(H.id);
+    clear(attrs);
+    for (const k of ['str', 'agi', 'int']) {
+      const [b0, gain] = H.attrs[k];
+      attrs.appendChild(h('span', { class: `ar-attr ar-attr-${k}${H.attr === k ? ' primary' : ''}`, title: `${ATTR_NAMES[k]}${H.attr === k ? ' (ana özellik: her puan +1 saldırı hasarı)' : ''}` },
+        h('span', { class: 'ar-attr-i', html: glyph(k) }),
+        h('b', { class: 'num' }, String(b0)),
+        h('span', { class: 'ar-attr-g num' }, `+${String(gain).replace('.', ',')}`),
+      ));
+    }
     clear(bars);
     for (const [label, v] of heroBars(H)) {
       bars.appendChild(h('div', { class: 'ar-sel-bar' }, h('span', null, label), h('i', { style: { '--v': v.toFixed(2) } })));
@@ -107,7 +139,28 @@ export function buildSelect(opts) {
       if (k === 'q') { b.classList.add('on'); showTip(A, k); }
     });
     aghs.textContent = H.aghs;
+    clear(talents);
+    talents.append(h('summary', null, 'Yetenek ağacı (10 / 15 / 20 / 25)'),
+      h('ul', { class: 'ar-sel-tal-list' }, TALENT_LEVELS.map((L) => h('li', null, h('b', { class: 'num' }, String(L)), ` ${H.talents[L][0].name}`, h('span', { class: 'dim' }, ' ya da '), H.talents[L][1].name))));
+    lockNote.hidden = unlocked;
+    clear(lockNote);
+    if (!unlocked) {
+      lockNote.append(h('span', { class: 'ar-sel-lockic', html: glyph('lock') }), h('span', null, h('b', null, 'Kilitli kahraman. '), 'Aghanım Kütüphanesi’nden Parıltı Taşı ile açılır. Şimdilik inceleyebilirsin.'));
+      if (opts.devUnlock) {
+        const dev = h('button', { class: 'btn ghost sm', type: 'button' }, 'Geliştirici: kilidi aç');
+        dev.addEventListener('click', () => { opts.devUnlock(current); render(); });
+        lockNote.appendChild(dev);
+      }
+    }
+    updateStart();
     refreshBest();
+  }
+
+  function updateStart() {
+    const unlocked = isHeroUnlocked(current);
+    startBtn.disabled = !ready || !unlocked;
+    const label = !ready ? 'Yükleniyor…' : unlocked ? 'Arenaya gir' : 'Kilitli';
+    clear(startBtn).append(icon(unlocked ? 'play' : 'lock', { size: 18 }), h('span', null, label));
   }
 
   function refreshBest() {
@@ -132,24 +185,27 @@ export function buildSelect(opts) {
   const root = h('div', { class: 'ar-screen ar-select', role: 'dialog', 'aria-label': 'Kahraman seçimi' },
     h('div', { class: 'ar-sel-card ar-card' },
       h('div', { class: 'ar-sel-head' },
-        h('span', { class: 'eyebrow' }, '1vDOQUZ Arena 2.0 · mini Dota'),
+        h('span', { class: 'eyebrow' }, '1vDOQUZ Arena 3.0 · mini Dota'),
         h('h2', { class: 'ar-start-title' }, '1vDO', h('em', null, 'Q'), 'UZ'),
       ),
-      h('p', { class: 'ar-sel-story small' }, 'Radiant tarafında tek başınasın: dokuz DOG, Dire creep’leri, kuleler ve her 5. dalgada Roshan. Altın topla, eşya al, seviye atla. ', h('b', null, 'DOG DOG DOG.')),
+      h('p', { class: 'ar-sel-story small' }, 'Radiant tarafında tek başınasın: dokuz DOG, Dire creep’leri, orman kampları, gece ve bosslar. Yetenek öğren, eşya birleştir, geceyi ward’la. ', h('b', null, 'DOG DOG DOG.')),
       heroList,
       h('div', { class: 'ar-start-cta' }, startBtn, bestTxt),
+      lockNote,
       h('div', { class: 'ar-sel-detail' },
         h('div', { class: 'ar-sel-namebox' }, emblem, h('div', null, name, title)),
         blurb,
+        attrs,
         bars,
         kit,
         tip,
         aghs,
+        talents,
       ),
       opts.extras ? h('details', { class: 'ar-sel-more' }, h('summary', null, icon('keyboard', { size: 16 }), 'Kontroller ve ayarlar'), ...opts.extras) : null,
     ),
   );
-  startBtn.addEventListener('click', () => opts.onStart && opts.onStart());
+  startBtn.addEventListener('click', () => { if (isHeroUnlocked(current) && opts.onStart) opts.onStart(); });
   render();
 
   return {
@@ -158,10 +214,13 @@ export function buildSelect(opts) {
     get hero() { return current; },
     setHero: (id) => pick(id, false),
     refreshBest,
+    refresh: render,
     ready() {
-      startBtn.disabled = false;
-      clear(startBtn).append(icon('play', { size: 18 }), h('span', null, 'Arenaya gir'));
+      ready = true;
+      updateStart();
     },
     focusCurrent() { try { tabs[current].focus({ preventScroll: true }); } catch { /* yok say */ } },
   };
 }
+
+void ATTR;

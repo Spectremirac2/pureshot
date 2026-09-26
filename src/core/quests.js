@@ -48,6 +48,8 @@ const QUIZ_IDS = ['bilgi', 'dogmu', 'hayran', 'yetenek'];
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 const tamamOf = (me) => Math.max(0, Number(me && me.picks ? me.picks['maraton:tamam'] : 0) || 0);
+/** 1vDOQUZ Arena: ömür boyu kesilen Roshan (arena.js oyun sonunda picks['arena:roshan']'ı artırır). */
+const roshanOf = (me) => Math.max(0, Number(me && me.picks ? me.picks['arena:roshan'] : 0) || 0);
 
 function readSnap() {
   const s = ls.get(SNAP_KEY, null);
@@ -61,6 +63,7 @@ function ensureSnap(now, me) {
   if (s && s.day === day) {
     // Eski sürümün bugünkü görüntüsünde Maraton sayacı yoksa şimdiki değerle tamamla (bir kez)
     if (typeof s.mt !== 'number') { s.mt = tamamOf(me); ls.set(SNAP_KEY, s); }
+    if (typeof s.ar !== 'number') { s.ar = roshanOf(me); ls.set(SNAP_KEY, s); }
     return s;
   }
   const fresh = {
@@ -70,6 +73,7 @@ function ensureSnap(now, me) {
     likes: Object.keys(me.likes || {}).filter((k) => k.startsWith('jk:')),
     scores: { ...(me.scores || {}) },
     mt: tamamOf(me), // 24 Saat Maraton: 24:00'e varan yayın sayacı (picks['maraton:tamam'])
+    ar: roshanOf(me), // 1vDOQUZ Arena: kesilen Roshan sayacı (picks['arena:roshan'])
   };
   ls.set(SNAP_KEY, fresh);
   return fresh;
@@ -163,6 +167,11 @@ export const QUEST_POOL = [
   upQuest('hafiza500', 'hafiza', 500, 'DOG Hafıza’da 500+ puan', 'puan', { icon: 'brain', color: 'var(--arcane)', hint: '4×4 masada; az hamle, çok puan.' }),
   upQuest('portre1500', 'portre', 1500, 'Portre Avı’nda 1.500+ puan', 'puan', { icon: 'target', color: 'var(--radiant)', hint: 'Erken tanıyan çok kazanır.' }),
   upQuest('arena1200', 'arena', 1200, '1vDOQUZ Arena’da ilk dalgayı temizle', 'puan', { icon: 'bow', color: 'var(--aegis)', hint: '1.200 puan: dokuz DOG ve dalga bonusu.' }),
+  G('arenaRoshan', 'arena', '1vDOQUZ Arena’da Roshan’ı kes', {
+    icon: 'skull', color: 'var(--aegis)', target: 1,
+    hint: 'Kaya Canavarı her 5. dalgada uyanır.',
+    value: (c) => Math.max(0, roshanOf(c.me) - (Number(c.snap.ar) || 0)),
+  }),
   upQuest('bingo1', 'bingo', 1, 'DOG Bingo’da bir çizgi tamamla', 'çizgi', { icon: 'star', color: 'var(--ember-2)', hint: 'Satır, sütun ya da çapraz.' }),
   // 2. tur oyunları (eşikler rozetlerin altında: kurye 300, esya 2500)
   upQuest('kurye200', 'kurye', 200, 'Uçan Kurye’de 200+ metre uç', 'metre', { icon: 'courier', color: 'var(--radiant)', hint: 'Her şişe +25 metre sayılır.' }),

@@ -11,16 +11,22 @@ import { fx as coreFx } from '../../../core/fx.js';
 import { mountLeaderboard } from '../../../components/leaderboard.js';
 import { portraitEl } from '../../../components/portrait.js';
 import { haptic } from '../juice.js';
-import { createGame, STEP } from './game.js';
+import { createGame, STEP, BUYBACK_CD } from './game.js';
 import { DOG_TYPES, TYPE_IDS, archOf } from './dogs.js';
-import { HEROES, HERO_IDS, heroOf, xpFor, MAX_LEVEL } from './heroes.js';
-import { ABILITIES } from './abilities.js';
-import { ITEMS, SLOTS, RUNES } from './items.js';
-import { UNITS } from './units.js';
+import { HEROES, HERO_IDS, heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, ATTR_NAMES, ATTR_SHORT, isHeroUnlocked, devUnlock, registerUnlockCheck, abilityCap } from './heroes.js';
+import { ABILITIES, abilityInfo, STATS_BONUS } from './abilities.js';
+import { ITEMS, SLOTS, RUNES, NEUTRALS } from './items.js';
+import { UNITS, BOSS_IDS, unitId } from './units.js';
+import { armorReduction, STATUS_NAMES } from './combat.js';
 import { glyph } from './glyphs.js';
-import { buildSelect, abilityTip } from './select.js';
+import { buildSelect, abilityTip, abilityRows } from './select.js';
 import { buildShop, itemImg } from './shop.js';
 import { createMinimap } from './minimap.js';
+
+// Kalıcı ilerleme (progression.js, İlerleme ajanı) varsa sözleşmeye göre bağlanır: applyMeta / grantRunRewards /
+// kahraman kilitleri. Dosya yoksa glob boş döner ve arena olduğu gibi çalışır.
+const PROG_MOD = import.meta.glob('./progression.js');
+const HERO_ALIASES = { simsek: ['simsek', 'storm', 'simsek_ruhu', 'hero-storm'], agac: ['agac', 'treant', 'agac_bekcisi', 'hero-treant'] };
 
 const GAME_ID = 'arena';
 /** Kayıt sürümü (localStorage 'csk:arena:v2'). Alanlar: { v, hero, bests: {kahraman: puan}, runs, roshans } */
@@ -47,6 +53,9 @@ const SCHEMES = {
   },
 };
 const ITEM_CODES = [['Digit1', 'Numpad1'], ['Digit2', 'Numpad2'], ['Digit3', 'Numpad3'], ['Digit4', 'Numpad4'], ['Digit5', 'Numpad5'], ['Digit6', 'Numpad6']];
+const KEY_NAMES = { q: 'Q', w: 'W', e: 'E', r: 'R' };
+const fmtT = (t) => { const s = Math.max(0, Math.ceil(t)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const f1 = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 
 function webglOk() {
   try {
@@ -88,6 +97,8 @@ export function mountArena(el, ctx = {}) {
   let scheme = SCHEMES[ls.get('arena:keys', 'wasd')] ? ls.get('arena:keys', 'wasd') : 'wasd';
   let autoAim = ls.get('arena:auto', coarse);
   let autoShop = ls.get('arena:autoshop', true);
+  let autoLearn = ls.get('arena:autolearn', false);
+  let learnMode = false;
   let touchMode = coarse;
   const offs = [];
   const on = (target, type, fn, opts) => {
@@ -131,11 +142,27 @@ export function mountArena(el, ctx = {}) {
   const nWave = h('b', { class: 'num' }, '1');
   const nDogs = h('b', { class: 'num' }, '9/9');
   const dogsLbl = h('span', null, 'DOG');
+  const dayIco = h('span', { class: 'ar-day-i', html: glyph('sun') });
+  const dayTime = h('b', { class: 'num' }, '2:00');
+  const dayCell = h('div', { class: 'ar-top-cell ar-top-day', title: 'Gündüz / gece' }, h('span', null, dayIco, h('span', { class: 'ar-day-l' }, 'Gündüz')), dayTime);
   const top = h('div', { class: 'ar-top', 'aria-hidden': 'true' },
     h('div', { class: 'ar-top-cell ar-top-wave' }, h('span', null, 'Dalga'), nWave),
     h('div', { class: 'ar-top-cell ar-top-dogs' }, dogsLbl, nDogs),
-    h('div', { class: 'ar-top-cell' }, h('span', null, 'Öldürme'), nKills),
+    h('div', { class: 'ar-top-cell ar-top-kills' }, h('span', null, 'Öldürme'), nKills),
+    dayCell,
   );
+  // boss can çubuğu (üstte, adıyla)
+  const bossName = h('strong', { class: 'ar-boss-name' });
+  const bossPhase = h('span', { class: 'ar-boss-phase' });
+  const bossFill = h('span', { class: 'ar-boss-fill' });
+  const bossHp = h('span', { class: 'ar-boss-hp num' });
+  const bossIco = h('span', { class: 'ar-boss-ico' });
+  const bossBar = h('div', { class: 'ar-bossbar', hidden: true, role: 'meter', 'aria-label': 'Boss canı', 'aria-valuemin': '0' },
+    h('div', { class: 'ar-boss-head' }, bossIco, bossName, bossPhase),
+    h('div', { class: 'ar-boss-track' }, bossFill, bossHp),
+  );
+  // görev hedefleri (hikâye görevlerinde)
+  const objList = h('ol', { class: 'ar-objs', hidden: true, 'aria-label': 'Görev hedefleri' });
   const nScore = h('b', { class: 'num' }, '0');
   const nAcc = h('span', { class: 'num' }, '—');
   const accLbl = h('span', null, 'İsabet ');
@@ -173,8 +200,13 @@ export function mountArena(el, ctx = {}) {
     const extra = h('span', { class: 'ar-slot-extra num' });
     const charge = h('span', { class: 'ar-slot-charge' });
     const ico = h('span', { class: 'ar-slot-icon' });
-    const btn = h('button', { class: `ar-slot ${cls} ar-slot-${key}`, type: 'button' }, ico, charge, cd, cdText, cap, extra);
-    return { key, btn, cd, cdText, cap, extra, charge, ico, last: {}, touch };
+    const pips = h('span', { class: 'ar-slot-lv', 'aria-hidden': 'true' });
+    const plus = h('span', { class: 'ar-slot-plus', 'aria-hidden': 'true', html: glyph('plus') });
+    const btn = h('button', { class: `ar-slot ${cls} ar-slot-${key}`, type: 'button' }, ico, charge, cd, cdText, cap, extra, pips, plus);
+    // masaüstü: slotun üstünde küçük "+" (yetenek öğren)
+    const learn = touch ? null : h('button', { class: 'ar-learn', type: 'button', hidden: true, 'aria-label': `${key.toUpperCase()} yeteneğini öğren (Ctrl+${key.toUpperCase()} ya da L)`, title: `Öğren (Ctrl+${key.toUpperCase()} · L)` }, h('span', { html: glyph('plus') }));
+    const wrap = touch ? btn : h('div', { class: 'ar-slot-wrap' }, learn, btn);
+    return { key, btn, wrap, cd, cdText, cap, extra, charge, ico, pips, plus, learn, last: {}, touch, lvKey: '' };
   }
   const slots = { q: makeSlot('q', ''), w: makeSlot('w', ''), e: makeSlot('e', ''), r: makeSlot('r', 'ult') };
   const tslots = { q: makeSlot('q', 'ar-tbtn', true), w: makeSlot('w', 'ar-tbtn', true), e: makeSlot('e', 'ar-tbtn', true), r: makeSlot('r', 'ar-tbtn ult', true) };
@@ -205,6 +237,10 @@ export function mountArena(el, ctx = {}) {
     ['slow', 'slow', 'blood', 'Yavaş'], ['stun', 'bolt', 'blood', 'Sersem'], ['bkb', 'shield', 'gold', 'Büyü bağışıklığı'], ['haste', 'bolt', 'rune-haste', 'Hız rünü'],
     ['dd', 'sword', 'rune-dd', 'Çift hasar'], ['regen', 'heart', 'rune-regen', 'Yenilenme'], ['invis', 'eye', 'rune-invis', 'Görünmez'],
     ['armor', 'shield', 'jade', 'Savaş Çağrısı zırhı'], ['aura', 'aura', 'arcane', 'Mana akışı'],
+    ['bark', 'bark', 'jade', 'Canlı Zırh'], ['guise', 'guise', 'jade', 'Doğanın Örtüsü'], ['mshield', 'hood', 'arcane', 'Büyü kalkanı'],
+    ['cyclone', 'cyclone', 'arcane', 'Kasırga'], ['blood', 'satanic', 'blood', 'Kan Çılgınlığı'], ['phase', 'phase', 'gold', 'Faz'],
+    ['overload', 'overload', 'arcane', 'Aşırı Yük hazır'],
+    ['root', 'root', 'blood', 'Kök'], ['silence', 'silence', 'blood', 'Susturma'], ['hex', 'hex', 'blood', 'Dönüşüm'], ['fear', 'fear', 'blood', 'Korku'],
   ];
   for (const [k, ic, cls, name] of BUFFS) {
     const t = h('span', { class: 'ar-buff-t num' });
@@ -217,24 +253,39 @@ export function mountArena(el, ctx = {}) {
   const lvlNum = h('b', { class: 'num' }, '1');
   const xpRing = h('span', { class: 'ar-portrait-xp' });
   const talentBtn = h('button', { class: 'ar-talent-btn', type: 'button', 'aria-label': 'Yetenek ağacı (T)', title: 'Yetenek ağacı (T)', hidden: true }, h('span', { html: glyph('tree') }));
-  const portraitBox = h('div', { class: 'ar-portrait' }, xpRing, portrait, h('span', { class: 'ar-portrait-lvl' }, lvlNum), talentBtn);
+  const spNum = h('b', { class: 'num' }, '0');
+  const spBtn = h('button', { class: 'ar-sp-btn', type: 'button', hidden: true, 'aria-label': 'Yetenek puanı: öğrenme kipi (L)', title: 'Yetenek puanı — öğren (L / Ctrl+Q W E R)' }, h('span', { class: 'ar-sp-plus', html: glyph('plus') }), spNum);
+  const portraitHit = h('button', { class: 'ar-portrait-hit', type: 'button', 'aria-label': 'Kahraman sayfası (C): özellikler, yetenekler, yetenek ağacı', title: 'Kahraman (C)' });
+  const portraitBox = h('div', { class: 'ar-portrait' }, xpRing, portrait, portraitHit, h('span', { class: 'ar-portrait-lvl' }, lvlNum), talentBtn, spBtn);
+  // özellikler (Güç / Çeviklik / Zekâ)
+  const attrEls = {};
+  const attrBox = h('button', { class: 'ar-attrs', type: 'button', 'aria-label': 'Özellikler ve istatistikler (C)', title: 'Özellikler (C)' });
+  for (const k of ['str', 'agi', 'int']) {
+    const v = h('b', { class: 'num' }, '0');
+    const row = h('span', { class: `ar-attrs-r ar-attr-${k}` }, h('span', { class: 'ar-attrs-i', html: glyph(k) }), h('span', { class: 'ar-attrs-k' }, ATTR_SHORT[k]), v);
+    attrEls[k] = { row, v };
+    attrBox.appendChild(row);
+  }
+  const neutralSlot = h('button', { class: 'ar-islot ar-nslot empty', type: 'button', 'aria-label': 'Orman eşyası yuvası', title: 'Orman eşyası (kamplardan düşer)' }, h('span', { class: 'ar-islot-img' }));
   const goldNum = h('b', { class: 'num' }, '0');
   const goldBtn = h('button', { class: 'ar-gold', type: 'button', 'aria-label': 'Dükkân (B)', title: 'Dükkân (B)' }, h('span', { class: 'ar-coin', html: glyph('coin') }), goldNum, h('span', { class: 'ar-gold-shop', html: glyph('shop') }));
   const panel = h('div', { class: 'ar-panel' },
     buffs,
     h('div', { class: 'ar-panel-box' },
       portraitBox,
+      attrBox,
       h('div', { class: 'ar-panel-mid' },
-        h('div', { class: 'ar-slots' }, slots.q.btn, slots.w.btn, slots.e.btn, slots.r.btn),
+        h('div', { class: 'ar-slots' }, slots.q.wrap, slots.w.wrap, slots.e.wrap, slots.r.wrap),
         h('div', { class: 'ar-bars' }, hpBar, mpBar),
       ),
       h('div', { class: 'ar-panel-items' },
-        h('div', { class: 'ar-items' }, islots.map((s) => s.btn)),
+        h('div', { class: 'ar-items' }, islots.map((s) => s.btn), neutralSlot),
         goldBtn,
       ),
     ),
   );
-  hud.append(vignette, edges, floats, top, scoreBox, tools, feed, minimapEl, banner, announce, breakBar, stampHost, panel);
+  const nightVeil = h('div', { class: 'ar-nightveil', 'aria-hidden': 'true' });
+  hud.append(nightVeil, vignette, edges, floats, top, bossBar, objList, scoreBox, tools, feed, minimapEl, banner, announce, breakBar, stampHost, panel);
 
   // dokunmatik kontroller
   const joyKnob = h('span', { class: 'ar-joy-knob' });
@@ -251,15 +302,34 @@ export function mountArena(el, ctx = {}) {
     onSell: (i) => { if (game) game.sell(i); },
     onClose: () => closeShop(),
     onReady: () => readyUp(),
+    onEquipNeutral: (id) => { if (game) game.equipNeutral(id); },
     sound,
   });
-  const talentHost = h('div', { class: 'ar-screen ar-talent', role: 'dialog', 'aria-label': 'Yetenek ağacı', hidden: true });
+  // kahraman sayfası: özellikler, yetenek seviyeleri, yetenek ağacı (T ve C açar; açıkken oyun durur)
+  const talentHost = h('div', { class: 'ar-screen ar-talent ar-sheet', role: 'dialog', 'aria-label': 'Kahraman sayfası', hidden: true });
+  // geri alma (buyback) kartı
+  const bbCost = h('b', { class: 'num' }, '0');
+  const bbTime = h('span', { class: 'ar-bb-t num' }, '6');
+  const bbBtn = h('button', { class: 'btn primary lg ar-bb-btn', type: 'button' }, h('span', { class: 'ar-coin', html: glyph('coin') }), h('span', null, 'Geri al · '), bbCost, h('span', { class: 'kbd' }, 'Enter'));
+  const bbGive = h('button', { class: 'btn ghost sm', type: 'button' }, 'Pes et');
+  const bbLost = h('span', { class: 'xsmall muted' });
+  const buybackEl = h('div', { class: 'ar-buyback', hidden: true, role: 'dialog', 'aria-label': 'Geri alma' },
+    h('div', { class: 'ar-card ar-bb-card' },
+      h('span', { class: 'eyebrow' }, 'Buyback'),
+      h('strong', { class: 'ar-bb-title' }, 'Sürü seni yakaladı'),
+      h('span', { class: 'ar-bb-ring' }, bbTime),
+      bbBtn,
+      bbLost,
+      bbGive,
+    ),
+  );
 
   // --- ekranlar
   const screens = h('div', { class: 'ar-screens' });
   const schemeChips = [];
   const autoBoxes = [];
   const shopBoxes = [];
+  const learnBoxes = [];
   function optionsBlock(idSuffix) {
     const chips = Object.entries(SCHEMES).map(([id, s]) => {
       const c = h('button', { class: 'chip', type: 'button', 'aria-pressed': String(id === scheme), dataset: { scheme: id } }, s.label);
@@ -270,6 +340,9 @@ export function mountArena(el, ctx = {}) {
     const box = h('input', { type: 'checkbox', id: `ar-auto-${idSuffix}`, class: 'ar-check', checked: autoAim });
     box.addEventListener('change', () => setAuto(box.checked));
     autoBoxes.push(box);
+    const lbox = h('input', { type: 'checkbox', id: `ar-learn-${idSuffix}`, class: 'ar-check', checked: autoLearn });
+    lbox.addEventListener('change', () => { autoLearn = lbox.checked; ls.set('arena:autolearn', autoLearn); for (const b of learnBoxes) b.checked = autoLearn; if (game) { game.autoSkill = autoLearn; if (autoLearn && mode === 'playing') game.autoLearn(); } });
+    learnBoxes.push(lbox);
     const sbox = h('input', { type: 'checkbox', id: `ar-shop-${idSuffix}`, class: 'ar-check', checked: autoShop });
     sbox.addEventListener('change', () => { autoShop = sbox.checked; ls.set('arena:autoshop', autoShop); for (const b of shopBoxes) b.checked = autoShop; });
     shopBoxes.push(sbox);
@@ -277,6 +350,7 @@ export function mountArena(el, ctx = {}) {
       h('div', { class: 'ar-opt ar-opt-scheme', role: 'group', 'aria-label': 'Tuş düzeni' }, h('span', { class: 'label' }, 'Tuş düzeni'), h('div', { class: 'row ar-chips' }, chips)),
       h('label', { class: 'ar-opt ar-opt-check', for: `ar-auto-${idSuffix}` }, box, h('span', null, 'Otomatik nişan (en yakın düşman)')),
       h('label', { class: 'ar-opt ar-opt-check', for: `ar-shop-${idSuffix}` }, sbox, h('span', null, 'Molada dükkânı aç')),
+      h('label', { class: 'ar-opt ar-opt-check', for: `ar-learn-${idSuffix}` }, lbox, h('span', null, 'Yetenek puanlarını otomatik dağıt')),
     );
   }
   const keyTable = h('table', { class: 'ar-keys' });
@@ -291,7 +365,10 @@ export function mountArena(el, ctx = {}) {
       [[k(S.wKey), k('E'), k('R')], 'W, E ve R yetenekleri'],
       [[k('1'), h('span', { class: 'dim xsmall' }, '–'), k('6')], 'Eşya kullan'],
       [[k('B')], 'Dükkân · ', h('span', { class: 'dim' }, 'molada Enter: dalgayı başlat')],
-      [[k('T')], 'Yetenek ağacı (5/10/15. seviye)'],
+      [[k('L'), h('span', { class: 'dim xsmall' }, ' + '), k('Q'), k(S.wKey), k('E'), k('R')], 'Yetenek öğren (ya da ', h('span', { class: 'kbd' }, 'Ctrl'), '+Q/E/R, ', h('span', { class: 'kbd' }, 'Ctrl'), '+', S.wKey, ')'],
+      [[k('C')], 'Kahraman sayfası: özellikler, yetenekler'],
+      [[k('T')], 'Yetenek ağacı (10/15/20/25. seviye)'],
+      [[k('Enter')], 'Ölünce: geri al (buyback)'],
       [[k('Esc'), k('P')], 'Duraklat'],
     ];
     keyTable.appendChild(h('caption', { class: 'sr-only' }, 'Klavye ve fare kontrolleri'));
@@ -303,12 +380,15 @@ export function mountArena(el, ctx = {}) {
     h('li', null, h('b', null, 'Yetenek düğmeleri:'), ' dokun = en yakın hedefe; basılı tutup sürükle = yön ver, bırak = kullan.'),
     h('li', null, h('b', null, 'Okçu Q:'), ' basılı tut, şarj et; sağ tarafa dokunmak da ok atar.'),
     h('li', null, h('b', null, 'Altın düğmesi:'), ' dükkân. Etkin eşyalar yeteneklerin üstünde.'),
+    h('li', null, h('b', null, 'Yetenek puanı:'), ' portredeki yeşil “+” düğmesine dokun, sonra öğrenmek istediğin yeteneğe dokun.'),
+    h('li', null, h('b', null, 'Portre:'), ' dokun, kahraman sayfası (özellikler, yetenek ağacı) açılır.'),
   );
   const select = buildSelect({
     heroId: save.hero,
     bestFor,
     onPick: (id) => pickHero(id),
     onStart: () => startGame(),
+    devUnlock: import.meta.env.DEV ? (id) => { devUnlock(id); } : null,
     extras: [optionsBlock('s'), h('div', { class: 'ar-ctl-keys' }, keyTable), h('div', { class: 'ar-ctl-touch' }, touchHelp)],
   });
   const startScreen = select.el;
@@ -330,7 +410,7 @@ export function mountArena(el, ctx = {}) {
     h('div', { class: 'ar-over-grid' }, overBody, overLbHost),
   );
   screens.append(startScreen, pauseScreen, overScreen, talentHost);
-  stage.append(hud, touchLayer, shop.el, screens, live);
+  stage.append(hud, touchLayer, shop.el, buybackEl, screens, live);
 
   // --- sahanın altı: rehber + skor tablosu
   const guide = h('div', { class: 'ar-guide-grid' });
@@ -353,9 +433,11 @@ export function mountArena(el, ctx = {}) {
   const dire = [
     ['Dire Piyadesi', 'tower', '#c24a3a', `Sopa ve kalkanlı creep. Radiant kulelerine yürür; yanına gelirsen sana döner. Son vuruş: +altın.`, UNITS.creep_melee],
     ['Dire Büyücüsü', 'rune', '#ff6a3d', 'Kızıl küreli menzilli creep. Arkadan küre atar; önce onu indir.', UNITS.creep_ranged],
-    ['Kaya Canavarı (Roshan)', 'skull', '#e9b949', 'Her 5. dalgada çukurundan çıkar. Yere vurur (kırmızı halka), kükrer (sarı halka: sersemletir). Düşerse Aegis ve Peynir bırakır.', UNITS.boss_roshan],
-    ['Dire Kulesi', 'tower', '#ff4a5a', 'Menzile girersen ateş eder (kırmızı halka). Yıkarsan +500 puan ve altın.', UNITS.tower_dire],
+    ['Dire Kulesi', 'tower', '#ff4a5a', 'Menzile girersen ateş eder (kırmızı halka). Yıkarsan +500 puan ve güvenilir altın. Kendi kulen %12 canın altındaysa vurup “deny” edebilirsin.', UNITS.tower_dire],
+    ['Orman Kurdu', 'wolf', '#b9b2a4', 'Kurt İni ve Yaşlı Koru’da. Vurulana kadar kampında bekler; uzağa çekersen evine döner. Alfa kurt kritik vurur.', UNITS.neutral_wolf],
+    ['Harpi', 'harpy', '#9fe8ff', 'Harpi Yuvası’nda. Menzilden vurur, ara ara şimşek fırtınası çağırır. Kamp temizlenince orman eşyası düşebilir.', UNITS.neutral_harpy],
   ];
+  const bosses = BOSS_IDS.map((id) => [UNITS[id].name, UNITS[id].glyph || 'skull', UNITS[id].color, UNITS[id].hint, UNITS[id]]);
   const direGrid = h('div', { class: 'ar-guide-grid' });
   for (const [name, ic, c, hint, U] of dire) {
     direGrid.appendChild(h('article', { class: 'ar-guide-card', style: { '--tc': c } },
@@ -371,16 +453,34 @@ export function mountArena(el, ctx = {}) {
       ),
     ));
   }
+  const bossGrid = h('div', { class: 'ar-guide-grid' });
+  for (const [name, ic, c, hint, U] of bosses) {
+    bossGrid.appendChild(h('article', { class: 'ar-guide-card', style: { '--tc': c } },
+      h('span', { class: 'ar-guide-img ar-guide-glyph', html: glyph(ic) }),
+      h('div', { class: 'ar-guide-txt' },
+        h('h3', { class: 'ar-guide-name' }, name),
+        h('p', { class: 'xsmall muted' }, hint),
+        h('div', { class: 'ar-guide-stats xsmall' },
+          h('span', null, 'Can ', h('b', { class: 'num' }, fmtNum(U.hp))),
+          h('span', null, 'Hasar ', h('b', { class: 'num' }, String(U.dmg))),
+          h('span', null, 'Zırh ', h('b', { class: 'num' }, String(U.armor))),
+        ),
+      ),
+    ));
+  }
   const lbHost = h('div', { class: 'ar-lb' });
   const below = h('div', { class: 'ar-below' },
     h('section', { class: 'ar-guide panel', 'aria-labelledby': 'ar-guide-h' },
       h('div', { class: 'panel-head' },
         h('div', null, h('span', { class: 'eyebrow' }, 'Saha rehberi'), h('h2', { class: 'h2', id: 'ar-guide-h' }, 'Arenadaki DOG’lar')),
-        h('span', { class: 'badge ember' }, '10 tür · her dalga 9'),
+        h('span', { class: 'badge ember' }, '10 tür · 5 boss · 3 kamp'),
       ),
       guide,
-      h('div', { class: 'panel-head ar-guide-sub' }, h('div', null, h('span', { class: 'eyebrow' }, 'Dire ordusu'), h('h3', { class: 'h3' }, 'Creep’ler, kuleler ve Roshan'))),
+      h('div', { class: 'panel-head ar-guide-sub' }, h('div', null, h('span', { class: 'eyebrow' }, 'Dire ordusu ve orman'), h('h3', { class: 'h3' }, 'Creep’ler, kuleler ve orman kampları'))),
       direGrid,
+      h('div', { class: 'panel-head ar-guide-sub' }, h('div', null, h('span', { class: 'eyebrow' }, 'Bosslar'), h('h3', { class: 'h3' }, 'Roshan ve Dokuzun Laneti’nin lordları'))),
+      h('p', { class: 'xsmall muted ar-guide-note' }, 'Sonsuz modda her 5. dalga boss dalgasıdır: tek katlar Roshan, çift katlar sırayla Feed Alfa, Gölge Ulusu, Dire Generali ve Sonsuz Pub’ın Kalbi. Boss’un adı ve canı ekranın üstünde görünür; halkalı, şeritli ve koni biçimli uyarılardan çekil.'),
+      bossGrid,
     ),
     lbHost,
   );
@@ -441,6 +541,19 @@ export function mountArena(el, ctx = {}) {
       lineup: (...a) => view && view.devLineup && view.devLineup(...a),
       mode: () => mode,
       speed: (k = 1) => { devSpeed = Math.max(1, Math.min(40, k)); return devSpeed; },
+      boss: (id, o) => game.dev.boss(id, o),
+      unit: (id, o) => game.dev.unit(id, o),
+      camps: () => game.dev.camps(),
+      neutral: (id) => game.dev.neutral(id),
+      night: (v = true) => game.dev.night(v),
+      learnAll: () => game.dev.learnAll(),
+      talents: (i = 0) => { game.dev.talents(i); },
+      kill: () => game.dev.kill(),
+      unlock: (id = 'all') => { devUnlock(id); select.refresh(); return HERO_IDS.filter((x) => isHeroUnlocked(x)); },
+      pickHero: (id) => { devUnlock(id); select.setHero(id); pickHero(id); },
+      start: (cfg) => startGame(cfg),
+      sheet: (tab) => openSheet(tab),
+      learnMode: (v = true) => setLearnMode(v),
     };
   }
 
@@ -453,15 +566,48 @@ export function mountArena(el, ctx = {}) {
         const A = ABILITIES[H.abilities[k]];
         const s = set[k];
         s.ico.innerHTML = glyph(A.icon);
-        s.btn.setAttribute('aria-label', `${A.name}: ${A.desc}`);
-        s.btn.title = `${A.name} (${abilityTip(A)}) — ${A.desc}`;
         s.btn.classList.toggle('passive', A.targeting === 'passive');
         s.btn.dataset.targeting = A.targeting;
+        s.lvKey = '';
       }
     }
+    for (const k of ['str', 'agi', 'int']) attrEls[k].row.classList.toggle('primary', H.attr === k);
     accLbl.textContent = H.id === 'okcu' ? 'İsabet ' : 'Verim ';
   }
+  /** Yetenek düğmesi ipucu: ad, seviye, değerler. */
+  function slotLabel(key) {
+    const info = abilityInfo(game, key);
+    if (!info) return '';
+    const { A, lv, max } = info;
+    const rows = abilityRows(A).map(([l, v]) => `${l} ${v}`).join(' · ');
+    return `${A.name} — seviye ${lv}/${max}${lv ? '' : ' (öğrenilmedi)'}. ${abilityTip(A)}. ${A.desc}${rows ? ` (${rows})` : ''}`;
+  }
   applyHeroUi();
+
+  // ------------------------------------------------------------------ kalıcı ilerleme bağlantısı (varsa)
+  let prog = null;
+  let lastRunEnd = null;
+  function progUnlocked(id) {
+    if (!prog) return false;
+    const names = HERO_ALIASES[id] || [id];
+    try {
+      if (typeof prog.isHeroUnlocked === 'function') return names.some((n) => prog.isHeroUnlocked(n));
+      const pr = typeof prog.getProfile === 'function' ? prog.getProfile() : null;
+      const u = pr && (pr.unlocked || pr.unlocks || pr.heroes);
+      if (Array.isArray(u)) return names.some((n) => u.includes(n) || u.includes(`hero:${n}`));
+      if (u && typeof u === 'object') return names.some((n) => !!(u[n] || u[`hero:${n}`] || (Array.isArray(u.heroes) && u.heroes.includes(n)) || (u.heroes && u.heroes[n])));
+    } catch (e) { console.warn('Arena: kilit kontrolü', e); }
+    return false;
+  }
+  const progLoader = PROG_MOD['./progression.js'];
+  if (progLoader) {
+    progLoader().then((m) => {
+      if (!alive) return;
+      prog = m;
+      registerUnlockCheck(progUnlocked);
+      select.refresh();
+    }).catch((e) => console.warn('Arena: progression.js yüklenemedi', e));
+  }
 
   function pickHero(id) {
     if (!HEROES[id]) return;
@@ -544,7 +690,7 @@ export function mountArena(el, ctx = {}) {
     while (feedItems.length > (stageW < 560 ? 3 : 5)) { const x = feedItems.pop(); x.li.remove(); }
   }
   const heroTag = () => h('b', { class: 'ar-feed-hero' }, game.H.name);
-  const foeName = (e) => (e.kind === 'dog' ? DOG_TYPES[e.type].short : e.kind === 'boss' ? 'ROSHAN' : e.type === 'ranged' ? 'Büyücü' : 'Piyade');
+  const foeName = (e) => (e.kind === 'dog' ? DOG_TYPES[e.type].short : e.kind === 'boss' || e.kind === 'neutral' ? (e.def && e.def.short) || 'BOSS' : e.type === 'ranged' ? 'Büyücü' : 'Piyade');
 
   const isFs = () => (document.fullscreenElement || document.webkitFullscreenElement) === stage;
   function stamp(text, variant = '') {
@@ -580,7 +726,15 @@ export function mountArena(el, ctx = {}) {
     const p = game.player;
     switch (type) {
       case 'waveStart':
-        if (d.boss) {
+        if (d.text) {
+          showBanner(`Dalga ${d.wave}`, d.text, d.bossId ? 'rampage' : 'wave', 2800);
+          say(`Dalga ${d.wave}. ${d.text}`, true);
+        } else if (d.bossId && d.bossId !== 'boss_roshan') {
+          const U = UNITS[d.bossId];
+          showBanner(`Dalga ${d.wave}: ${U.name.toLocaleUpperCase('tr')}`, U.hint, 'rampage', 3000);
+          snd('roar', 0, 0.8);
+          say(`Dalga ${d.wave}. ${U.name} geldi!`, true);
+        } else if (d.boss) {
           showBanner(`Dalga ${d.wave}: ROSHAN`, 'Kaya Canavarı uyandı. Yanına beş DOG da geldi.', 'rampage', 2600);
           snd('roar', 0);
           say(`Dalga ${d.wave}. Roshan uyandı!`, true);
@@ -605,12 +759,20 @@ export function mountArena(el, ctx = {}) {
       case 'shoot':
         snd('shoot', 40);
         break;
-      case 'hit': {
+      case 'hit':
         if (d.src === 'burn' || d.src === 'cleave') break;
         snd('hit', 55);
-        const cls = d.crit ? 'crit' : d.big ? 'big' : d.src === 'ult' ? 'ember' : d.src === 'nova' || d.src === 'field' || d.src === 'frost' ? 'ice' : '';
-        const e = d.foe;
-        floatAt(d.crit ? `${d.dmg}!` : String(d.dmg), e.x, e.kind === 'boss' ? 2.8 : 1.1, e.z, cls);
+        break;
+      case 'dmgNum': {
+        // yüzen hasar sayıları: fiziksel kırmızı/turuncu, büyü mavi, saf beyaz; kritik büyük; kahramana gelen "-"
+        if (d.miss) { floatAt(d.hero ? 'MISS' : 'ISKA', d.x, d.y, d.z, 'dn miss'); break; }
+        if (d.immune) { floatAt('BAĞIŞIK', d.x, d.y, d.z, 'dn immune'); break; }
+        if (d.block && !d.n) { floatAt('BLOK', d.x, d.y, d.z, 'dn block'); break; }
+        if (d.absorb && !d.n) { floatAt('KALKAN', d.x, d.y, d.z, 'dn block'); break; }
+        if (!(d.n > 0)) break;
+        const t = d.type === 'magical' ? 'mag' : d.type === 'pure' ? 'pure' : 'phys';
+        const cls = `dn ${t}${d.crit ? ' crit' : ''}${d.hero ? ' tohero' : ''}${d.n >= 250 ? ' huge' : ''}`;
+        floatAt(d.hero ? `-${d.n}` : d.crit ? `${d.n}!` : String(d.n), d.x, d.y, d.z, cls);
         break;
       }
       case 'kill': {
@@ -618,7 +780,7 @@ export function mountArena(el, ctx = {}) {
         snd('coin', 70);
         if (d.gold > 0) floatAt(`+${d.gold}`, e.x, e.kind === 'boss' ? 3 : 1.5, e.z, d.lastHit ? 'gold' : 'gold dim');
         if (e.kind === 'dog') say(`${archOf(e.type).name} indi. Kalan DOG: ${game.dogsLeft}. Skor ${fmtNum(game.score)}.`);
-        if (e.kind !== 'creep' || d.by === 'hero') {
+        if ((e.kind !== 'creep' && e.kind !== 'neutral' && !e.summon) || (d.by === 'hero' && e.kind === 'creep')) {
           const who = d.by === 'hero' ? heroTag() : d.by === 'tower' ? h('b', { class: 'ar-feed-rad' }, 'Radiant Kulesi') : h('b', null, '—');
           feedPush([who, h('span', { class: 'ar-feed-ico', html: glyph(d.by === 'hero' ? game.H.id : 'tower') }), h('span', { class: 'ar-feed-foe' }, foeName(e))], e.kind === 'boss' ? 'gold' : '');
         }
@@ -636,21 +798,135 @@ export function mountArena(el, ctx = {}) {
         say(`${d.label}! ${d.bonus} bonus puan.`, true);
         break;
       case 'streak':
-        announcer(d.label, `${d.n} DOG seri`, d.n >= 9 ? 'gold' : 'streak', 1500);
+        announcer(d.label, `${d.n} DOG seri${d.gold ? ` · +${d.gold} altın` : ''}`, d.n >= 9 ? 'gold' : 'streak', 1500);
         snd('horn', 0, 0.9 + d.n * 0.02);
         break;
       case 'hurt':
         flashVignette('hurt');
         snd('bad', 380);
-        floatAt(`-${d.dmg}`, p.x, 1.8, p.z, 'hurt');
         if (d.dmg >= 60) haptic(18);
         break;
       case 'evade':
-        floatAt('MISS', p.x, 1.9, p.z, 'jade');
-        snd('whoosh', 250);
+        if (d.hero !== false && (d.target === p || d.hero)) snd('whoosh', 250);
         break;
       case 'immune':
-        floatAt('BAĞIŞIK', p.x, 2.0, p.z, 'gold');
+        floatAt('BAĞIŞIK', p.x, 2.2, p.z, 'gold');
+        break;
+      case 'status':
+        if (d.hero) {
+          const txt = { hex: 'DÖNÜŞTÜN!', silence: 'SUSTURULDUN', fear: 'KORKU!', root: 'KÖKLENDİN', stun: '' }[d.kind];
+          if (txt) { floatAt(txt, p.x, 2.3, p.z, 'hurt'); say(`${STATUS_NAMES[d.kind]}: ${f1(d.dur)} saniye.`); }
+        }
+        break;
+      case 'silenced':
+        floatAt('Susturuldun', p.x, 2.0, p.z, 'hurt');
+        snd('miss', 250);
+        if (d.key) nudge(d.key);
+        break;
+      case 'unlearned':
+        floatAt(game.player.skillPoints > 0 ? 'Önce öğren: L' : 'Henüz öğrenilmedi', p.x, 2.0, p.z, 'dim');
+        snd('miss', 250);
+        if (d.key) nudge(d.key);
+        break;
+      case 'learn': {
+        snd('good', 0);
+        const nm = d.key === 'stats' ? STATS_BONUS.name : ABILITIES[game.H.abilities[d.key]].name;
+        floatAt(`${nm} ${d.level}`, p.x, 2.5, p.z, 'gold');
+        say(`${nm} seviye ${d.level}. Kalan yetenek puanı ${d.points}.`);
+        if (d.points <= 0) setLearnMode(false);
+        if (!talentHost.hidden) renderSheet();
+        break;
+      }
+      case 'learnFail':
+        snd('miss', 150);
+        if (d.key && d.key !== 'stats') nudge(d.key);
+        break;
+      case 'dayNight':
+        if (mode === 'playing') {
+          announcer(d.night ? 'GECE ÇÖKTÜ' : 'GÜN DOĞDU', d.night ? 'Görüş kısaldı · Wardsız DOG’lar güçlendi' : 'Görüş açıldı', d.night ? 'night' : 'gold', 1800);
+          say(d.night ? 'Gece çöktü: görüş kısaldı, Wardsız DOG’lar güçlendi.' : 'Gün doğdu: görüş açıldı.', true);
+          snd('horn', 0, d.night ? 0.55 : 1.2);
+        }
+        break;
+      case 'bossSpawn':
+        if (d.boss !== 'boss_roshan') {
+          announcer(`${UNITS[d.boss].name.toLocaleUpperCase('tr')} GELDİ`, UNITS[d.boss].hint.split('.')[0], 'blood', 2400);
+          haptic([20, 40, 20]);
+        }
+        break;
+      case 'bossPhase':
+        showBanner(d.foe.name, d.text, 'rampage', 2000);
+        snd('roar', 0, 1.1);
+        say(`${d.foe.name}: ${d.text}`, true);
+        break;
+      case 'bossTele':
+        if (d.kind === 'warcry') floatAt('SAVAŞ NARASI!', d.foe.x, 3.2, d.foe.z, 'gold big');
+        else if (d.kind === 'howl') floatAt('ULUMA!', d.foe.x, 2.6, d.foe.z, 'arcane big');
+        else if (d.kind === 'dash') floatAt('DALIŞ!', d.foe.x, 2.6, d.foe.z, 'ember big');
+        else if (d.kind === 'pulseIn' || d.kind === 'pulseOut') floatAt(d.kind === 'pulseIn' ? 'İÇ NABIZ: DIŞARI!' : 'DIŞ NABIZ: İÇERİ!', d.foe.x, 3.6, d.foe.z, 'blood big');
+        break;
+      case 'bossAct':
+        if (d.kind === 'dash' || d.kind === 'stealth') snd('whoosh', 100);
+        else if (d.kind === 'pounce' || d.kind === 'pulse') { snd('slam', 100, 0.9); haptic(20); }
+        else if (d.kind === 'howl') snd('roar', 100, 1.3);
+        else if (d.kind === 'warcry') snd('horn', 100, 0.7);
+        else if (d.kind === 'cleave') snd('chop', 100, 0.8);
+        break;
+      case 'bossSummon':
+        feedPush([h('span', { class: 'ar-feed-ico dire', html: glyph(d.foe.def.glyph || 'skull') }), h('b', null, d.foe.name), ' ', d.text || 'çağırdı'], 'dire');
+        break;
+      case 'bossShieldBreak':
+        announcer('KALKAN KIRILDI', `${d.foe.name} savunmasız!`, 'gold', 1600);
+        snd('good', 0);
+        break;
+      case 'bossDown':
+        announcer(`${d.foe.name.toLocaleUpperCase('tr')} DÜŞTÜ`, 'Orman eşyası düştü · güvenilir altın', 'gold', 2600);
+        stamp('LORD DÜŞTÜ', 'gold');
+        snd('horn', 0, 0.6);
+        break;
+      case 'campSpawn':
+        if (mode === 'playing' && game.state !== 'idle') campNote();
+        break;
+      case 'campCleared':
+        feedPush([heroTag(), h('span', { class: 'ar-feed-ico', html: glyph('wolf') }), `${d.camp.name} temiz`], 'gold');
+        break;
+      case 'neutralDrop':
+        floatAt(`Orman: ${d.item.name}`, d.pickup.x, 1.8, d.pickup.z, 'jade');
+        snd('rune', 0, 1.1);
+        break;
+      case 'neutralEquip':
+        floatAt(`+${d.item.name}`, p.x, 2.3, p.z, 'jade');
+        break;
+      case 'lootBack':
+        floatAt(`GERİ ALINDI${d.gold ? ` +${d.gold}` : ''}${d.tango ? ' +Tango' : ''}`, d.foe.x, 1.8, d.foe.z, 'gold');
+        say('Kurye Köpeğinden ganimet geri alındı.');
+        break;
+      case 'deny':
+        floatAt('DENY!', d.x, 3.2, d.z, 'ember big');
+        feedPush([heroTag(), h('span', { class: 'ar-feed-ico', html: glyph('tower') }), 'kulesini deny etti'], '');
+        break;
+      case 'direMorale':
+        feedPush([h('b', { class: 'ar-feed-dire' }, 'Dire creep’leri coştu'), ` +%${15 * d.n} hasar`], 'dire');
+        break;
+      case 'combine':
+        floatAt(`+${d.item.name}`, p.x, 2.4, p.z, 'gold big');
+        snd('buy', 0);
+        feedPush([h('span', { class: 'ar-feed-ico', html: glyph('shop') }), `${d.item.name} birleşti`], 'gold');
+        break;
+      case 'heroFeared':
+        haptic(20);
+        break;
+      case 'objective':
+        renderObjectives();
+        if (d.done && mode === 'playing') { announcer('HEDEF TAMAM', d.obj.text || objText(d.obj), 'gold', 1600); snd('good', 0); }
+        if (d.failed && mode === 'playing') announcer('HEDEF KAÇTI', d.obj.text || objText(d.obj), 'blood', 1600);
+        break;
+      case 'runEnd':
+        lastRunEnd = d;
+        break;
+      case 'ward':
+        snd('rune', 0, 1.4);
+        floatAt('Ward dikildi', d.ward.x, 1.4, d.ward.z, 'jade');
         break;
       case 'noMana':
         floatAt('Mana yok', p.x, 2.0, p.z, 'mana');
@@ -689,7 +965,19 @@ export function mountArena(el, ctx = {}) {
         if (d.kind === 'bkb') { snd('good', 0); floatAt('Kara Kral Asası', p.x, 2.2, p.z, 'gold'); }
         if (d.kind === 'refresh') { snd('rune', 0, 1.3); floatAt('TAZELENDİ', p.x, 2.2, p.z, 'ice'); }
         if (d.kind === 'cheese') { snd('win', 0); floatAt('PEYNİR!', p.x, 2.2, p.z, 'gold'); }
-        if (d.kind === 'wand') floatAt(`+${16 * d.n}`, p.x, 2.0, p.z, 'jade');
+        if (d.kind === 'wand') floatAt(`+${d.amount || 16 * d.n}`, p.x, 2.0, p.z, 'jade');
+        if (d.kind === 'dust') { snd('whoosh', 0); floatAt(d.n ? `Açığa çıktı: ${d.n}` : 'Toz: kimse yok', p.x, 2.2, p.z, 'arcane'); }
+        if (d.kind === 'cyclone') { snd('whoosh', 0); floatAt('KASIRGA', p.x, 2.2, p.z, 'ice'); }
+        if (d.kind === 'magShield') floatAt('Büyü kalkanı', p.x, 2.2, p.z, 'arcane');
+        if (d.kind === 'satanic') { snd('bad', 0); floatAt('KAN ÇILGINLIĞI', p.x, 2.2, p.z, 'hurt'); }
+        if (d.kind === 'mek') { snd('good', 0); floatAt('+260', p.x, 2.2, p.z, 'jade'); }
+        if (d.kind === 'tome') { snd('levelUp', 0); floatAt('+XP', p.x, 2.2, p.z, 'gold'); }
+        if (d.kind === 'phase') snd('whoosh', 0);
+        if (d.kind === 'remnantBoom' || d.kind === 'overload' || d.kind === 'zap') snd('freeze', 90, 1.4);
+        if (d.kind === 'vortex') snd('spin', 0);
+        if (d.kind === 'ballStart') snd('blink', 0, 1.3);
+        if (d.kind === 'growth') { snd('slam', 0, 0.8); haptic([15, 30, 15]); }
+        if (d.kind === 'leech' || d.kind === 'guise' || d.kind === 'bark') snd('rune', 60, 0.9);
         break;
       case 'channelEnd':
         if (d.interrupted) floatAt('Kanal kesildi', p.x, 2.2, p.z, 'dim');
@@ -753,9 +1041,16 @@ export function mountArena(el, ctx = {}) {
         showBanner('AEGIS kırıldı', 'Yeniden doğuyorsun…', 'gold', 1300);
         break;
       case 'revive':
-        stamp('AEGIS!', 'gold');
+        hideBuyback();
+        if (d.buyback) {
+          stamp('BUYBACK!', 'gold');
+          feedPush([heroTag(), h('span', { class: 'ar-feed-ico', html: glyph('coin') }), `geri aldı (${d.cost})`], 'gold');
+          say('Geri alındın: çeşmedesin.', true);
+        } else {
+          stamp('AEGIS!', 'gold');
+          say('Aegis ile geri döndün.', true);
+        }
         flashVignette('gold');
-        say('Aegis ile geri döndün.', true);
         break;
       case 'rapierStolen':
         announcer('RAPIER ÇALINDI!', 'Kurye Köpeği kaçıyor: 8 sn içinde indir!', 'blood', 2200);
@@ -812,11 +1107,15 @@ export function mountArena(el, ctx = {}) {
         snd('whoosh', 120);
         break;
       case 'death':
-        showBanner('Sürü seni yakaladı', 'DOG DOG DOG…', 'blood', 1600);
+        if (d.buyback) {
+          showBuyback(d.buyback, d.lost);
+          say(`Öldün. ${d.buyback.cost} altına geri alabilirsin: Enter.`, true);
+        } else showBanner('Sürü seni yakaladı', d.lost ? `DOG DOG DOG… −${d.lost} güvenilmez altın` : 'DOG DOG DOG…', 'blood', 1600);
         break;
       case 'levelUp':
         floatAt(`SEVİYE ${d.level}`, p.x, 2.4, p.z, 'gold big');
         snd('levelUp', 0);
+        if (!autoLearn && game.player.skillPoints > 0) say(`Seviye ${d.level}. ${game.player.skillPoints} yetenek puanı: L ile öğren.`);
         break;
       case 'talentReady':
         announcer(`SEVİYE ${d.level}`, 'Yetenek ağacı açıldı · T', 'gold', 1600);
@@ -906,12 +1205,15 @@ export function mountArena(el, ctx = {}) {
         snd('slam', 0, 0.7);
         break;
       case 'gameOver':
+        hideBuyback();
         gameOver(d.report);
         break;
       case 'reset':
         for (const s of floatPool) { if (s._anim) s._anim.cancel(); s.style.opacity = '0'; }
         for (const x of feedItems.splice(0)) x.li.remove();
         talentBtn.hidden = true;
+        hideBuyback();
+        renderObjectives();
         break;
       default:
         break;
@@ -945,58 +1247,222 @@ export function mountArena(el, ctx = {}) {
     if (game.skipBreak()) { closeShop(true); focusStage(); sound.click(); }
   }
 
-  function openTalents() {
-    const p = game.player;
-    if (!p.talentPending.length || (mode !== 'playing' && mode !== 'picking')) return;
-    const level = p.talentPending[0];
-    const opts = game.H.talents[level];
+  // ------------------------------------------------------------------ kahraman sayfası (özellikler · yetenekler · yetenek ağacı)
+  let sheetFocus = 'hero';
+  function openTalents() { openSheet('talents'); }
+  function openSheet(focusOn = 'hero') {
+    if (!game || (mode !== 'playing' && mode !== 'picking')) return;
+    if (game.state === 'dying' || game.state === 'over') return;
+    sheetFocus = focusOn;
     mode = 'picking';
     keys.clear();
     game.chargeCancel();
     resetTouch();
     closeShop(true);
-    clear(talentHost);
-    const choose = (i) => {
-      if (!game.chooseTalent(level, i)) return;
-      sound.good?.();
-      talentHost.hidden = true;
-      stage.classList.remove('has-screen');
-      mode = 'playing';
-      if (!p.talentPending.length) talentBtn.hidden = true;
-      if (p.talentPending.length) openTalents();
-      else {
-        focusStage();
-        if (game.state === 'break' && autoShop) later(() => openShop(), 250);
-      }
-    };
-    const btnsT = opts.map((t, i) => {
-      const b = h('button', { class: 'ar-tal-opt', type: 'button' },
-        h('span', { class: 'ar-tal-k kbd' }, String(i + 1)),
-        h('strong', null, t.name),
-      );
-      b.addEventListener('click', () => choose(i));
-      return b;
-    });
-    const laterBtn = h('button', { class: 'btn ghost sm', type: 'button' }, 'Sonra seç');
-    laterBtn.addEventListener('click', () => {
-      talentHost.hidden = true;
-      stage.classList.remove('has-screen');
-      mode = 'playing';
-      focusStage();
-    });
-    talentHost.append(h('div', { class: 'ar-card ar-tal-card' },
-      h('span', { class: 'eyebrow' }, `Seviye ${level} · Yetenek ağacı`),
-      h('h2', { class: 'h2' }, 'Birini seç'),
-      h('div', { class: 'ar-tal-tree', html: glyph('tree') }),
-      h('div', { class: 'ar-tal-opts' }, btnsT[0], h('span', { class: 'ar-tal-or' }, 'ya da'), btnsT[1]),
-      h('p', { class: 'xsmall muted' }, 'Oyun seçerken durur. 1 / 2 tuşlarıyla da seçebilirsin.'),
-      laterBtn,
-    ));
-    talentHost._choose = choose;
+    renderSheet();
     talentHost.hidden = false;
     stage.classList.add('has-screen');
-    later(() => { try { btnsT[0].focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
-    say(`Seviye ${level}. Yetenek ağacı: ${opts[0].name} ya da ${opts[1].name}.`, true);
+    later(() => {
+      const t = talentHost.querySelector(focusOn === 'talents' ? '.ar-tal-opt.pending' : '.ar-sheet-close') || talentHost.querySelector('.ar-sheet-close');
+      try { t && t.focus({ preventScroll: true }); } catch { /* yok say */ }
+      if (focusOn === 'talents') talentHost.querySelector('.ar-tal-tree2')?.scrollIntoView?.({ block: 'nearest' });
+    }, 30);
+    const p = game.player;
+    if (p.talentPending.length) {
+      const L = p.talentPending[0];
+      say(`Seviye ${L} yetenek ağacı: 1 ${game.H.talents[L][0].name}, 2 ${game.H.talents[L][1].name}.`, true);
+    }
+  }
+  function closeSheet() {
+    talentHost.hidden = true;
+    stage.classList.remove('has-screen');
+    mode = 'playing';
+    focusStage();
+    if (game.state === 'break' && autoShop && !shop.open) later(() => openShop(), 250);
+  }
+  function chooseTalent(level, i) {
+    if (!game.chooseTalent(level, i)) return;
+    sound.good?.();
+    renderSheet();
+    if (!game.player.talentPending.length && sheetFocus === 'talents') later(() => { if (mode === 'picking') closeSheet(); }, 350);
+  }
+  function statRow(label, value, hint = '') {
+    return h('div', { class: 'ar-sst' }, h('dt', null, label), h('dd', { class: 'num', title: hint }, value));
+  }
+  function renderSheet() {
+    const g = game;
+    const p = g.player;
+    const H = g.H;
+    const st = g.stat;
+    clear(talentHost);
+    const closeB = h('button', { class: 'ar-tool ar-sheet-close', type: 'button', 'aria-label': 'Kapat (Esc)', title: 'Kapat (Esc / C)' }, icon('close', { size: 18 }));
+    closeB.addEventListener('click', closeSheet);
+    // özellikler
+    const attrs = h('div', { class: 'ar-sheet-attrs' }, ['str', 'agi', 'int'].map((k) => h('div', { class: `ar-sattr ar-attr-${k}${H.attr === k ? ' primary' : ''}` },
+      h('span', { class: 'ar-sattr-i', html: glyph(k) }),
+      h('div', null, h('span', { class: 'ar-sattr-n' }, ATTR_NAMES[k], H.attr === k ? h('em', null, ' · ana') : null), h('b', { class: 'num' }, String(Math.round(st[k])))),
+      h('span', { class: 'ar-sattr-h xsmall' }, k === 'str' ? `+${Math.round(st.str * 20)} can · +${f1(st.str * 0.1)} yenilenme` : k === 'agi' ? `+${f1(st.agi / 10)} zırh · +${Math.round(st.agi * 0.75)} saldırı hızı` : `+${Math.round(st.int * 12)} mana · +%${f1(st.int * 0.2)} büyü`),
+    )));
+    const armorPct = Math.round(armorReduction(st.armor) * 100);
+    const stats = h('dl', { class: 'ar-sheet-stats' },
+      statRow('Saldırı hasarı', String(Math.round(st.atkDmg * g.dmgMul(false))), 'Taban + ana özellik + eşyalar'),
+      statRow(H.attack ? 'Saldırı süresi' : 'Ok gücü', H.attack ? `${f1(st.atkRate)} sn` : '%70 saldırı hasarı', H.attack ? `Saldırı hızı ${Math.round(st.atkSpeed)}` : 'Tam şarjlı CureShot saldırı hasarının %70’ini ekler'),
+      statRow('Zırh', `${f1(st.armor)} (${armorPct >= 0 ? '−' : '+'}%${Math.abs(armorPct)})`, 'Fiziksel hasar çarpanı 1 − 0,06·zırh / (1 + 0,06·|zırh|)'),
+      statRow('Büyü direnci', `%${Math.round(st.magicResist * 100)}`),
+      statRow('Kaçınma', `%${Math.round(st.evasion * 100)}`),
+      statRow('Statü direnci', `%${Math.round(st.statusRes * 100)}`),
+      statRow('Büyü güçlendirme', `+%${Math.round((st.spellAmp - 1) * 100)}`),
+      statRow('Kritik', st.crit > 0 ? `%${Math.round(st.crit * 100)} ×${f1(st.critMul)}` : '—'),
+      statRow('Can çalma', st.lifesteal > 0 || st.spellLifesteal > 0 ? `%${Math.round(st.lifesteal * 100)}${st.spellLifesteal > 0 ? ` · büyü %${Math.round(st.spellLifesteal * 100)}` : ''}` : '—'),
+      statRow('Hasar bloğu', st.block > 0 ? `${Math.round(st.block)} (%${Math.round(st.blockChance * 100)})` : '—'),
+      statRow('Hız', f1(st.speed)),
+      statRow('Yenilenme', `${f1(st.hpRegen)} can · ${f1(st.manaRegen)} mana`),
+      statRow('Altın', `${fmtNum(p.goldR)} güvenilir · ${fmtNum(g.unreliable())} güvenilmez`, 'Ölünce güvenilmez altının %40’ı düşer'),
+      statRow('Geri alma', g.mods.noBuyback ? 'kapalı' : p.buybackCd > 0 ? `${fmtT(p.buybackCd)} bekleme` : `${fmtNum(g.buybackCost())} altın`, `Bekleme ${BUYBACK_CD} sn`),
+    );
+    // yetenekler
+    const abil = h('div', { class: 'ar-sheet-abil' });
+    for (const k of KEYS4) {
+      const info = abilityInfo(g, k);
+      const A = info.A;
+      const can = g.canLearn(k);
+      const cap = abilityCap(k, p.level);
+      const need = info.lv >= info.max ? 'dolu' : cap <= info.lv ? `${k === 'r' ? (info.lv + 1) * 6 : info.lv * 2 + 1}. seviyede` : '';
+      const lb = h('button', { class: 'ar-sab-learn', type: 'button', disabled: !can, 'aria-label': `${A.name} öğren`, title: can ? `Öğren (${KEY_NAMES[k]})` : need || 'Yetenek puanı yok' }, h('span', { html: glyph('plus') }));
+      lb.addEventListener('click', () => { game.learn(k); renderSheet(); });
+      const rows = abilityRows(A);
+      abil.appendChild(h('div', { class: `ar-sab${info.lv ? '' : ' unlearned'}${A.ult ? ' ult' : ''}` },
+        h('span', { class: 'ar-sab-i', html: glyph(A.icon) }),
+        h('div', { class: 'ar-sab-t' },
+          h('strong', null, `${KEY_NAMES[k]} · ${A.name}`),
+          h('span', { class: 'ar-sab-pips' }, Array.from({ length: info.max }, (_, i) => h('i', { class: i < info.lv ? 'on' : '' }))),
+          h('span', { class: 'xsmall muted ar-sab-d' }, A.desc),
+          rows.length ? h('span', { class: 'xsmall ar-sab-rows' }, rows.map(([l, v]) => h('span', null, `${l} `, h('b', { class: 'num' }, v)))) : null,
+        ),
+        h('div', { class: 'ar-sab-side' }, lb, need ? h('span', { class: 'xsmall dim' }, need) : null),
+      ));
+    }
+    {
+      const can = g.canLearn('stats');
+      const lb = h('button', { class: 'ar-sab-learn', type: 'button', disabled: !can, 'aria-label': 'Özellik bonusu öğren' }, h('span', { html: glyph('plus') }));
+      lb.addEventListener('click', () => { game.learn('stats'); renderSheet(); });
+      abil.appendChild(h('div', { class: 'ar-sab stats' },
+        h('span', { class: 'ar-sab-i', html: glyph('star') }),
+        h('div', { class: 'ar-sab-t' }, h('strong', null, STATS_BONUS.name), h('span', { class: 'ar-sab-pips' }, Array.from({ length: 7 }, (_, i) => h('i', { class: i < p.statsLv ? 'on' : '' }))), h('span', { class: 'xsmall muted ar-sab-d' }, STATS_BONUS.desc)),
+        h('div', { class: 'ar-sab-side' }, lb),
+      ));
+    }
+    // yetenek ağacı (25 üstte)
+    const tree = h('div', { class: 'ar-tal-tree2', role: 'group', 'aria-label': 'Yetenek ağacı' });
+    for (const L of [...TALENT_LEVELS].reverse()) {
+      const chosen = p.talentChoice[L];
+      const pending = p.talentPending.includes(L);
+      const reached = p.level >= L;
+      const opt = (i) => {
+        const T = H.talents[L][i];
+        const cls = `ar-tal-opt ${i ? 'right' : 'left'}${chosen === i ? ' chosen' : chosen != null ? ' other' : ''}${pending ? ' pending' : ''}${!reached ? ' future' : ''}`;
+        const b = h('button', { class: cls, type: 'button', disabled: !pending, 'aria-pressed': String(chosen === i) }, pending ? h('span', { class: 'ar-tal-k kbd' }, String(i + 1)) : null, h('span', null, T.name));
+        b.addEventListener('click', () => chooseTalent(L, i));
+        return b;
+      };
+      tree.appendChild(h('div', { class: `ar-tal-tier${pending ? ' pending' : ''}${reached ? '' : ' future'}` }, opt(0), h('span', { class: 'ar-tal-lv num' }, String(L)), opt(1)));
+    }
+    const pend = p.talentPending.length;
+    talentHost.appendChild(h('div', { class: 'ar-card ar-sheet-card', style: { '--hc': H.color } },
+      h('div', { class: 'ar-sheet-head' },
+        h('span', { class: 'ar-sheet-emb', html: glyph(H.id) }),
+        h('div', null, h('span', { class: 'eyebrow' }, `Seviye ${p.level} · ${H.role}`), h('h2', { class: 'h2' }, H.name)),
+        p.skillPoints > 0 ? h('span', { class: 'badge jade ar-sheet-sp' }, `+${p.skillPoints} yetenek puanı`) : null,
+        closeB,
+      ),
+      h('div', { class: 'ar-sheet-grid' },
+        h('section', { class: 'ar-sheet-col' }, h('h3', { class: 'ar-sheet-h' }, 'Özellikler'), attrs, stats),
+        h('section', { class: 'ar-sheet-col' },
+          h('h3', { class: 'ar-sheet-h' }, 'Yetenekler', h('span', { class: 'xsmall dim' }, ' · Q W E 4 seviye, R 6/12/18')),
+          abil,
+          h('h3', { class: 'ar-sheet-h' }, 'Yetenek ağacı', pend ? h('span', { class: 'badge gold' }, `${pend} seçim bekliyor`) : h('span', { class: 'xsmall dim' }, ' · 10/15/20/25. seviye')),
+          tree,
+          h('p', { class: 'xsmall muted ar-sheet-aghs' }, H.aghs),
+        ),
+      ),
+      h('p', { class: 'xsmall muted' }, 'Oyun bu sayfa açıkken durur. 1 / 2 ile yetenek ağacı, Q W E R ile yetenek öğren, Esc ile kapat.'),
+    ));
+  }
+
+  // ------------------------------------------------------------------ öğrenme kipi
+  function setLearnMode(v) {
+    learnMode = !!v && !!game && game.player.skillPoints > 0;
+    stage.classList.toggle('learning', learnMode);
+    spBtn.setAttribute('aria-pressed', String(learnMode));
+    if (learnMode) say('Öğrenme kipi: yetenek seç (Q W E R). Çıkmak için L.', true);
+  }
+  function learnKey(key) {
+    if (!game || (mode !== 'playing' && mode !== 'picking')) return false;
+    const ok = game.learn(key);
+    if (!ok && game.player.skillPoints > 0) floatAt('Bu seviyede öğrenilemez', game.player.x, 2.2, game.player.z, 'dim');
+    return ok;
+  }
+  spBtn.addEventListener('click', (e) => { e.stopPropagation(); setLearnMode(!learnMode); });
+  portraitHit.addEventListener('click', () => openSheet('hero'));
+  attrBox.addEventListener('click', () => openSheet('hero'));
+
+  // ------------------------------------------------------------------ geri alma
+  let bbOpen = false;
+  function showBuyback(info, lost) {
+    bbOpen = true;
+    bbCost.textContent = fmtNum(info.cost);
+    bbLost.textContent = lost ? `Ölüm bedeli: −${fmtNum(lost)} güvenilmez altın` : '';
+    buybackEl.hidden = false;
+    closeShop(true);
+    later(() => { try { bbBtn.focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
+  }
+  function hideBuyback() {
+    bbOpen = false;
+    buybackEl.hidden = true;
+  }
+  bbBtn.addEventListener('click', () => { if (game.buyback()) { hideBuyback(); focusStage(); } });
+  bbGive.addEventListener('click', () => { game.buybackOpen = false; game.dyingT = Math.min(game.dyingT, 0.05); hideBuyback(); });
+
+  // ------------------------------------------------------------------ görev hedefleri
+  function objText(o) {
+    if (o.text) return o.text;
+    switch (o.kind) {
+      case 'boss': { const id = unitId(o.boss || ''); return id ? `${UNITS[id].name} yenilsin` : 'Boss’u yen'; }
+      case 'kill': { const id = o.unit ? unitId(o.unit) : null; return `${o.n} ${id ? UNITS[id].name : o.unit === 'creep' ? 'creep' : 'DOG'} indir`; }
+      case 'waves': return `${o.n} dalga temizle`;
+      case 'survive': return `${o.t || o.n} sn hayatta kal`;
+      case 'runes': return `${o.n} rün topla`;
+      case 'camps': return `${o.n} orman kampı temizle`;
+      case 'towers': return `${o.n} Dire kulesi yık`;
+      case 'protect': return 'Radiant kulelerini koru';
+      case 'noDeath': return 'Hiç ölme';
+      case 'level': return `${o.n}. seviyeye ulaş`;
+      case 'item': return `${ITEMS[o.item] ? ITEMS[o.item].name : o.item} edin`;
+      case 'lastHits': return `${o.n} son vuruş`;
+      case 'gold': return `${fmtNum(o.n)} altın kazan`;
+      case 'time': return `${o.t} sn içinde bitir`;
+      default: return o.kind;
+    }
+  }
+  function renderObjectives() {
+    const list = game ? game.objectives : [];
+    objList.hidden = !list.length || mode === 'start';
+    clear(objList);
+    for (const o of list) {
+      const n = o.kind === 'survive' ? (o.t || o.n) : o.n;
+      objList.appendChild(h('li', { class: `ar-obj${o.done ? ' done' : ''}${o.failed ? ' failed' : ''}${o.optional ? ' optional' : ''}` },
+        h('span', { class: 'ar-obj-box', 'aria-hidden': 'true' }),
+        h('span', { class: 'ar-obj-t' }, objText(o), o.optional ? h('em', null, ' (bonus)') : null),
+        n > 1 && !o.done && !o.failed && o.kind !== 'noDeath' && o.kind !== 'protect' ? h('b', { class: 'num' }, `${o.progress}/${n}`) : null,
+      ));
+    }
+  }
+  let campNoteT = 0;
+  function campNote() {
+    const now = performance.now();
+    if (now - campNoteT < 30000) return;
+    campNoteT = now;
+    feedPush([h('span', { class: 'ar-feed-ico', html: glyph('wolf') }), 'Orman kampları doldu'], '');
   }
 
   // ------------------------------------------------------------------ akış
@@ -1027,11 +1493,23 @@ export function mountArena(el, ctx = {}) {
     }
   }
 
-  function startGame() {
+  /**
+   * Koşu başlat. extra: runConfig alanları (mode, curse, mission, modifiers…) — hikâye/günlük modları buradan girer.
+   * progression.js varsa applyMeta(runConfig) uygulanır (başlangıç eşyaları, ustalık, varyantlar).
+   */
+  function startGame(extra = {}) {
     if (!view) return;
+    if (!isHeroUnlocked(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
     if (overLb) { overLb(); overLb = null; }
     keys.clear();
-    game.start({ heroId: save.hero });
+    let cfg = { mode: 'endless', heroId: save.hero, curse: 0, meta: null, mission: null, waves: null, objectives: [], modifiers: {}, ...(extra && typeof extra === 'object' && !(extra instanceof Event) ? extra : {}) };
+    if (prog && typeof prog.applyMeta === 'function') {
+      try { cfg = prog.applyMeta(cfg) || cfg; } catch (e) { console.warn('Arena: applyMeta', e); }
+    }
+    game.autoSkill = autoLearn;
+    lastRunEnd = null;
+    game.start(cfg);
+    setLearnMode(false);
     applyHeroUi();
     mode = 'playing';
     stage.classList.add('is-playing');
@@ -1066,6 +1544,8 @@ export function mountArena(el, ctx = {}) {
 
   function toMenu() {
     if (overLb) { overLb(); overLb = null; }
+    setLearnMode(false);
+    hideBuyback();
     mode = 'start';
     stage.classList.remove('is-playing');
     closeShop(true);
@@ -1111,9 +1591,15 @@ export function mountArena(el, ctx = {}) {
     const prev = bestNow();
     const prevHero = bestFor(r.heroId);
     let better = false;
-    try { better = store.me.submitScore(GAME_ID, r.score); } catch { /* yok say */ }
+    const endless = !r.mode || r.mode === 'endless';
+    // Salon skor tablosu yalnızca Sonsuz modun puanıdır (scores.arena)
+    if (endless) { try { better = store.me.submitScore(GAME_ID, r.score); } catch { /* yok say */ } }
+    let rewards = null;
+    if (prog && typeof prog.grantRunRewards === 'function') {
+      try { rewards = prog.grantRunRewards(lastRunEnd || { mode: r.mode || 'endless', score: r.score, wave: r.wave, heroId: r.heroId, stats: r, victory: r.victory }); } catch (e) { console.warn('Arena: grantRunRewards', e); }
+    }
     // kahraman başına en iyi skor (yerel, sürümlü) + rozetler için profil seçimleri
-    if (prevHero == null || r.score > prevHero) save.bests[r.heroId] = r.score;
+    if (endless && (prevHero == null || r.score > prevHero)) save.bests[r.heroId] = r.score;
     save.runs += 1;
     save.roshans += r.roshans || 0;
     persist();
@@ -1121,9 +1607,10 @@ export function mountArena(el, ctx = {}) {
       store.me.patch((dd) => {
         if (!dd.picks) dd.picks = {};
         const P = dd.picks;
-        if (!(Number(P[`arena:h:${r.heroId}`]) >= r.score)) P[`arena:h:${r.heroId}`] = r.score;
+        if (endless && !(Number(P[`arena:h:${r.heroId}`]) >= r.score)) P[`arena:h:${r.heroId}`] = r.score;
         if (r.roshans) P['arena:roshan'] = (Number(P['arena:roshan']) || 0) + r.roshans;
-        if (!(Number(P['arena:dalga']) >= r.wave)) P['arena:dalga'] = r.wave;
+        if (r.bosses) P['arena:boss'] = (Number(P['arena:boss']) || 0) + r.bosses;
+        if (endless && !(Number(P['arena:dalga']) >= r.wave)) P['arena:dalga'] = r.wave;
       });
     } catch { /* yok say */ }
     snd('lose', 0);
@@ -1146,6 +1633,7 @@ export function mountArena(el, ctx = {}) {
         h('span', { class: 'ar-report-emb', html: glyph(H.id) }),
         h('div', null,
           h('h2', { class: 'ar-report-title' }, r.victory ? 'Zafer!' : r.wave >= 5 ? `GG, efsane ${H.name}` : 'Sürü seni yakaladı'),
+          endless ? null : h('span', { class: 'badge' }, r.mode === 'story' ? 'Hikâye' : r.mode === 'daily' ? 'Günlük' : r.mode),
           h('span', { class: 'xsmall muted' }, `${H.name} · Seviye ${r.level} · ${fmtNum(r.gold)} altın kazanıldı`),
         ),
       ),
@@ -1157,10 +1645,15 @@ export function mountArena(el, ctx = {}) {
         stat(r.heroId === 'okcu' ? 'İsabet' : 'Roshan', r.heroId === 'okcu' ? (r.shots ? `%${pct}` : '—') : String(r.roshans)),
         stat('En iyi seri', r.bestChain >= 2 ? ['', '', 'Double', 'Triple', 'Ultra', 'Rampage'][Math.min(5, r.bestChain)] : '—'),
         stat('Kule', String(r.towers)),
+        stat('Kamp', String(r.camps || 0)),
+        stat('Boss', String(r.bosses || 0)),
+        stat('Deny', String(r.denies || 0)),
+        stat('Geri alma', String(r.buybacks || 0)),
         stat(`${H.name} rekoru`, fmtNum(heroBest ?? r.score)),
         stat('Genel rekor', fmtNum(bestNow() ?? r.score)),
       ),
-      r.items.length ? h('div', { class: 'ar-report-items' }, h('span', { class: 'xsmall dim' }, 'Envanter'), h('div', { class: 'ar-report-inv' }, r.items.map((id) => (ITEMS[id] ? h('span', { class: 'ar-report-item', title: ITEMS[id].name }, itemImg(ITEMS[id])) : null)))) : null,
+      rewards && (rewards.text || rewards.shards || rewards.parilti) ? h('p', { class: 'ar-reward small' }, h('span', { class: 'ar-coin', html: glyph('shard') }), rewards.text || `+${rewards.shards || rewards.parilti} Parıltı Taşı`) : null,
+      r.items.length || r.neutral ? h('div', { class: 'ar-report-items' }, h('span', { class: 'xsmall dim' }, 'Envanter'), h('div', { class: 'ar-report-inv' }, r.items.map((id) => (ITEMS[id] ? h('span', { class: 'ar-report-item', title: ITEMS[id].name }, itemImg(ITEMS[id])) : null)), r.neutral && NEUTRALS[r.neutral] ? h('span', { class: 'ar-report-item neutral', title: `Orman: ${NEUTRALS[r.neutral].name}` }, itemImg(NEUTRALS[r.neutral])) : null)) : null,
       topD ? h('div', { class: 'ar-top-kill', style: { '--tc': topD.color } },
         portraitEl(topD, { cls: 'ar-top-kill-img', alt: '' }),
         h('div', null, h('span', { class: 'xsmall dim' }, 'En çok indirilen tür'), h('strong', null, `${topD.name} × ${r.topN}`)),
@@ -1228,38 +1721,59 @@ export function mountArena(el, ctx = {}) {
   };
   const heroCharges = () => ABILITIES[game.H.abilities.q].targeting === 'charge';
 
+  function keyOf(code) {
+    const S = SCHEMES[scheme];
+    if (codeIn(code, S.q)) return 'q';
+    if (codeIn(code, S.w) || code === 'KeyW') return 'w';
+    if (codeIn(code, S.e)) return 'e';
+    if (codeIn(code, S.r)) return 'r';
+    return null;
+  }
   function onKeyDown(e) {
-    if (!alive || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!alive) return;
     if (isTyping(e.target)) return;
     if (document.querySelector('.modal-backdrop')) return;
     const code = e.code;
+    // Ctrl + Q/E/R (WASD düzeninde W = Ctrl+Boşluk): yetenek öğren (Dota'daki gibi). Ctrl+W tarayıcıya ayrılmıştır.
+    if (e.ctrlKey && !e.metaKey && !e.altKey && (mode === 'playing' || mode === 'picking')) {
+      const k = code === 'KeyW' ? null : keyOf(code);
+      if (k) { e.preventDefault(); learnKey(k); if (mode === 'picking') renderSheet(); return; }
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const tgt = e.target;
     if ((code === 'Space' || code === 'Enter') && tgt && tgt.tagName === 'BUTTON') return;
     if (mode === 'picking') {
-      if (code === 'Digit1' || code === 'Numpad1' || code === 'ArrowLeft') { e.preventDefault(); talentHost._choose?.(0); }
-      else if (code === 'Digit2' || code === 'Numpad2' || code === 'ArrowRight') { e.preventDefault(); talentHost._choose?.(1); }
-      else if (code === 'Escape' || code === 'KeyT') {
-        e.preventDefault();
-        talentHost.hidden = true;
-        stage.classList.remove('has-screen');
-        mode = 'playing';
-        focusStage();
+      const pend = game.player.talentPending[0];
+      if ((code === 'Digit1' || code === 'Numpad1') && pend) { e.preventDefault(); chooseTalent(pend, 0); }
+      else if ((code === 'Digit2' || code === 'Numpad2') && pend) { e.preventDefault(); chooseTalent(pend, 1); }
+      else if (code === 'Escape' || code === 'KeyT' || code === 'KeyC') { e.preventDefault(); closeSheet(); }
+      else {
+        const k = keyOf(code);
+        if (k) { e.preventDefault(); if (!e.repeat) { learnKey(k); renderSheet(); } }
       }
       return;
     }
     if (mode === 'playing') {
+      if (bbOpen && (code === 'Enter' || code === 'NumpadEnter')) { e.preventDefault(); bbBtn.click(); return; }
       if (code === 'Escape' || code === 'KeyP') {
         e.preventDefault();
+        if (code === 'Escape' && learnMode) { setLearnMode(false); return; }
         if (code === 'Escape' && shop.open) { closeShop(); return; }
         pause();
         return;
       }
       if (code === 'KeyB' || code === 'F4') { e.preventDefault(); toggleShop(); return; }
-      if (code === 'KeyT') { e.preventDefault(); openTalents(); return; }
+      if (code === 'KeyT') { e.preventDefault(); openSheet(game.player.talentPending.length ? 'talents' : 'hero'); return; }
+      if (code === 'KeyC') { e.preventDefault(); openSheet('hero'); return; }
+      if (code === 'KeyL') { e.preventDefault(); if (!e.repeat) setLearnMode(!learnMode); return; }
       if (code === 'Enter' && game.state === 'break') { e.preventDefault(); readyUp(); return; }
       const ii = ITEM_CODES.findIndex((c) => c.includes(code));
       if (ii >= 0) { e.preventDefault(); if (!e.repeat) game.useItem(ii); return; }
       const S = SCHEMES[scheme];
+      if (learnMode) {
+        const k = keyOf(code) && !(scheme === 'wasd' && code === 'KeyW') ? keyOf(code) : null;
+        if (k) { e.preventDefault(); if (!e.repeat) learnKey(k); return; }
+      }
       if (allCodes().includes(code)) e.preventDefault();
       else return;
       if (codeIn(code, S.up) || codeIn(code, S.down) || codeIn(code, S.left) || codeIn(code, S.right)) keys.add(code);
@@ -1345,7 +1859,12 @@ export function mountArena(el, ctx = {}) {
     const gp = view && view.groundAt(x, y);
     if (!gp) return;
     const f = game.foeNear(gp.x, gp.z, 1.6);
-    if (f) { game.focus = f; game.player.aimX = f.x; game.player.aimZ = f.z; }
+    if (f) { game.focus = f; game.player.aimX = f.x; game.player.aimZ = f.z; return; }
+    // kule: Dire kulesine saldır ya da canı düşük kendi kuleni deny et
+    for (const t of game.towers) {
+      if (t.dead || Math.hypot(t.x - gp.x, t.z - gp.z) > 1.5) continue;
+      if (t.side === 'dire' || t.hp <= t.maxHp * 0.12) game.focus = t;
+    }
   }
   const endCanvasPointer = (e) => {
     if (e.pointerType === 'mouse') {
@@ -1435,8 +1954,13 @@ export function mountArena(el, ctx = {}) {
   function bindSlot(s, isTouch) {
     const key = s.key;
     const targeting = () => ABILITIES[game.H.abilities[key]].targeting;
+    if (s.learn) {
+      on(s.learn, 'click', (e) => { e.preventDefault(); learnKey(key); focusStage(); });
+      on(s.learn, 'pointerdown', (e) => e.stopPropagation());
+    }
     on(s.btn, 'pointerdown', (e) => {
       if (mode !== 'playing') return;
+      if (learnMode || (e.pointerType === 'mouse' && e.ctrlKey)) { e.preventDefault(); learnKey(key); if (e.pointerType === 'mouse') focusStage(); return; }
       const tg = targeting();
       const touchy = isTouch || e.pointerType !== 'mouse';
       if (touchy && !touchMode) setTouchMode(true);
@@ -1495,7 +2019,8 @@ export function mountArena(el, ctx = {}) {
     on(s.btn, 'pointercancel', end);
     on(s.btn, 'click', (e) => {
       if (e.detail === 0 && mode === 'playing') {
-        if (targeting() === 'charge') { game.chargeStart(); game.chargeRelease(); } else game.cast(key);
+        if (learnMode) learnKey(key);
+        else if (targeting() === 'charge') { game.chargeStart(); game.chargeRelease(); } else game.cast(key);
       }
     });
   }
@@ -1544,7 +2069,7 @@ export function mountArena(el, ctx = {}) {
       out.aimZ = game.focus.z;
       out.auto = false;
     }
-    if (game.focus && (game.focus.dead || Math.hypot(game.focus.x - p.x, game.focus.z - p.z) > 9)) game.focus = null;
+    if (game.focus && (game.focus.dead || game.focus.seen === false || Math.hypot(game.focus.x - p.x, game.focus.z - p.z) > 9)) game.focus = null;
     return out;
   }
 
@@ -1567,7 +2092,19 @@ export function mountArena(el, ctx = {}) {
   const setHidden = (node, v) => { if (node.hidden !== !!v) node.hidden = !!v; };
 
   function updateSlot(s, st) {
-    setVar(s.btn, '--arcd', `${(Math.max(0, Math.min(1, st.cdFrac || 0)) * 100).toFixed(1)}%`);
+    const lk = `${st.lv}/${st.max}`;
+    if (s.lvKey !== lk) {
+      s.lvKey = lk;
+      clear(s.pips);
+      for (let i = 0; i < (st.max || 4); i++) s.pips.appendChild(h('i', { class: i < st.lv ? 'on' : '' }));
+      const label = slotLabel(s.key);
+      s.btn.setAttribute('aria-label', label);
+      s.btn.title = label;
+    }
+    setCls(s.btn, 'locked', !!st.locked);
+    setCls(s.btn, 'can-learn', !!st.learn);
+    setCls(s.btn, 'silenced', !!st.silenced);
+    if (s.learn) setHidden(s.learn, !st.learn);
     const left = st.cdLeft || 0;
     setText(s.cdText, left > 0 ? (left >= 1 ? String(Math.ceil(left)) : left.toFixed(1)) : '');
     setCls(s.btn, 'cooling', left > 0);
@@ -1634,7 +2171,59 @@ export function mountArena(el, ctx = {}) {
     setText(lvlNum, String(p.level));
     setVar(xpRing, '--xp', `${p.level >= MAX_LEVEL ? 100 : Math.round((p.xp / xpFor(p.level)) * 100)}%`);
     setText(goldNum, fmtNum(p.gold));
+    setAttr(goldBtn, 'title', `Dükkân (B) · güvenilir ${fmtNum(p.goldR)}, güvenilmez ${fmtNum(g.unreliable())}`);
     setHidden(talentBtn, !p.talentPending.length);
+    setHidden(spBtn, !(p.skillPoints > 0));
+    setText(spNum, String(p.skillPoints));
+    if (learnMode && !(p.skillPoints > 0)) setLearnMode(false);
+    const st = g.stat;
+    for (const k of ['str', 'agi', 'int']) setText(attrEls[k].v, String(Math.round(st[k] || 0)));
+    // orman yuvası
+    const nid = p.neutral ? p.neutral.id : '';
+    if (neutralSlot.dataset.k !== nid) {
+      neutralSlot.dataset.k = nid;
+      const im = neutralSlot.firstChild;
+      clear(im);
+      if (nid) { im.appendChild(itemImg(NEUTRALS[nid], 'ar-islot-pic')); neutralSlot.title = `${NEUTRALS[nid].name} — ${NEUTRALS[nid].desc}`; neutralSlot.setAttribute('aria-label', `Orman eşyası: ${NEUTRALS[nid].name}. ${NEUTRALS[nid].desc}`); }
+      else { neutralSlot.title = 'Orman eşyası (kamplardan düşer)'; neutralSlot.setAttribute('aria-label', 'Boş orman eşyası yuvası'); }
+      setCls(neutralSlot, 'empty', !nid);
+    }
+    setCls(neutralSlot, 'stash', g.neutralStash.length > 0);
+    // gündüz / gece
+    const night = g.isNight;
+    const dl = g.dayLeft();
+    setText(dayTime, Number.isFinite(dl) ? fmtT(dl) : '∞');
+    if (dayCell.dataset.n !== String(night)) {
+      dayCell.dataset.n = String(night);
+      dayIco.innerHTML = glyph(night ? 'moon' : 'sun');
+      dayCell.querySelector('.ar-day-l').textContent = night ? 'Gece' : 'Gündüz';
+      dayCell.title = night ? 'Gece: görüş kısa, Wardsız DOG’lar güçlü' : 'Gündüz';
+    }
+    setCls(stage, 'is-night', night && (mode === 'playing' || mode === 'paused' || mode === 'picking'));
+    // boss çubuğu
+    const boss = mode === 'playing' || mode === 'picking' || mode === 'paused' ? g.activeBoss() : null;
+    setHidden(bossBar, !boss || boss.spawnT > 0.8);
+    if (boss) {
+      if (bossBar.dataset.id !== String(boss.id)) {
+        bossBar.dataset.id = String(boss.id);
+        bossName.textContent = boss.name;
+        bossIco.innerHTML = glyph(boss.def.glyph || 'skull');
+        bossBar.style.setProperty('--bc', boss.def.color || 'var(--dire)');
+      }
+      const f = Math.max(0, boss.hp / boss.maxHp);
+      setVar(bossBar, '--f', f.toFixed(4));
+      setText(bossHp, `${fmtNum(Math.ceil(boss.hp))} / ${fmtNum(boss.maxHp)}`);
+      setAttr(bossBar, 'aria-valuenow', String(Math.ceil(boss.hp)));
+      setAttr(bossBar, 'aria-valuemax', String(boss.maxHp));
+      const shielded = boss.invuln > 0;
+      setCls(bossBar, 'shielded', shielded);
+      setText(bossPhase, shielded ? 'KALKAN · muhafızları indir' : boss.stealth > 0 ? 'Karanlıkta…' : boss.status === 'sleep' ? 'uyuyor' : boss.phaseText || (boss.k > 1 ? `güç ${boss.k}` : ''));
+    }
+    // geri alma sayacı
+    if (bbOpen) {
+      setText(bbTime, String(Math.max(0, Math.ceil(g.dyingT))));
+      bbBtn.disabled = !g.canBuyback();
+    }
     for (const k of KEYS4) {
       const st = g.slotState(k);
       if (touchMode) updateSlot(tslots[k], st);
@@ -1652,6 +2241,8 @@ export function mountArena(el, ctx = {}) {
     const bs = {
       wind: p.windrun, heal: p.heals.length ? Math.max(...p.heals.map((x) => x.t)) : 0, rapier: p.rapier, aegis: p.aegis ? -1 : 0,
       slow: p.st.slow, stun: p.st.stun, bkb: p.bkb, haste: p.haste, dd: p.dd, regen: p.regenRune, invis: p.invis, armor: p.callArmor, aura: p.auraT,
+      bark: p.barkT, guise: p.guiseT > 0 && p.invis > 0 ? p.guiseT : 0, mshield: p.magShield > 0 ? p.magShieldT : 0, cyclone: p.cyclone, blood: p.lsBuff, phase: p.hasteBuff,
+      overload: p.overload ? -1 : 0, root: p.st.root, silence: p.st.silence, hex: p.st.hex, fear: p.st.fear,
     };
     for (const [k, v] of Object.entries(bs)) {
       const b = buffEls[k];
@@ -1687,11 +2278,11 @@ export function mountArena(el, ctx = {}) {
     if (view && (game.state === 'playing' || game.state === 'break')) {
       const list = [];
       for (const d of game.foes) {
-        if (d.dead || d.demo || (d.type === 'ward' && d.vis < 0.5)) continue;
-        if (d.kind === 'creep') continue;
-        list.push([d, d.kind === 'boss' ? 'var(--aegis)' : d.thief ? 'var(--aegis-2)' : archOf(d.type).color]);
+        if (d.dead || d.demo || d.seen === false || (d.type === 'ward' && d.vis < 0.5)) continue;
+        if (d.kind === 'creep' || d.kind === 'neutral') continue;
+        list.push([d, d.kind === 'boss' ? d.def.color || 'var(--aegis)' : d.thief ? 'var(--aegis-2)' : archOf(d.type).color]);
       }
-      for (const k of game.pickups) if (k.kind === 'aegis' || k.kind === 'cheese' || k.kind === 'rapierItem') list.push([k, 'var(--aegis)']);
+      for (const k of game.pickups) if (k.kind === 'aegis' || k.kind === 'cheese' || k.kind === 'rapierItem' || k.kind === 'neutral') list.push([k, k.kind === 'neutral' ? 'var(--radiant)' : 'var(--aegis)']);
       for (const r of game.runes) list.push([r, RUNES[r.kind].color]);
       for (const [d, color] of list) {
         if (n >= edgePool.length) break;

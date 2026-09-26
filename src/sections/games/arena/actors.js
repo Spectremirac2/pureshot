@@ -23,6 +23,12 @@ export const MODEL_YAW = {
   'model-tower-radiant': 0,
   'model-tower-dire': 0,
   'model-courier': 0,
+  'model-hero-storm': 0,
+  'model-hero-treant': 0,
+  'model-neutral-wolf': 0,
+  'model-neutral-harpy': 0,
+  'model-boss-general': 0,
+  'model-boss-ancient': 0,
 };
 export const DOG_MODEL_YAW = MODEL_YAW['model-dog'];
 export const ARCHER_MODEL_YAW = MODEL_YAW['model-archer'];
@@ -121,6 +127,12 @@ export function makeGeoms(bin) {
   a('runeCore', new THREE.OctahedronGeometry(0.3, 0));
   a('runeRing', new THREE.TorusGeometry(0.46, 0.035, 6, 28));
   a('cheese', new THREE.CylinderGeometry(0.34, 0.34, 0.26, 3));
+  // Arena 3.0
+  a('vine', new THREE.TorusKnotGeometry(0.42, 0.055, 56, 6, 2, 5));
+  a('bubble', new THREE.IcosahedronGeometry(1, 2));
+  a('crystal', new THREE.OctahedronGeometry(0.7, 0));
+  a('orb', new THREE.SphereGeometry(0.22, 14, 10));
+  a('wardPole', new THREE.CylinderGeometry(0.035, 0.05, 1.1, 6));
   return G;
 }
 
@@ -216,6 +228,8 @@ function drawGlyph(g, status, color, cx, cy) {
       break;
     }
     case 'mid': text('MID', '#ff9a3d', 22); break;
+    case 'hex': text('HEX', '#ff9ad5', 26); break;
+    case 'dash': break;
     case 'taunt': text('!', '#ff4d5e', 40); break;
     case 'lost': text('?', '#cfc6ff', 38); break;
     case 'frozen': {
@@ -493,10 +507,13 @@ export class DogRig {
     for (const m of this.mats) m.opacity = a;
   }
 
-  update(d, t, dt, reduced, labelScale = 1.5, execThr = 0) {
+  update(d, t, dt, reduced, labelScale = 1.5, execThr = 0, alpha = 1) {
     const r = this.root;
     this.ice.visible = !d.dead && d.st && d.st.root > 0;
-    if (this.ice.visible) this.ice.rotation.y = d.id;
+    if (this.ice.visible) {
+      this.ice.rotation.y = d.id + (d.rootFx === 'vine' ? t * 0.6 : 0);
+      setRootLook(this.ice, this.kit, d.rootFx);
+    }
     r.position.set(d.x, 0, d.z);
     r.rotation.y = d.face;
     let s = d.scale;
@@ -504,7 +521,7 @@ export class DogRig {
       const k = 1 - d.spawnT / 0.55;
       s *= Math.max(0.01, 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2));
     }
-    this.body.scale.setScalar(s);
+    this.body.scale.setScalar(s * (1 - 0.4 * (this.hexK || 0)));
     const moving = Math.min(1.4, (d.speedNow || 0) / 3);
     const frozen = d.status === 'pause' || d.status === 'stun' || d.status === 'frozen';
     if (!frozen) this.phase += dt * (4 + moving * 9);
@@ -536,8 +553,9 @@ export class DogRig {
       if (d.status === 'fear') rz = Math.sin(t * 30) * 0.06;
       let op = 1;
       if (d.type === 'ward') op = d.vis;
-      this.setOpacity(op);
+      this.setOpacity(op * alpha);
     }
+    this.hexK = (this.hexK || 0) + (((d.st && d.st.hex > 0) ? 1 : 0) - (this.hexK || 0)) * Math.min(1, dt * 8);
     this.body.position.set(0, by, bz);
     this.body.rotation.set(rx, 0, rz);
     for (let i = 0; i < this.legs.length; i++) {
@@ -561,7 +579,7 @@ export class DogRig {
     // halo
     const pulse = d.status === 'dash' ? 1.6 + Math.sin(t * 30) * 0.2 : 1.25 + Math.sin(t * 3 + d.seed) * 0.05;
     this.halo.scale.setScalar(pulse * d.scale);
-    this.haloMat.opacity = d.dead ? 0 : (d.type === 'ward' ? 0.15 + d.vis * 0.55 : 0.7);
+    this.haloMat.opacity = (d.dead ? 0 : (d.type === 'ward' ? 0.15 + d.vis * 0.55 : 0.7)) * alpha;
     if (d.status === 'dash') this.haloMat.color.setRGB(1, 0.2, 0.3);
     else this.haloMat.color.copy(this.kit.typeColor(d.type));
     this.eliteRing.rotation.z = t * 1.5;
@@ -573,6 +591,7 @@ export class DogRig {
     if (d.dead) lop = Math.max(0, 1 - d.deathT * 3);
     else if (d.type === 'ward') lop = d.vis < 0.45 ? 0.15 : d.vis;
     if (d.spawnT > 0) lop = 1 - d.spawnT / 0.55;
+    lop *= alpha;
     this.label.mat.opacity = lop;
     lg.visible = lop > 0.02;
     this.label.draw({
@@ -580,9 +599,9 @@ export class DogRig {
       color: this.color,
       hp: d.hp,
       maxHp: d.maxHp,
-      status: d.dead ? null : d.status,
+      status: d.dead ? null : (d.st && d.st.hex > 0 ? 'hex' : d.status),
       elite: d.elite,
-      tag: execThr > 0 && !d.dead && d.hp <= execThr ? 'İNFAZ' : d.thief ? 'RAPIER!' : d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.elite ? 'ELİT' : '',
+      tag: execThr > 0 && !d.dead && d.hp <= execThr ? 'İNFAZ' : d.thief ? 'RAPIER!' : d.loot ? 'GANİMET' : d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.guardOf ? 'MUHAFIZ' : d.elite ? 'ELİT' : '',
     });
   }
 }

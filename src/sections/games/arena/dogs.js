@@ -29,11 +29,13 @@ export const archOf = (id) => ARCH[id] || { id, name: id, color: '#ff6a2b' };
 /** Dalga ölçekleri. */
 export function waveScale(n) {
   const k = n - 1;
+  // Arena 3.0: 15. dalgadan sonra yumuşak duvar (kahraman 25. seviye + 6 eşyaya ulaştıktan sonra baskı sürsün)
+  const late = k > 14 ? Math.pow(1.06, k - 14) : 1;
   return {
     // Arena 2.0: kahraman artık seviye atlayıp eşya aldığı için geç dalgalar daha sert ölçeklenir
-    hp: 1 + 0.26 * k + 0.035 * k * k,
+    hp: (1 + 0.26 * k + 0.042 * k * k) * late,
     speed: Math.min(1.42, 1 + 0.045 * k),
-    dmg: 1 + 0.12 * k + 0.006 * k * k,
+    dmg: (1 + 0.13 * k + 0.012 * k * k) * late,
     interval: Math.max(0.6, 1.45 - 0.09 * k),
     elites: n >= 4 ? Math.min(6, 1 + Math.floor((n - 4) / 2)) : 0,
   };
@@ -101,7 +103,18 @@ export function thinkDog(d, g, dt) {
   if (st.fear > 0) {
     d.status = 'fear';
     d.canBite = false;
-    return { mx: -ux, mz: -uz, spd: d.speed * 1.05 };
+    const fx = d.x - (st.fearX ?? p.x);
+    const fz = d.z - (st.fearZ ?? p.z);
+    const fl = Math.hypot(fx, fz) || 1;
+    return { mx: fx / fl, mz: fz / fl, spd: d.speed * 1.05 };
+  }
+  if (st.hex > 0) {
+    // Dönüşüm: şaşkın şaşkın dolaşır, ısıramaz
+    d.status = 'hex';
+    d.canBite = false;
+    d.windup = 0;
+    const a = g.time * 0.9 + d.seed;
+    return { mx: Math.sin(a), mz: Math.cos(a), spd: d.speed };
   }
   // oyuncu düştüyse sürü kutlar
   if (p.dead || g.state === 'dying') {
@@ -234,7 +247,7 @@ export function thinkDog(d, g, dt) {
         d.t -= dt;
         mx = -ux;
         mz = -uz;
-        spd = d.speed * 1.15;
+        spd = d.speed * (d.loot ? 1.2 : 1.15);
         canBite.value = false;
         d.status = 'loot';
         if (d.t <= 0) d.state = 'go';
@@ -248,7 +261,7 @@ export function thinkDog(d, g, dt) {
           d.stealCd = 2.5;
           g.kuryeTouch(d);
           d.state = 'flee';
-          d.t = 2.4;
+          d.t = d.loot ? 4 : 2.4;
         }
       }
       break;
@@ -278,8 +291,11 @@ export function thinkDog(d, g, dt) {
       break;
     }
     case 'ward': {
-      d.vis = Math.max(0.12, Math.min(1, (6.5 - dist) / 2.8));
-      if (d.hitFlash > 0) d.vis = 1;
+      // Wardsız DOG: yaklaşınca belirir; gece daha görünmez ve daha hızlıdır
+      const night = !!g.isNight;
+      d.vis = night ? Math.max(0.06, Math.min(1, (4.6 - dist) / 2.4)) : Math.max(0.12, Math.min(1, (6.5 - dist) / 2.8));
+      if (d.hitFlash > 0 || d.revealT > 0) d.vis = 1;
+      if (night) spd = d.speed * 1.18;
       break;
     }
     case 'smurf': {
@@ -345,7 +361,7 @@ export function thinkDog(d, g, dt) {
 /** Isırma: kısa bir hazırlık (telgraf), sonra menzildeyse hasar. */
 export function tryBite(d, g, dt) {
   if (d.attackCd > 0) d.attackCd -= dt;
-  if (d.st.root > 0 || d.st.stun > 0 || d.st.fear > 0) { d.windup = 0; return false; }
+  if (d.st.root > 0 || d.st.stun > 0 || d.st.fear > 0 || d.st.hex > 0 || d.st.disarm > 0) { d.windup = 0; return false; }
   if (d.windup > 0) {
     d.windup -= dt;
     if (d.windup <= 0) {
@@ -358,7 +374,7 @@ export function tryBite(d, g, dt) {
     }
     return true;
   }
-  if (d.canBite && d.attackCd <= 0 && d.dist < d.r + 0.6 && (d.status == null || d.status === 'taunt')) {
+  if (d.canBite && d.attackCd <= 0 && d.dist < d.r + 0.6 && (d.status == null || d.status === 'taunt') && g.heroVisible && !g.player.ball) {
     d.windup = 0.3;
     g.emit('windup', { dog: d });
     return true;

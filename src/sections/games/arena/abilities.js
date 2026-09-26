@@ -1,29 +1,38 @@
-// 1vDOQUZ Arena 2.0 — yetenek kayıt defteri: her yetenek veri + etki fonksiyonları.
+// 1vDOQUZ Arena 3.0 — yetenek kayıt defteri: her yetenek veri + etki fonksiyonları.
 //
 // Şema (bkz. docs/oyunlar/arena.md → Mimari):
-//   id, hero, slot ('q'|'w'|'e'|'r'), name, desc, icon (arena.js glif anahtarı), ult?
+//   id, hero, slot ('q'|'w'|'e'|'r'), name, desc, icon (glyphs.js anahtarı), ult?
 //   targeting: 'none' | 'point' | 'unit' | 'passive' | 'charge' | 'channel'
-//   levels: [{ mana, cd, …değerler }]  → şimdilik yalnızca 1. seviye kullanılır; L = levels[seviye-1]
-//   cast(g, c) → bool     c = { A, L, key, p, cd } (c.cd değiştirilirse o bekleme uygulanır)
+//   levels: [{ mana, cd, …değerler }]  Q W E: 4 seviye, R: 3 seviye (seviye 0 = öğrenilmedi)
+//   show: [[etiket, alan, birim?]] → ipucu tablosu ("Hasar 90/140/190/240")
+//   cast(g, c) → bool     c = { A, L, lv, key, p, cd } (c.cd değiştirilirse o bekleme uygulanır)
 //   canCast?(g, c) → bool (hedef yoksa false; olayı kendisi yayar)
 //   step?(g, dt, c)       her adım (kanal, dans, şarj…)
 //   stats?(g, st, c)      pasif stat katkısı (recalc)
-//   onAttack?(g, target, hit, c) · onHurt?(g, dmg, source, c) · onKill?(g, foe, c)
+//   onLearn?(g, c)        seviye alındığında
+//   onAttack?(g, target, hit, c) · onHurt?(g, dmg, source, c) · onKill?(g, foe, c) · onCast?(g, key, c)
 //   hud?(g, c) → { cdFrac, cdLeft, noMana, active, charging, charge, full, extra, passive }
-// Hasar hep dealDamage(); durumlar applyStatus() ile.
+// Hasar hep dealDamage(); durumlar applyStatus(). Hasar değerleri g.dmgMul(true) (büyü güçlendirme) ile çarpılır.
 
 import { DMG, applyStatus, dealDamage } from './combat.js';
 
 const has = (g, id) => g.player.tal.has(id);
 const inR = (a, b, r) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2 <= r * r;
+const live = (e) => !e.dead && e.spawnT <= 0 && !e.demo;
 
 export const ABILITIES = {
   // ================================================================== OKÇU
   okcu_shot: {
     id: 'okcu_shot', hero: 'okcu', slot: 'q', icon: 'q', name: 'CureShot', targeting: 'charge',
-    desc: 'Basılı tut: 1,2 sn’ye kadar şarj. Bırak: delip geçen ok. Şarj arttıkça hasar, menzil ve delme büyür.',
-    costText: '5–18', cdText: '0,26 sn',
-    levels: [{ cd: 0.26, chargeTime: 1.2, manaMin: 5, manaMax: 18 }],
+    desc: 'Basılı tut: şarj et. Bırak: delip geçen ok. Şarj arttıkça hasar, menzil ve delme büyür; saldırı hasarın da eklenir (kritik ve can çalma işler).',
+    costText: '5–24', cdText: '0,2 sn',
+    levels: [
+      { cd: 0.26, chargeTime: 1.2, manaMin: 5, manaMax: 18, base: 26, charge: 86 },
+      { cd: 0.25, chargeTime: 1.15, manaMin: 6, manaMax: 20, base: 34, charge: 106 },
+      { cd: 0.24, chargeTime: 1.1, manaMin: 7, manaMax: 22, base: 42, charge: 128 },
+      { cd: 0.22, chargeTime: 1.05, manaMin: 8, manaMax: 24, base: 50, charge: 150 },
+    ],
+    show: [['Taban hasar', 'base'], ['Şarj hasarı', 'charge'], ['Şarj', 'chargeTime', ' sn']],
     chargeTime(g, L) {
       let t = L.chargeTime;
       if (has(g, 'okCharge')) t *= 0.7;
@@ -45,6 +54,7 @@ export const ABILITIES = {
     fire(g, ch, c) {
       const p = g.player;
       const L = c.L;
+      if (p.st.silence > 0 || p.st.hex > 0) { g.emit('silenced', { key: 'q' }); return; }
       const cost = L.manaMin + (L.manaMax - L.manaMin) * ch;
       if (p.mana < cost) { g.emit('noMana', { key: 'q' }); return; }
       p.mana -= cost;
@@ -57,7 +67,8 @@ export const ABILITIES = {
       p.face = Math.atan2(dx, dz);
       p.recoil = 1;
       const full = ch >= 0.97;
-      const dmg = (34 + 112 * Math.pow(ch, 1.15)) * g.dmgMul(false) * (has(g, 'okDmg') ? 1.15 : 1);
+      const raw = L.base + L.charge * Math.pow(ch, 1.15) + g.stat.atkDmg * (0.25 + 0.45 * ch);
+      const dmg = raw * g.dmgMul(false) * (has(g, 'okDmg') ? 1.15 : 1);
       const shoot = (ax, az, k) => {
         const a = {
           id: g.nextId(), x: p.x + ax * 0.55, z: p.z + az * 0.55, dx: ax, dz: az,
@@ -89,22 +100,40 @@ export const ABILITIES = {
   },
   okcu_windrun: {
     id: 'okcu_windrun', hero: 'okcu', slot: 'w', icon: 'w', name: 'Rüzgâr Koşusu', targeting: 'none',
-    desc: '3 sn boyunca %60 hız ve %80 kaçınma.',
-    levels: [{ mana: 45, cd: 12, dur: 3, speed: 1.6, evade: 0.8 }],
+    desc: 'Kısa süre büyük hız ve %80 kaçınma. Kaçmak da bir stratejidir.',
+    levels: [
+      { mana: 45, cd: 14, dur: 2.5, speed: 1.5, evade: 0.8 },
+      { mana: 50, cd: 13, dur: 3, speed: 1.55, evade: 0.8 },
+      { mana: 55, cd: 12, dur: 3.5, speed: 1.6, evade: 0.8 },
+      { mana: 60, cd: 11, dur: 4, speed: 1.65, evade: 0.8 },
+    ],
+    show: [['Süre', 'dur', ' sn'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     cast(g, c) {
-      g.player.windrun = c.L.dur;
+      const p = g.player;
+      p.windrun = c.L.dur;
+      p.windrunK = c.L.speed;
+      p.windrunEv = c.L.evade;
       if (has(g, 'okWind')) c.cd = c.L.cd - 4;
       g.emit('windrun', {});
       return true;
     },
-    hud(g, c) { return { active: g.player.windrun > 0 }; },
+    hud(g) { return { active: g.player.windrun > 0 }; },
   },
   okcu_tango: {
     id: 'okcu_tango', hero: 'okcu', slot: 'e', icon: 'e', name: 'Tango', targeting: 'none', ownCost: true,
-    desc: '3 şarj. 6 sn boyunca 150 can yeniler. Şarjlar zamanla dolar.',
+    desc: 'Şarjlı iyileşme: 6 sn boyunca can yeniler. Şarjlar zamanla dolar (Kurye Köpeği çalabilir!).',
     costText: '0', cdText: 'şarj',
-    levels: [{ mana: 0, cd: 0.8, charges: 3, heal: 150, dur: 6, regen: 22 }],
-    init(g, c) { g.player.tangoCharges = c.L.charges; g.player.tangoRegen = 0; },
+    levels: [
+      { mana: 0, cd: 0.8, charges: 2, heal: 110, dur: 6, regen: 26 },
+      { mana: 0, cd: 0.8, charges: 3, heal: 150, dur: 6, regen: 22 },
+      { mana: 0, cd: 0.8, charges: 3, heal: 190, dur: 6, regen: 18 },
+      { mana: 0, cd: 0.8, charges: 4, heal: 230, dur: 6, regen: 14 },
+    ],
+    show: [['Şarj', 'charges'], ['İyileşme', 'heal'], ['Dolum', 'regen', ' sn']],
+    onLearn(g, c) {
+      const p = g.player;
+      if (c.lv === 1) { p.tangoCharges = c.L.charges; p.tangoRegen = 0; } else p.tangoCharges = Math.min(c.L.charges, p.tangoCharges + 1);
+    },
     cast(g, c) {
       const p = g.player;
       if (p.tangoCharges <= 0) { g.emit('notReady', { key: 'e' }); return false; }
@@ -134,19 +163,26 @@ export const ABILITIES = {
   },
   okcu_dog: {
     id: 'okcu_dog', hero: 'okcu', slot: 'r', icon: 'r', name: 'DOG DOG DOG', targeting: 'none', ult: true,
-    desc: 'Çevredeki herkese hasar, kısa sersemletme ve korku. Roshan bile irkilir.',
-    levels: [{ mana: 120, cd: 30, radius: 8, stun: 0.7, fear: 2.2 }],
+    desc: 'Çevredeki herkese büyü hasarı, kısa sersemletme ve korku. Roshan bile irkilir.',
+    levels: [
+      { mana: 120, cd: 34, radius: 8, dmg: 160, stun: 0.6, fear: 2 },
+      { mana: 160, cd: 30, radius: 8.5, dmg: 260, stun: 0.8, fear: 2.4 },
+      { mana: 200, cd: 26, radius: 9, dmg: 360, stun: 1.0, fear: 2.8 },
+    ],
+    show: [['Hasar', 'dmg'], ['Yarıçap', 'radius'], ['Korku', 'fear', ' sn'], ['Bekleme', 'cd', ' sn']],
     cast(g, c) {
       const p = g.player;
       const L = c.L;
       const aghs = g.stat.aghs;
       const radius = L.radius + (has(g, 'okUlt') ? 3 : 0);
-      if (aghs) c.cd = 18;
-      const dmg = (90 + 12 * g.wave) * g.dmgMul(true);
+      let cd = aghs ? 18 : L.cd;
+      if (has(g, 'okUltCd')) cd -= 12;
+      c.cd = Math.max(8, cd);
+      const dmg = L.dmg * g.dmgMul(true);
       let n = 0;
       g.emit('ult', { x: p.x, z: p.z, radius });
       for (const d of g.foes) {
-        if (d.dead || d.spawnT > 0) continue;
+        if (!live(d)) continue;
         const dx = d.x - p.x;
         const dz = d.z - p.z;
         const len = Math.hypot(dx, dz) || 1;
@@ -155,11 +191,11 @@ export const ABILITIES = {
         d.windup = 0;
         if (d.type === 'afk' && d.state === 'afk') d.state = 'awake';
         if (d.type === 'smurf' && d.state !== 'go') { d.state = 'go'; d.t = 2; }
-        if (d.cast) d.cast = null;
+        if (d.cast && d.kind !== 'boss') d.cast = null;
         dealDamage(g, p, d, dmg * (1 - (len / radius) * 0.35), DMG.MAG, { dirX: dx / len, dirZ: dz / len, knock: 2.2, src: 'ult' });
         if (!d.dead) {
           applyStatus(g, d, 'stun', L.stun);
-          applyStatus(g, d, 'fear', L.fear + (aghs ? 1 : 0));
+          applyStatus(g, d, 'fear', L.fear + (aghs ? 1 : 0), { src: p });
         }
       }
       g.emit('ultHit', { n });
@@ -170,19 +206,26 @@ export const ABILITIES = {
   // ================================================================== BALTA
   balta_call: {
     id: 'balta_call', hero: 'balta', slot: 'q', icon: 'call', name: 'Savaş Çağrısı', targeting: 'none',
-    desc: 'Çevredeki düşmanları üstüne çeker ve 2,4 sn sana kilitler (kaçanlar da döner). 3,5 sn %40 hasar azaltma.',
-    levels: [{ mana: 55, cd: 11, radius: 3.4, taunt: 2.4, armor: 0.4, armorDur: 3.5 }],
+    desc: 'Çevredeki düşmanları üstüne çeker ve sana kilitler (kaçanlar da döner). Kısa süre büyük zırh kazanırsın.',
+    levels: [
+      { mana: 55, cd: 13, radius: 3.2, taunt: 1.8, armor: 8, armorDur: 3.5 },
+      { mana: 60, cd: 12, radius: 3.4, taunt: 2.1, armor: 10, armorDur: 3.5 },
+      { mana: 65, cd: 11, radius: 3.6, taunt: 2.4, armor: 12, armorDur: 3.5 },
+      { mana: 70, cd: 10, radius: 3.8, taunt: 2.7, armor: 14, armorDur: 3.5 },
+    ],
+    show: [['Yarıçap', 'radius'], ['Kilit', 'taunt', ' sn'], ['Zırh', 'armor'], ['Bekleme', 'cd', ' sn']],
     cast(g, c) {
       const p = g.player;
       const L = c.L;
       const R = L.radius + (has(g, 'baCall') ? 1.2 : 0);
       let n = 0;
       for (const e of g.foes) {
-        if (e.dead || e.spawnT > 0 || !inR(e, p, R + e.r)) continue;
+        if (!live(e) || !inR(e, p, R + e.r)) continue;
         n += 1;
-        applyStatus(g, e, 'taunt', L.taunt);
-        e.tgt = p;
-        e.aggroT = L.taunt;
+        if (applyStatus(g, e, 'taunt', L.taunt)) {
+          e.tgt = p;
+          e.aggroT = L.taunt;
+        }
         const dx = p.x - e.x;
         const dz = p.z - e.z;
         const len = Math.hypot(dx, dz) || 1;
@@ -191,6 +234,7 @@ export const ABILITIES = {
         e.kz += (dz / len) * pull;
       }
       p.callArmor = L.armorDur;
+      p.callArmorK = L.armor;
       g.emit('fx', { kind: 'taunt', x: p.x, z: p.z, r: R, n });
       return true;
     },
@@ -198,14 +242,20 @@ export const ABILITIES = {
   },
   balta_helix: {
     id: 'balta_helix', hero: 'balta', slot: 'w', icon: 'helix', name: 'Helezon', targeting: 'none',
-    desc: 'Aktif: baltayla dönüp çevreye hasar ver. Pasif: vurulunca %24 şansla kendiliğinden döner.',
-    levels: [{ mana: 20, cd: 3.5, radius: 2.5, dmg: 90, proc: 0.24, icd: 0.45 }],
+    desc: 'Aktif: baltayla dönüp çevreye saf hasar ver. Pasif: vurulunca belli bir şansla kendiliğinden döner.',
+    levels: [
+      { mana: 20, cd: 5, radius: 2.5, dmg: 70, proc: 0.17, icd: 0.45 },
+      { mana: 25, cd: 4.5, radius: 2.5, dmg: 100, proc: 0.2, icd: 0.45 },
+      { mana: 30, cd: 4, radius: 2.6, dmg: 130, proc: 0.23, icd: 0.45 },
+      { mana: 35, cd: 3.5, radius: 2.7, dmg: 160, proc: 0.26, icd: 0.45 },
+    ],
+    show: [['Saf hasar', 'dmg'], ['Dönme şansı', 'proc', '%'], ['Bekleme', 'cd', ' sn']],
     spin(g, L, free) {
       const p = g.player;
       const dmg = (L.dmg + (has(g, 'baSpin') ? 60 : 0)) * g.dmgMul(true);
       p.spinT = 0.42;
       for (const e of g.foes) {
-        if (e.dead || e.spawnT > 0 || !inR(e, p, L.radius + e.r)) continue;
+        if (!live(e) || !inR(e, p, L.radius + e.r)) continue;
         const dx = e.x - p.x;
         const dz = e.z - p.z;
         const len = Math.hypot(dx, dz) || 1;
@@ -217,13 +267,20 @@ export const ABILITIES = {
     onHurt(g, dmg, source, c) {
       const p = g.player;
       if (p.dead || p.helixIcd > 0 || !source || typeof source !== 'object' || source.kind === 'tower') return;
-      if (g.rand() < c.L.proc) { p.helixIcd = c.L.icd; this.spin(g, c.L, true); }
+      const chance = c.L.proc + (has(g, 'baProc') ? 0.12 : 0);
+      if (g.rand() < chance) { p.helixIcd = c.L.icd; this.spin(g, c.L, true); }
     },
   },
   balta_hunger: {
     id: 'balta_hunger', hero: 'balta', slot: 'e', icon: 'hunger', name: 'Savaş Açlığı', targeting: 'unit',
-    desc: 'Hedefe 8 sn boyunca saniyede hasar ve %30 yavaşlatma. Hedef ölürse açlık en yakın düşmana sıçrar.',
-    levels: [{ mana: 45, cd: 8, range: 6, dur: 8, dps: 26, slow: 0.3 }],
+    desc: 'Hedefe 8 sn boyunca saniyede büyü hasarı ve yavaşlatma. Hedef ölürse açlık en yakın düşmana sıçrar.',
+    levels: [
+      { mana: 45, cd: 10, range: 6, dur: 8, dps: 18, slow: 0.2 },
+      { mana: 50, cd: 9, range: 6, dur: 8, dps: 26, slow: 0.25 },
+      { mana: 55, cd: 8, range: 6, dur: 8, dps: 34, slow: 0.3 },
+      { mana: 60, cd: 7, range: 6, dur: 8, dps: 42, slow: 0.35 },
+    ],
+    show: [['Saniyede', 'dps'], ['Yavaşlatma', 'slow', '%'], ['Bekleme', 'cd', ' sn']],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
     apply(g, e, dur, L) {
       applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true), src: g.player, key: 'hunger' });
@@ -240,8 +297,13 @@ export const ABILITIES = {
   },
   balta_cull: {
     id: 'balta_cull', hero: 'balta', slot: 'r', icon: 'cull', name: 'Kesin Hüküm', targeting: 'unit', ult: true,
-    desc: 'Canı eşiğin altındaki düşmanı tek vuruşta infaz eder ve bekleme sıfırlanır. Eşik üstündekilere yalnızca hasar.',
-    levels: [{ mana: 90, cd: 24, range: 2.3, base: 200, perLevel: 24, dmg: 150 }],
+    desc: 'Canı eşiğin altındaki düşmanı tek vuruşta infaz eder ve bekleme sıfırlanır. Eşik üstündekilere yalnızca büyü hasarı. Eşik kahraman seviyesiyle de büyür.',
+    levels: [
+      { mana: 90, cd: 24, range: 2.3, base: 220, perLevel: 14, dmg: 150 },
+      { mana: 110, cd: 20, range: 2.3, base: 360, perLevel: 14, dmg: 225 },
+      { mana: 130, cd: 16, range: 2.3, base: 500, perLevel: 14, dmg: 300 },
+    ],
+    show: [['Eşik', 'base'], ['Hasar', 'dmg'], ['Bekleme', 'cd', ' sn']],
     threshold(g, L) { return L.base + L.perLevel * (g.player.level - 1) + (has(g, 'baCull') ? 120 : 0); },
     canCast(g, c) {
       const range = c.L.range + (g.stat.aghs ? 1.5 : 0);
@@ -255,12 +317,13 @@ export const ABILITIES = {
       const thr = this.threshold(g, c.L);
       p.face = Math.atan2(e.x - p.x, e.z - p.z);
       p.swing = 1;
-      if (e.hp <= thr) {
+      if (e.hp <= thr && !(e.invuln > 0)) {
         g.emit('fx', { kind: 'execute', x: e.x, z: e.z, foe: e });
-        dealDamage(g, p, e, e.hp + 1, DMG.PURE, { src: 'execute' });
+        dealDamage(g, p, e, e.hp + (e.shield || 0) + 1, DMG.PURE, { src: 'execute' });
         c.cd = 0.4;
         p.cullHaste = 3;
-        if (g.stat.aghs) ABILITIES.balta_helix.spin(g, ABILITIES.balta_helix.levels[0], true);
+        const helix = g.H.abilities.w === 'balta_helix' && p.abilityLv.w > 0;
+        if (g.stat.aghs && helix) ABILITIES.balta_helix.spin(g, ABILITIES.balta_helix.levels[p.abilityLv.w - 1], true);
         g.emit('cull', { foe: e, kill: true });
       } else {
         dealDamage(g, p, e, c.L.dmg * g.dmgMul(true), DMG.MAG, { src: 'cull' });
@@ -274,45 +337,74 @@ export const ABILITIES = {
   // ================================================================== BUZ CADISI
   buz_nova: {
     id: 'buz_nova', hero: 'buz', slot: 'q', icon: 'nova', name: 'Buz Novası', targeting: 'point',
-    desc: 'Hedef noktada buz patlaması: alan hasarı ve 3 sn %40 yavaşlatma.',
-    levels: [{ mana: 70, cd: 5.5, range: 7.5, radius: 2.6, dmg: 125, slow: 0.4, slowDur: 3 }],
-    cast(g, c) {
-      const L = c.L;
-      const pt = g.aimPoint(L.range);
-      const dmg = L.dmg * g.dmgMul(true);
-      if (has(g, 'buNova')) c.cd = L.cd - 2;
+    desc: 'Hedef noktada buz patlaması: alan büyü hasarı ve 3 sn yavaşlatma.',
+    levels: [
+      { mana: 70, cd: 6, range: 7.5, radius: 2.4, dmg: 100, slow: 0.3, slowDur: 3 },
+      { mana: 85, cd: 5.5, range: 7.5, radius: 2.6, dmg: 150, slow: 0.35, slowDur: 3 },
+      { mana: 100, cd: 5, range: 7.5, radius: 2.8, dmg: 200, slow: 0.4, slowDur: 3 },
+      { mana: 115, cd: 4.5, range: 7.5, radius: 3.0, dmg: 250, slow: 0.45, slowDur: 3 },
+    ],
+    show: [['Hasar', 'dmg'], ['Yarıçap', 'radius'], ['Yavaşlatma', 'slow', '%'], ['Bekleme', 'cd', ' sn']],
+    blast(g, pt, L, k) {
+      const dmg = L.dmg * g.dmgMul(true) * k;
       for (const e of g.foes) {
-        if (e.dead || e.spawnT > 0 || !inR(e, pt, L.radius + e.r)) continue;
+        if (!live(e) || !inR(e, pt, L.radius + e.r)) continue;
         dealDamage(g, g.player, e, dmg, DMG.MAG, { src: 'nova' });
         applyStatus(g, e, 'slow', L.slowDur, { k: L.slow });
       }
+      g.emit('fx', { kind: 'nova', x: pt.x, z: pt.z, r: L.radius });
+    },
+    cast(g, c) {
+      const L = c.L;
+      const pt = g.aimPoint(L.range);
+      if (has(g, 'buNova')) c.cd = L.cd - 2;
+      this.blast(g, pt, L, 1);
+      if (has(g, 'buNova2')) g.later(0.6, () => this.blast(g, pt, L, 0.6));
       g.player.face = Math.atan2(pt.x - g.player.x, pt.z - g.player.z);
       g.player.swing = 1;
-      g.emit('fx', { kind: 'nova', x: pt.x, z: pt.z, r: L.radius });
       return true;
     },
   },
   buz_chain: {
     id: 'buz_chain', hero: 'buz', slot: 'w', icon: 'chain', name: 'Buz Zinciri', targeting: 'unit',
-    desc: 'Hedefi 2,2 sn dondurur (yürüyemez, ısıramaz) ve saniyede hasar verir.',
-    levels: [{ mana: 55, cd: 9, range: 6.5, dur: 2.2, dps: 34 }],
+    desc: 'Hedefi dondurur (yürüyemez, ısıramaz) ve saniyede büyü hasarı verir.',
+    levels: [
+      { mana: 55, cd: 10, range: 6.5, dur: 1.6, dps: 30 },
+      { mana: 65, cd: 9, range: 6.5, dur: 2.0, dps: 40 },
+      { mana: 75, cd: 8, range: 6.5, dur: 2.4, dps: 50 },
+      { mana: 85, cd: 7, range: 6.5, dur: 2.8, dps: 60 },
+    ],
+    show: [['Süre', 'dur', ' sn'], ['Saniyede', 'dps'], ['Bekleme', 'cd', ' sn']],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
+    bind(g, e, dur, L) {
+      applyStatus(g, e, 'root', dur);
+      applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true), src: g.player, key: 'frost' });
+      e.windup = 0;
+      g.emit('fx', { kind: 'frost', foe: e, dur });
+    },
     cast(g, c) {
       const e = c.target;
       const dur = c.L.dur + (has(g, 'buRoot') ? 1 : 0);
-      applyStatus(g, e, 'root', dur);
-      applyStatus(g, e, 'dot', dur, { dps: c.L.dps * g.dmgMul(true), src: g.player, key: 'frost' });
-      e.windup = 0;
+      this.bind(g, e, dur, c.L);
+      if (has(g, 'buChain2')) {
+        const n = g.nearestFoe(e.x, e.z, 4, e);
+        if (n) this.bind(g, n, dur * 0.75, c.L);
+      }
       g.player.face = Math.atan2(e.x - g.player.x, e.z - g.player.z);
       g.player.swing = 1;
-      g.emit('fx', { kind: 'frost', foe: e, dur });
       return true;
     },
   },
   buz_aura: {
     id: 'buz_aura', hero: 'buz', slot: 'e', icon: 'aura', name: 'Mana Aurası', targeting: 'none',
-    desc: 'Pasif: +3 mana/sn. Aktif: 3 sn boyunca hızlı mana ve can akışı.',
-    levels: [{ mana: 0, cd: 18, regen: 3, dur: 3, mps: 36, hps: 26 }],
+    desc: 'Pasif: mana yenilenmesi. Aktif: 3 sn boyunca hızlı mana ve can akışı.',
+    levels: [
+      { mana: 0, cd: 20, regen: 2, dur: 3, mps: 24, hps: 18 },
+      { mana: 0, cd: 18, regen: 3, dur: 3, mps: 32, hps: 26 },
+      { mana: 0, cd: 16, regen: 4, dur: 3, mps: 40, hps: 34 },
+      { mana: 0, cd: 14, regen: 5, dur: 3, mps: 48, hps: 42 },
+    ],
+    show: [['Pasif mana/sn', 'regen'], ['Aktif mana/sn', 'mps'], ['Aktif can/sn', 'hps'], ['Bekleme', 'cd', ' sn']],
     stats(g, st, c) { st.manaRegen += c.L.regen; },
     cast(g, c) { g.player.auraT = c.L.dur; g.emit('fx', { kind: 'aura', x: g.player.x, z: g.player.z }); return true; },
     step(g, dt, c) {
@@ -328,7 +420,12 @@ export const ABILITIES = {
   buz_field: {
     id: 'buz_field', hero: 'buz', slot: 'r', icon: 'field', name: 'Donduran Alan', targeting: 'channel', ult: true,
     desc: 'Kanal (4,2 sn): çevrende art arda buz patlamaları, alandaki herkes yavaşlar. Yürürsen kanal kesilir.',
-    levels: [{ mana: 180, cd: 32, dur: 4.2, radius: 4.8, rate: 14, blast: 1.35, dmg: 62, slow: 0.35 }],
+    levels: [
+      { mana: 180, cd: 34, dur: 4.2, radius: 4.8, rate: 14, blast: 1.35, dmg: 50, slow: 0.35 },
+      { mana: 250, cd: 30, dur: 4.2, radius: 4.8, rate: 14, blast: 1.35, dmg: 80, slow: 0.35 },
+      { mana: 320, cd: 26, dur: 4.2, radius: 4.8, rate: 14, blast: 1.35, dmg: 110, slow: 0.35 },
+    ],
+    show: [['Patlama hasarı', 'dmg'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     cast(g, c) {
       g.player.channel = { id: this.id, key: 'r', t: 0, dur: c.L.dur, acc: 0, frz: 0 };
       g.emit('channelStart', { key: 'r', dur: c.L.dur });
@@ -348,7 +445,7 @@ export const ABILITIES = {
         let x;
         let z;
         const near = [];
-        for (const e of g.foes) if (!e.dead && e.spawnT <= 0 && inR(e, p, L.radius)) near.push(e);
+        for (const e of g.foes) if (live(e) && inR(e, p, L.radius)) near.push(e);
         if (near.length && g.rand() < 0.55) {
           const e = near[Math.floor(g.rand() * near.length)];
           x = e.x + (g.rand() - 0.5) * 1.4;
@@ -377,8 +474,14 @@ export const ABILITIES = {
   // ================================================================== GÖLGE
   golge_step: {
     id: 'golge_step', hero: 'golge', slot: 'q', icon: 'step', name: 'Gölge Adımı', targeting: 'unit',
-    desc: 'Hedefin yanına ışınlan ve anında bir saldırı yap (kritik vurabilir).',
-    levels: [{ mana: 40, cd: 6, range: 7.5, extra: 60 }],
+    desc: 'Hedefin yanına ışınlan ve anında ek hasarlı bir saldırı yap (kritik vurabilir).',
+    levels: [
+      { mana: 40, cd: 8, range: 7.5, extra: 40 },
+      { mana: 45, cd: 7, range: 7.5, extra: 70 },
+      { mana: 50, cd: 6, range: 7.5, extra: 100 },
+      { mana: 55, cd: 5, range: 7.5, extra: 130 },
+    ],
+    show: [['Ek hasar', 'extra'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
     canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
     cast(g, c) {
       const p = g.player;
@@ -394,13 +497,21 @@ export const ABILITIES = {
   },
   golge_smoke: {
     id: 'golge_smoke', hero: 'golge', slot: 'w', icon: 'smoke', name: 'Duman Perdesi', targeting: 'none', keepInvis: true,
-    desc: '4 sn görünmezlik ve +%15 hız. Dumandan çıkan ilk vuruş +%80 hasar ve 0,6 sn sersemletme.',
-    levels: [{ mana: 45, cd: 15, dur: 4, haste: 0.15, bonus: 0.8, stun: 0.6 }],
+    desc: 'Görünmezlik ve hız. Dumandan çıkan ilk vuruş ek hasar verir ve sersemletir.',
+    levels: [
+      { mana: 45, cd: 16, dur: 3, haste: 0.12, bonus: 0.5, stun: 0.4 },
+      { mana: 45, cd: 15, dur: 4, haste: 0.16, bonus: 0.7, stun: 0.6 },
+      { mana: 45, cd: 14, dur: 5, haste: 0.2, bonus: 0.9, stun: 0.8 },
+      { mana: 45, cd: 13, dur: 6, haste: 0.24, bonus: 1.1, stun: 1.0 },
+    ],
+    show: [['Süre', 'dur', ' sn'], ['İlk vuruş', 'bonus', '%'], ['Sersemletme', 'stun', ' sn'], ['Bekleme', 'cd', ' sn']],
     cast(g, c) {
       const p = g.player;
       p.invis = Math.max(p.invis, c.L.dur);
       p.smokeT = c.L.dur;
-      p.smokeBonus = true;
+      p.smokeK = c.L.haste;
+      p.smokeBonus = { mul: 1 + c.L.bonus, stun: c.L.stun };
+      if (has(g, 'goSmoke')) c.cd = c.L.cd - 6;
       g.emit('fx', { kind: 'smoke', x: p.x, z: p.z });
       g.emit('invis', { t: c.L.dur });
       return true;
@@ -409,18 +520,33 @@ export const ABILITIES = {
   },
   golge_crit: {
     id: 'golge_crit', hero: 'golge', slot: 'e', icon: 'crit', name: 'Kan Kokusu', targeting: 'passive',
-    desc: 'Pasif: saldırıların %20 şansla ×2,6 kritik vurur ve vurduğun hasarın %12’si kadar can çalarsın. Gölge Adımı ve Ölüm Dansı da faydalanır.',
-    levels: [{ chance: 0.2, mul: 2.6, lifesteal: 0.12 }],
-    stats(g, st, c) { st.crit += c.L.chance; st.critMul = Math.max(st.critMul, c.L.mul); st.lifesteal = (st.lifesteal || 0) + c.L.lifesteal; },
+    desc: 'Pasif: saldırıların şansla kritik vurur ve vurduğun hasarın bir kısmı kadar can çalarsın. Gölge Adımı ve Ölüm Dansı da faydalanır.',
+    levels: [
+      { chance: 0.12, mul: 2.0, lifesteal: 0.05 },
+      { chance: 0.16, mul: 2.2, lifesteal: 0.07 },
+      { chance: 0.2, mul: 2.4, lifesteal: 0.09 },
+      { chance: 0.24, mul: 2.6, lifesteal: 0.11 },
+    ],
+    show: [['Şans', 'chance', '%'], ['Kritik', 'mul', '×'], ['Can çalma', 'lifesteal', '%']],
+    stats(g, st, c) {
+      st.crit = 1 - (1 - st.crit) * (1 - c.L.chance);
+      st.critMul = Math.max(st.critMul, c.L.mul);
+      st.lifesteal = (st.lifesteal || 0) + c.L.lifesteal;
+    },
     hud() { return { passive: true }; },
   },
   golge_dance: {
     id: 'golge_dance', hero: 'golge', slot: 'r', icon: 'dance', name: 'Ölüm Dansı', targeting: 'none', ult: true,
-    desc: 'Çevredeki 5 düşmana art arda sıçrayıp her birine garanti kritik vurur. Dans sırasında dokunulmazsın.',
-    levels: [{ mana: 110, cd: 26, range: 7, count: 5, gap: 0.16, extra: 40 }],
+    desc: 'Çevredeki düşmanlara art arda sıçrayıp her birine garanti kritik vurur. Dans sırasında dokunulmazsın.',
+    levels: [
+      { mana: 110, cd: 30, range: 7, count: 4, gap: 0.16, extra: 30 },
+      { mana: 140, cd: 26, range: 7, count: 6, gap: 0.15, extra: 60 },
+      { mana: 170, cd: 22, range: 7, count: 8, gap: 0.14, extra: 90 },
+    ],
+    show: [['Sıçrama', 'count'], ['Ek hasar', 'extra'], ['Bekleme', 'cd', ' sn']],
     canCast(g, c) {
       const p = g.player;
-      const list = g.foes.filter((e) => !e.dead && e.spawnT <= 0 && !e.demo && inR(e, p, c.L.range + e.r));
+      const list = g.foes.filter((e) => live(e) && e.seen !== false && inR(e, p, c.L.range + e.r));
       if (!list.length) { g.emit('noTarget', { key: c.key }); return false; }
       list.sort((a, b) => ((a.x - p.x) ** 2 + (a.z - p.z) ** 2) - ((b.x - p.x) ** 2 + (b.z - p.z) ** 2));
       c.list = list;
@@ -440,7 +566,6 @@ export const ABILITIES = {
       D.t -= dt;
       if (D.t > 0) return;
       if (D.i >= D.n || p.dead) { this.finish(g); return; }
-      // sıradaki hedef: listede yaşayan ilk, yoksa menzildeki en yakın
       let e = null;
       while (D.list.length && !e) {
         const x = D.list.shift();
@@ -460,19 +585,339 @@ export const ABILITIES = {
       const p = g.player;
       p.dance = null;
       p.invuln = Math.max(p.invuln, 0.25);
-      if (g.stat.aghs) { p.invis = Math.max(p.invis, 2); p.smokeBonus = true; }
+      if (g.stat.aghs) { p.invis = Math.max(p.invis, 2); p.smokeBonus = { mul: 1.5, stun: 0.5 }; }
       g.emit('danceEnd', {});
+    },
+  },
+
+  // ================================================================== ŞİMŞEK RUHU
+  simsek_remnant: {
+    id: 'simsek_remnant', hero: 'simsek', slot: 'q', icon: 'remnant', name: 'Durgun Kalıntı', targeting: 'none',
+    desc: 'Olduğun yere elektrikli bir kalıntı bırakırsın. Yarım saniye sonra kurulur; bir düşman yaklaşınca patlar ve alana büyü hasarı verir. Aynı anda en çok 3.',
+    levels: [
+      { mana: 60, cd: 3.5, dmg: 90, radius: 2.2, trigger: 1.4, arm: 0.5, life: 10 },
+      { mana: 70, cd: 3.5, dmg: 140, radius: 2.2, trigger: 1.4, arm: 0.5, life: 10 },
+      { mana: 80, cd: 3, dmg: 190, radius: 2.3, trigger: 1.5, arm: 0.5, life: 10 },
+      { mana: 90, cd: 3, dmg: 240, radius: 2.4, trigger: 1.5, arm: 0.5, life: 10 },
+    ],
+    show: [['Hasar', 'dmg'], ['Yarıçap', 'radius'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
+    place(g, x, z, L, max = 3) {
+      const mine = g.remnants;
+      while (mine.length >= max) { const old = mine.shift(); g.emit('remnantGone', { rem: old }); }
+      const r = { id: g.nextId(), x, z, t: 0, life: L.life, arm: L.arm, dmg: (L.dmg + (has(g, 'siRem') ? 50 : 0)), radius: L.radius, trigger: L.trigger };
+      mine.push(r);
+      g.emit('fx', { kind: 'remnant', x, z });
+      return r;
+    },
+    cast(g, c) {
+      const p = g.player;
+      this.place(g, p.x, p.z, c.L);
+      if (has(g, 'siRemCd')) c.cd = c.L.cd - 1.5;
+      return true;
+    },
+  },
+  simsek_vortex: {
+    id: 'simsek_vortex', hero: 'simsek', slot: 'w', icon: 'vortex', name: 'Elektrik Girdabı', targeting: 'point',
+    desc: 'Hedef noktada girdap açar: alandaki düşmanları merkeze çeker, köklere bağlar ve büyü hasarı verir.',
+    levels: [
+      { mana: 80, cd: 16, range: 6.5, radius: 2.4, root: 1.0, dmg: 40 },
+      { mana: 90, cd: 14, range: 6.5, radius: 2.6, root: 1.3, dmg: 60 },
+      { mana: 100, cd: 12, range: 6.5, radius: 2.8, root: 1.6, dmg: 80 },
+      { mana: 110, cd: 10, range: 6.5, radius: 3.0, root: 1.9, dmg: 100 },
+    ],
+    show: [['Kök', 'root', ' sn'], ['Yarıçap', 'radius'], ['Hasar', 'dmg'], ['Bekleme', 'cd', ' sn']],
+    cast(g, c) {
+      const L = c.L;
+      const p = g.player;
+      const pt = g.aimPoint(L.range);
+      const R = L.radius + (has(g, 'siVortexR') ? 1.5 : 0);
+      const root = L.root + (has(g, 'siVortex') ? 0.6 : 0);
+      for (const e of g.foes) {
+        if (!live(e) || !inR(e, pt, R + e.r)) continue;
+        const dx = pt.x - e.x;
+        const dz = pt.z - e.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const k = e.kind === 'boss' ? 0.15 : 1;
+        e.kx += (dx / len) * Math.min(len, R) * 6 * k;
+        e.kz += (dz / len) * Math.min(len, R) * 6 * k;
+        e.windup = 0;
+        dealDamage(g, p, e, L.dmg * g.dmgMul(true), DMG.MAG, { src: 'vortex' });
+        if (!e.dead) applyStatus(g, e, 'root', root);
+      }
+      p.face = Math.atan2(pt.x - p.x, pt.z - p.z);
+      p.swing = 1;
+      g.emit('fx', { kind: 'vortex', x: pt.x, z: pt.z, r: R });
+      return true;
+    },
+  },
+  simsek_overload: {
+    id: 'simsek_overload', hero: 'simsek', slot: 'e', icon: 'overload', name: 'Aşırı Yük', targeting: 'passive',
+    desc: 'Pasif: her büyünden sonra bir sonraki saldırın şarjlı olur; hedefin çevresine büyü hasarı verir ve yavaşlatır.',
+    levels: [
+      { dmg: 40, radius: 1.8, slow: 0.3, slowDur: 0.9 },
+      { dmg: 65, radius: 1.8, slow: 0.3, slowDur: 0.9 },
+      { dmg: 90, radius: 1.9, slow: 0.35, slowDur: 1.0 },
+      { dmg: 115, radius: 2.0, slow: 0.4, slowDur: 1.0 },
+    ],
+    show: [['Hasar', 'dmg'], ['Yarıçap', 'radius'], ['Yavaşlatma', 'slow', '%']],
+    onCast(g, key) { if (key !== 'e') g.player.overload = true; },
+    onAttack(g, target, hit, c) {
+      const p = g.player;
+      if (!p.overload || !target || target.kind === 'tower') return;
+      p.overload = false;
+      const L = c.L;
+      const R = L.radius + (has(g, 'siOver') ? 1 : 0);
+      const slow = Math.min(0.8, L.slow * (has(g, 'siOver') ? 1.5 : 1));
+      for (const e of g.foes) {
+        if (!live(e) || !inR(e, target, R + e.r)) continue;
+        dealDamage(g, p, e, L.dmg * g.dmgMul(true), DMG.MAG, { src: 'overload' });
+        if (!e.dead) applyStatus(g, e, 'slow', L.slowDur, { k: slow });
+      }
+      g.emit('fx', { kind: 'overload', x: target.x, z: target.z, r: R });
+    },
+    hud(g) { return { passive: true, active: !!g.player.overload }; },
+  },
+  simsek_ball: {
+    id: 'simsek_ball', hero: 'simsek', slot: 'r', icon: 'ball', name: 'Yıldırım Topu', targeting: 'point', ult: true, ownCost: true,
+    desc: 'Yıldırım topuna dönüşüp nişan noktasına uçarsın: yol boyunca dokunulmazsın ve değdiğin düşmanlara yol uzadıkça artan büyü hasarı verirsin. Mana maliyeti mesafeyle artar.',
+    costText: '40 + mesafe', cdText: '4–2,5 sn',
+    levels: [
+      { mana: 40, cd: 4, perUnit: 7, speed: 16, dmgBase: 30, dmgPerUnit: 8, range: 12 },
+      { mana: 40, cd: 3, perUnit: 6, speed: 18, dmgBase: 40, dmgPerUnit: 12, range: 13 },
+      { mana: 40, cd: 2.5, perUnit: 5, speed: 20, dmgBase: 50, dmgPerUnit: 16, range: 14 },
+    ],
+    show: [['Birim başı hasar', 'dmgPerUnit'], ['Birim başı mana', 'perUnit'], ['Hız', 'speed']],
+    unitCost(g, L) { return L.perUnit * (has(g, 'siBall') ? 0.6 : 1); },
+    canCast(g, c) {
+      const p = g.player;
+      const L = c.L;
+      const per = this.unitCost(g, L);
+      const maxD = Math.max(0, (p.mana - L.mana) / per);
+      if (maxD < 1.2) { g.emit('noMana', { key: c.key }); return false; }
+      const pt = g.aimPoint(Math.min(L.range, maxD));
+      let dx = pt.x - p.x;
+      let dz = pt.z - p.z;
+      let d = Math.hypot(dx, dz);
+      if (d < 1.2) { dx = Math.sin(p.face) * 4; dz = Math.cos(p.face) * 4; d = 4; if (d > maxD) { dx *= maxD / d; dz *= maxD / d; d = maxD; } }
+      let tx = p.x + dx;
+      let tz = p.z + dz;
+      const r = Math.hypot(tx, tz);
+      const lim = g.PLAY_R - 0.5;
+      if (r > lim) { tx *= lim / r; tz *= lim / r; d = Math.hypot(tx - p.x, tz - p.z); }
+      c.tx = tx;
+      c.tz = tz;
+      c.dist = d;
+      c.cost = L.mana + per * d;
+      return true;
+    },
+    cast(g, c) {
+      const p = g.player;
+      const L = c.L;
+      p.mana -= c.cost;
+      p.ball = { x0: p.x, z0: p.z, tx: c.tx, tz: c.tz, dist: c.dist, t: 0, traveled: 0, hit: new Set(), L, remAcc: 0 };
+      p.invuln = Math.max(p.invuln, c.dist / L.speed + 0.1);
+      if (p.charging) g.chargeCancel();
+      g.emit('fx', { kind: 'ballStart', x: p.x, z: p.z });
+      return true;
+    },
+    step(g, dt, c) {
+      const p = g.player;
+      const B = p.ball;
+      if (!B) return;
+      const L = B.L;
+      const step = Math.min(L.speed * dt, B.dist - B.traveled);
+      const ux = (B.tx - B.x0) / (B.dist || 1);
+      const uz = (B.tz - B.z0) / (B.dist || 1);
+      p.x += ux * step;
+      p.z += uz * step;
+      p.vx = 0;
+      p.vz = 0;
+      p.face = Math.atan2(ux, uz);
+      B.traveled += step;
+      p.invuln = Math.max(p.invuln, 0.08);
+      for (const e of g.foes) {
+        if (!live(e) || B.hit.has(e.id) || !inR(e, p, 1.1 + e.r)) continue;
+        B.hit.add(e.id);
+        const dmg = (L.dmgBase + L.dmgPerUnit * B.traveled) * g.dmgMul(true);
+        dealDamage(g, p, e, dmg, DMG.MAG, { src: 'ball' });
+      }
+      if (g.stat.aghs) {
+        B.remAcc += step;
+        if (B.remAcc >= 3 && p.abilityLv.q > 0) {
+          B.remAcc = 0;
+          const Q = ABILITIES.simsek_remnant;
+          Q.place(g, p.x, p.z, Q.levels[p.abilityLv.q - 1], 6);
+        }
+      }
+      if (B.traveled >= B.dist - 1e-3 || p.dead) {
+        p.ball = null;
+        p.invuln = Math.min(p.invuln, 0.15);
+        g.emit('fx', { kind: 'ballEnd', x: p.x, z: p.z });
+      }
+      void c;
+    },
+    hud(g) { return { active: !!g.player.ball, extra: '' }; },
+  },
+
+  // ================================================================== AĞAÇ BEKÇİSİ
+  agac_guise: {
+    id: 'agac_guise', hero: 'agac', slot: 'q', icon: 'guise', name: 'Doğanın Örtüsü', targeting: 'none', keepInvis: true,
+    desc: 'Yapraklara bürünürsün: görünmezlik, hız ve saniyede iyileşme. Örtüden çıkan ilk vuruş ek hasar verir ve hedefi köklere bağlar.',
+    levels: [
+      { mana: 60, cd: 16, dur: 4, heal: 10, haste: 0.1, root: 0.8, bonus: 40 },
+      { mana: 60, cd: 15, dur: 5, heal: 16, haste: 0.15, root: 1.1, bonus: 60 },
+      { mana: 60, cd: 14, dur: 6, heal: 22, haste: 0.2, root: 1.4, bonus: 80 },
+      { mana: 60, cd: 13, dur: 7, heal: 28, haste: 0.25, root: 1.7, bonus: 100 },
+    ],
+    show: [['Süre', 'dur', ' sn'], ['Can/sn', 'heal'], ['Kök', 'root', ' sn'], ['Bekleme', 'cd', ' sn']],
+    cast(g, c) {
+      const p = g.player;
+      const L = c.L;
+      p.invis = Math.max(p.invis, L.dur);
+      p.guiseT = L.dur;
+      p.guiseK = L.haste + (has(g, 'agGuise') ? 0.2 : 0);
+      p.guiseHeal = L.heal;
+      p.guiseBonus = { dmg: L.bonus, root: L.root };
+      p.guiseAg = 0.6;
+      g.emit('fx', { kind: 'guise', x: p.x, z: p.z });
+      g.emit('invis', { t: L.dur });
+      return true;
+    },
+    step(g, dt) {
+      const p = g.player;
+      if (!(p.guiseT > 0)) return;
+      p.guiseT -= dt;
+      if (p.invis <= 0) { p.guiseT = 0; return; }
+      p.hp = Math.min(p.maxHp, p.hp + p.guiseHeal * dt);
+      if (g.stat.aghs && p.abilityLv.w > 0) {
+        p.guiseAg -= dt;
+        if (p.guiseAg <= 0) {
+          p.guiseAg = 2.5;
+          const e = g.nearestFoe(p.x, p.z, 5, null);
+          const W = ABILITIES.agac_leech;
+          if (e) W.bind(g, e, W.levels[p.abilityLv.w - 1]);
+        }
+      }
+    },
+    hud(g) { return { active: g.player.guiseT > 0 && g.player.invis > 0 }; },
+  },
+  agac_leech: {
+    id: 'agac_leech', hero: 'agac', slot: 'w', icon: 'leech', name: 'Sömürücü Kökler', targeting: 'unit',
+    desc: 'Hedefi köklere bağlar ve saniyede büyü hasarı verir; verilen hasarın tamamı sana can olarak döner.',
+    levels: [
+      { mana: 90, cd: 12, range: 5.5, root: 1.4, dps: 30 },
+      { mana: 100, cd: 11, range: 5.5, root: 1.7, dps: 45 },
+      { mana: 110, cd: 10, range: 5.5, root: 2.0, dps: 60 },
+      { mana: 120, cd: 9, range: 5.5, root: 2.3, dps: 75 },
+    ],
+    show: [['Kök', 'root', ' sn'], ['Saniyede', 'dps'], ['Bekleme', 'cd', ' sn'], ['Mana', 'mana']],
+    canCast(g, c) { c.target = g.pickTarget(c.L.range); if (!c.target) g.emit('noTarget', { key: c.key }); return !!c.target; },
+    bind(g, e, L) {
+      const dur = L.root + (has(g, 'agLeech') ? 1 : 0);
+      applyStatus(g, e, 'root', dur);
+      applyStatus(g, e, 'dot', dur, { dps: L.dps * g.dmgMul(true), src: g.player, key: 'leech', lifesteal: 1 });
+      e.windup = 0;
+      g.emit('fx', { kind: 'leech', foe: e, dur });
+    },
+    cast(g, c) {
+      const p = g.player;
+      this.bind(g, c.target, c.L);
+      p.face = Math.atan2(c.target.x - p.x, c.target.z - p.z);
+      p.swing = 1;
+      return true;
+    },
+  },
+  agac_armor: {
+    id: 'agac_armor', hero: 'agac', slot: 'e', icon: 'bark', name: 'Canlı Zırh', targeting: 'none',
+    desc: 'Kabuğunu zırha çevirirsin: zırh, can yenilenmesi ve saldırılara karşı hasar bloğu. Yakındaki Radiant kulesi de faydalanır.',
+    levels: [
+      { mana: 50, cd: 16, dur: 12, armor: 4, regen: 6, block: 15 },
+      { mana: 50, cd: 14, dur: 12, armor: 6, regen: 10, block: 20 },
+      { mana: 50, cd: 12, dur: 12, armor: 8, regen: 14, block: 25 },
+      { mana: 50, cd: 10, dur: 12, armor: 10, regen: 18, block: 30 },
+    ],
+    show: [['Zırh', 'armor'], ['Can/sn', 'regen'], ['Blok', 'block'], ['Bekleme', 'cd', ' sn']],
+    cast(g, c) {
+      const p = g.player;
+      const L = c.L;
+      const armor = L.armor + (has(g, 'agArmor') ? 6 : 0);
+      p.barkT = L.dur;
+      p.barkArmor = armor;
+      p.barkRegen = L.regen;
+      p.barkBlock = L.block;
+      for (const t of g.towers) {
+        if (t.dead || t.side !== 'radiant' || !inR(t, p, 7)) continue;
+        t.barkT = L.dur;
+        t.armorBuff = armor;
+        t.barkRegen = L.regen * 3;
+        g.emit('fx', { kind: 'bark', x: t.x, z: t.z, tower: true });
+      }
+      g.emit('fx', { kind: 'bark', x: p.x, z: p.z });
+      return true;
+    },
+    hud(g) { return { active: g.player.barkT > 0 }; },
+  },
+  agac_growth: {
+    id: 'agac_growth', hero: 'agac', slot: 'r', icon: 'growth', name: 'Aşırı Büyüme', targeting: 'none', ult: true,
+    desc: 'Ormanı çağırırsın: çevredeki tüm düşmanlar köklere dolanır ve kök süresince büyü hasarı alır.',
+    levels: [
+      { mana: 150, cd: 40, radius: 6, root: 2.2, dps: 25 },
+      { mana: 175, cd: 34, radius: 7, root: 2.8, dps: 40 },
+      { mana: 200, cd: 28, radius: 8, root: 3.4, dps: 55 },
+    ],
+    show: [['Yarıçap', 'radius'], ['Kök', 'root', ' sn'], ['Saniyede', 'dps'], ['Bekleme', 'cd', ' sn']],
+    cast(g, c) {
+      const p = g.player;
+      const L = c.L;
+      const R = L.radius + (has(g, 'agGrowthR') ? 2 : 0);
+      const dps = L.dps * (has(g, 'agGrowthDmg') ? 2 : 1) * g.dmgMul(true);
+      let n = 0;
+      for (const e of g.foes) {
+        if (!live(e) || !inR(e, p, R + e.r)) continue;
+        if (applyStatus(g, e, 'root', L.root)) {
+          applyStatus(g, e, 'dot', L.root, { dps, src: p, key: 'growth' });
+          e.windup = 0;
+          n += 1;
+        }
+      }
+      g.emit('fx', { kind: 'growth', x: p.x, z: p.z, r: R, n });
+      g.emit('ultHit', { n, growth: true });
+      return true;
     },
   },
 };
 
-/** Yetenek düz nesnesini (tanım + seviye verisi) döndürür. */
+/** Özellik bonusu (Dota'daki gibi): yetenekler dolunca kalan puanlar +2 güç/çeviklik/zekâ verir. */
+export const STATS_BONUS = { id: 'stats', name: 'Özellik Bonusu', desc: 'Her seviyede +2 güç, +2 çeviklik, +2 zekâ.', per: 2 };
+
+/** Yetenek düz nesnesini (tanım + seviye verisi) döndürür; öğrenilmemişse null. */
 export function abilityCtx(g, key) {
   const id = g.H.abilities[key];
   const A = ABILITIES[id];
   if (!A) return null;
-  const lvl = Math.max(1, Math.min(A.levels.length, (g.player.abilityLv && g.player.abilityLv[key]) || 1));
-  return { A, L: A.levels[lvl - 1], key, p: g.player, cd: null };
+  const lv = Math.min(A.levels.length, (g.player.abilityLv && g.player.abilityLv[key]) || 0);
+  if (lv <= 0) return null;
+  return { A, L: A.levels[lv - 1], lv, key, p: g.player, cd: null };
+}
+
+/** Arayüz için: öğrenilmemiş olsa da tanım + görünen seviye (en az 1. seviye verisi). */
+export function abilityInfo(g, key) {
+  const A = ABILITIES[g.H.abilities[key]];
+  if (!A) return null;
+  const lv = Math.min(A.levels.length, (g.player.abilityLv && g.player.abilityLv[key]) || 0);
+  return { A, lv, L: A.levels[Math.max(0, lv - 1)], max: A.levels.length };
+}
+
+/** "90/140/190/240" gibi seviye dizisi metni. */
+export function levelValues(A, field, unit = '') {
+  const fmt = (v) => {
+    if (unit === '%') return `%${Math.round(v * 100)}`;
+    const s = Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100).replace('.', ',');
+    return unit === '×' ? `×${s}` : s + (unit || '');
+  };
+  const vals = A.levels.map((L) => L[field]);
+  if (vals.every((v) => v === vals[0])) return fmt(vals[0]);
+  return vals.map(fmt).join('/');
 }
 
 /** Okçu için geriye dönük uyumlu sabitler (eski ABIL). */

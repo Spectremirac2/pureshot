@@ -18,7 +18,7 @@ profil) için hafif katalog `SALON_GAMES` (`core/badges.js`): ad, simge, renk, t
 | Rekor envanteri | Her oyun için bir yuva + **Aegis** (hepsinde rekor). 4 sütun (dar ekranda 6); Aegis kalan hücreleri doldurur |
 | Kategori süzgeci | Tümü · Refleks · Zihin · Günlük · Yayın (sayılarla) + masaüstünde kısayol ipucu |
 | Oyun ızgarası | Tam genişlik **1vDOQUZ Arena** afişi + 3 sütunlu oyun kartları (tablet 2, mobil 1); son satırdaki boşluğa **Rekor defteri** kutucuğu |
-| Rozetler | 31 rozet, ilerleme sayacı ve çubuğu; mobilde ilk 6 + "Tümünü göster" |
+| Rozetler | 37 rozet, ilerleme sayacı ve çubuğu; mobilde ilk 6 + "Tümünü göster" |
 | Salon tablosu / Rekor defterin + sohbet | 14 sekmeli skor tablosu (kendi içinde yatay kayar) ve `games` sohbeti. Statik yayında sekmeler kişisel rekor defterini gösterir (aşağıda) |
 
 ### Günün meydan okuması (DOGdle)
@@ -123,7 +123,7 @@ Playwright (dev sunucusu, HMR engelli), masaüstü 1440×900 ve mobil 390×844 (
   377 metre", en iyi 377, "13 deneme". Mayın (düşük iyi: "112,4 sn", eksen ters), geçmişsiz skor (Invoker), hiç
   denemesi olmayan ziyaretçi (boş durum), Arena yan sütunu, Bilgi Yarışması, Yetenek Avı ve "Daha DOG mu?" aynı görünümle.
 - Rozet bildirimi: `submitScore('kurye', 1024)` → "Yeni rozet · Bottle Teslimatı", ardından "Efsane Kurye";
-  `picks['esya:tier'] = 11`, `picks['maraton:tamam'] = 1` → Divine Rapier ve Maraton Tamam bildirimleri. Panel 31 rozet.
+  `picks['esya:tier'] = 11`, `picks['maraton:tamam'] = 1` → Divine Rapier ve Maraton Tamam bildirimleri. Panel 37 rozet.
 - Günlük görevler: 365 günlük taramada kısıt ihlali 0 (havuz 23). Saat kaydırılarak yeni görevlerin geldiği günlerde
   (esya1000, kurye200, mayinOrta, maraton24) gerçek `submitScore` / `picks` yazımıyla görev tamamlandı → "Görev tamam ·
   +50 XP" bildirimi, ana sayfa kartında ✓.
