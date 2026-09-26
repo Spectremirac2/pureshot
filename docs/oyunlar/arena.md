@@ -58,8 +58,8 @@ geliştirmede `devUnlock` düğmesi ve `__arenaDebug.unlock()` açar.
 Her seviyede **1 yetenek puanı**. Q W E en çok 4 (seviye sınırı `⌊(L+1)/2⌋`: 1/3/5/7), R en çok 3 (6/12/18. seviye).
 Q 1. seviyede öğrenilmiş başlar. Puanlar istenirse **Özellik Bonusu**na da harcanır (+2 tüm özellik, 10 kez; otomatik
 öğrenme önce yetenekleri doldurur) — 25. seviyedeki 24 puanın hepsi bir yere gider, harcanamayan puan kalınca rozet gizlenir.
-Öğrenme: slotların üstündeki **+** (masaüstü), portredeki **+N** rozeti → öğrenme kipi (**L**; sonra Q/␣/E/R ya da
-dokun), **Ctrl+Q/W/E/R**, kahraman sayfasındaki **+** düğmeleri. Ayarlardan “otomatik öğren” de açılabilir.
+Öğrenme: slotların üstündeki **+** (masaüstü), **+N** rozeti (masaüstünde portrenin köşesinde, dokunmatikte yetenek
+düğmelerinin üstünde) → öğrenme kipi (**L**; sonra Q/␣/E/R ya da dokun), **Ctrl+Q/W/E/R**, kahraman sayfasındaki **+** düğmeleri. Ayarlardan “otomatik öğren” de açılabilir.
 Öğrenilmemiş yetenek kilitli görünür; slotun altındaki noktalar seviyeyi gösterir.
 
 | | Q | W | E | R |
@@ -253,9 +253,10 @@ dalga temizleme `300 × dalga` + verim bonusu `verim × 400`. Lanet çarpanı `1
 - **Klavye:** WASD + Boşluk (W yeteneği Boşluk) ya da ok tuşları + QWER · **1–6** eşyalar · **B** dükkân ·
   **C** kahraman sayfası · **T** yetenek ağacı · **L** öğrenme kipi · **Ctrl+Q/W/E/R** (ya da Ctrl+Boşluk) öğren ·
   ölünce **Enter** geri al · orman seçimi **F1–F3** · molada **Enter** “Hazırım” · **Esc/P** duraklat.
-- **Dokunmatik:** sol joystick; Q W E R düğmeleri (dokun = en yakın hedef, basılı tut + sürükle = yön); portredeki
-  **+N** rozeti öğrenme kipini açar (sonra yetenek düğmesine dokun); portreye dokun = kahraman sayfası; altın düğmesi
-  dükkân. Dokunmatik düğmeler 44 px’ten küçük değildir.
+- **Dokunmatik:** sol joystick; Q W E R düğmeleri (dokun = en yakın hedef, basılı tut + sürükle = yön); yetenek
+  kümesinin üstündeki **+N** düğmesi öğrenme kipini açar (sonra yetenek düğmesine dokun), solundaki ağaç düğmesi (10/15/20/25.
+  seviyede) yetenek ağacını; portreye dokun = kahraman sayfası; altın düğmesi dükkân. Portre, +N ve ağaç ayrı hedeflerdir
+  (faz F’ye kadar +N portrenin üstündeydi ve portreye dokunuşu yutuyordu). Dokunmatik düğmeler 44 px’ten küçük değildir.
 
 ## Arayüz (HUD)
 Alt ortada Dota paneli: portre + XP halkası + seviye + yetenek puanı rozeti, G/Ç/Z, Q W E R (seviye noktaları,
@@ -263,7 +264,12 @@ bekleme, mana, “+”), can/mana, 6 eşya yuvası + orman yuvası, altın. Üst
 (boss dalgasında sayaç etiketi Roshan için “ROSHAN+”, diğer bosslar için “BOSS+”);
 boss varken tepede boss çubuğu (ad, evre, kalkan). Sağda görev hedefleri listesi (varsa). Sol altta mini harita
 (kamplar dolu/boş, ward, orman eşyası, boss rengi, gece karartması). Buyback kartı, orman seçimi kartı, kahraman sayfası.
-390 px’te panel sıkışır (G/Ç/Z tek satır, eşyalar yetenek kümesinin üstünde), yatay taşma yok.
+390 px’te panel sıkışır (G/Ç/Z tek satır, eşyalar yetenek kümesinin üstünde), yatay taşma yok. Fare/klavyeyle dar
+sahnede (< 560 px, ör. daraltılmış masaüstü penceresi) panel tam genişlikte iki sıraya dizilir (portre + yetenekler + çubuklar /
+7 eşya yuvası + altın, G/Ç/Z ince satır). Yatay telefonda site çubuklarıyla sahne ~220 px kalırsa (`is-tiny`: yükseklik
+< 300 px, tam ekran değil) skor kutusu ve G/Ç/Z satırı gizlenir, panel yukarı çıkar, görev hedefleri panelin altına, joystick
+panelin sağına, üst sayaçlar ve boss çubuğu panelin sağına, etkin eşyalar mini haritanın soluna geçer; sahne 764 px’ten
+darsa (`is-tight`) +N ve T üst üste dizilir. Tam ekran yatay (390 px) yerleşim değişmedi.
 
 ## 2D yedek
 WebGL yoksa `view2d.js`: nehir, ağaçlar, kuleler, çeşme, çukur, rünler, DOG/creep/nötr/boss (renk, ad, telgraf
@@ -384,6 +390,11 @@ Feed Alfa dalışı her menzilde; Roshan kükremesine ccCap.
 - Sınırlar: en çok 40 düşman (`MAX_FOES`), 8 creep, kamp başına 2–3 nötr, 4 ward, 3 kalıntı. Yüzen sayılar 32’lik
   DOM havuzu. Gece karartması tek düzlem + radyal doku; ışıklar sabit sayıda, yalnızca renk/yoğunluk değişir.
 - Mobilde gölge yok, piksel oranı ≤ 1,5; kare hızı düşerse kademeli iner.
+- Tembel parçalar (üretim yapısında ölçüldü): merkez açılırken `arena`, `progression`, `story` (merkezdeki Hikâye kartı
+  ilerlemesi için), `view3d` (+ `three`) ve 3 GLB (kuleler, Aegis) iner; `storyui` (harita/diyalog) Hikâye kartının üstüne
+  gelince, `library`/`codex` ilgili kutucuğun üstüne gelince ya da açılınca, `mastery` ilk ödül kartı/ustalık panelinde, `view2d`
+  yalnız WebGL yoksa. Lanet seçici (library.js) Sonsuz seçim ekranı ilk açılınca kurulur (faz F; önce her açılışta iniyordu).
+  12 sn’lik koşuda uygulamadan 0 konsol mesajı (kare başına uyarı yok).
 
 ## Test notları (Arena 3.0)
 - **Başsız (node):** `scenario` (5 boss görevi zaferle, telgraf/evre/çağırma; tarif + kurye + satış; kamplar + orman
@@ -396,6 +407,43 @@ Feed Alfa dalışı her menzilde; Roshan kükremesine ccCap.
   bedava birleşme, Şimşek Tırpanı bileşen + tarif), BKB, kamplar + orman eşyası (+ seçim kartı), gece, 5 boss (çubuk +
   telgraf), geri alma, yüzen hasar sayıları (fiziksel/büyü/saf/kritik sınıfları), taşma kontrolü, konsol hatası 0.
 - `vite build` geçti.
+
+## Test notları (faz F)
+
+Faz F: kalite güvencesi, hata düzeltme, cila ve tüm site regresyonu (26 Eylül 2026). Düzeltmeler küçük ve hedefli;
+Sonsuz mod dengesi ve rozet eşikleri değişmedi.
+
+### Bulunan ve düzeltilen hatalar
+
+| # | Önem | Bulgu | Neden → düzeltme |
+|---|---|---|---|
+| 1 | Yüksek | Mobilde portreye dokunmak kahraman sayfası yerine öğrenme kipini açıyordu | +N düğmesi (44 px) 44 px’lik portrenin tam üstündeydi → +N ve yetenek ağacı (T) dokunmatikte yetenek kümesinin üstüne taşındı (`.ar-tlearn`); T de 26 → 44 px |
+| 2 | Orta | Dükkân çantasındaki orman yuvası 390 px’te ve masaüstünde ~6 px kırpılıyordu | `aspect-ratio` + `min-height` 30 px’lik sütuna ~47 px genişlik aktarıyordu → yuva sabit 30×30, çanta yuvaları `width: 100%` |
+| 3 | Orta | Diyalog açıkken duraklat düğmesi (ve P) ölüydü; diyalog perdesi HUD araçlarını örtüyordu | Görev içi diyalog artık duraklatılır (kart gizlenir, Devam aynı karta döner, Baştan başla / Haritaya dön çalışır); perde tıklamayı yutmaz, yalnız kart etkileşimli |
+| 4 | Orta | Yerine yenisi açılan eski diyaloğun sözü `leaveTalk()` ile oyunu yeni diyaloğun altında sürdürebiliyordu (yeniden başlatma yarışı) | `talkSeq` / `runSeq` sayaçları: eski diyalog, giriş zinciri ve çıkış/final zinciri yeni koşuya dokunmaz |
+| 5 | Orta | Kütüphane/Kodeks/ustalık penceresi açıkken bölümden çıkınca (tarayıcı Geri) pencere yeni sayfada kalıyor, `keydown` dinleyicisi sızıyordu | Arena temizliği açık pencereyi kapatır (`closePanel`) |
+| 6 | Düşük | Pencere Esc ile kapanınca odak merkez kutucuğuna dönmüyordu (body’ye düşüyordu) | Merkez yeniden çizilince aynı kutucuk yeniden odaklanır |
+| 7 | Orta | Kilitli bir görev, oturumdan geri yüklenen seçim ekranından (eski kayıt, başka sekmede sıfırlanan ilerleme, elle değiştirilen kayıt) başlatılabiliyordu | `openSelect` ve `startGame` görev kilidini denetler; kilitliyse haritaya döner |
+| 8 | Düşük | Bozuk hikâye kaydında zaferi olmayan görevin yıldızları toplam ★’a sayılıyordu | `loadStory` yıldızı yalnız zafer varsa kabul eder |
+| 9 | Yüksek | Yatay telefonda (site çubuklarıyla sahne ~220 px) joystick 18 px’lik şeritti ve panelin üstüne çiziliyordu; görev hedefleri sahnenin altında kalıyordu | `is-tiny` yerleşimi (bkz. Arayüz); dar yatay telefonda (`is-tight`) +N/T dikey |
+| 10 | Orta | Orta genişlikte dokunmatik (yatay telefon, dikey tablet) can/mana çubukları panelden ~70 px taşıp kırpılıyordu | `.is-mid .ar-bars { min-width: 212px }` dokunmatik kuralını eziyordu → dokunmatik panelde daha özgül kural |
+| 11 | Orta | Fare/klavyeyle dar pencerede (< 560 px) masaüstü paneli sahnenin iki yanından taşıyordu | Tam genişlik, iki sıralı sıkışık panel |
+| 12 | Düşük | Günlük kutucuğunda geri sayım üç noktayla kesiliyordu (“yenilenme 13 sa 18…”) | Alt satır sarar, geri sayım bölünmez |
+| 13 | Düşük (performans) | `library.js` (22,8 kB JS + 29,2 kB CSS) her arena açılışında iniyordu (Lanet seçici açılışta kuruluyordu) | Lanet seçici Sonsuz seçim ekranı ilk açılınca kurulur; Kütüphane/Kodeks kutucuklarının üstüne gelince önden iner; pencere, parça inene kadar dönen gösterge gösterir (Kodeks/ustalıkta da boş pencere görünüyordu) |
+
+Test düzeneğinde (yalnız `scratchpad/arenaF` kopyalarında) düzeltilen yarışlar: boss çubuğu okunmadan kahraman boss’u
+öldürüyordu (kontrol süresince boss canı ×40, çubukta adı da doğrulanıyor); orman takası molası düğmeye basılmadan
+bitiyordu (mola sayacı donduruluyor) ve dükkân 1,5 sn sonra kendiliğinden açılırken düzenek altın düğmesine basıp onu
+kapatıyordu (önce kendiliğinden açılış bekleniyor); ölüm penceresi ve 16 sn’lik mola yavaş yazılımsal WebGL’de dakikalar
+sürüyordu (`D.speed(20)`, `skipBreak`). Taşma denetimi **sıkılaştırıldı**: belge kaydırması + her öğe için “görünür alan =
+viewport ∩ en yakın kırpan ata” sınırı (yatay kayan sekme şeritleri hariç); yalnız dünyaya bağlı yüzen sayılar/kenar okları
+ve o an oynayan giriş animasyonları (öldürme akışı sağdan kayarak girer) atlanır. Eski denetimin raporladığı `ar-float` /
+`ar-feed-i` “taşmaları” sahnenin kırptığı anlık animasyonlardı; yeni denetim eski dükkân hatasını iki görünümde de yakalıyor
+(eski CSS enjekte edilerek doğrulandı) ve 12. hatayı buldu.
+
+### Sonuçlar
+
+TEST_RESULTS_PLACEHOLDER
 
 ## Hikâye ve ilerleme ajanlarına notlar
 - Görevler `g.start({ mode: 'story', heroId, mission: { waves, objectives, victory, failOnObjective }, modifiers })`

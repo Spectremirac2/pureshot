@@ -92,3 +92,26 @@ gizli `#profil` rotası (yetenek çubuğunda slotu yok), dört yeni oyun için i
   Ortak `juice.js`: rekor notu, oyun içi “REKOR!” anı, titreşim.
 - **Test**: 19 bölüm/alt sayfa, 14 oyun, 5 quiz ve tur; masaüstü (1440) + mobil (390): konsol hatası 0,
   4xx 0, yatay taşma yok; her ajanın oynanış botları (`docs/oyunlar/*.md` → Test notları).
+
+---
+
+## Arena 3.0 sonuçları (26 Eylül 2026)
+
+Plan: [ARENA-TASARIM.md](ARENA-TASARIM.md) (faz A–F). Arena 2.0’ın dalga modu; Dota mekanikleri, hikâyesi ve kalıcı
+ilerlemesi olan bir aksiyon-RPG’ye dönüştü.
+
+- **Savaş derinliği (B):** Güç/Çeviklik/Zekâ, fiziksel/büyü/saf hasar hattı (zırh, büyü direnci, kaçınma, kritik, blok,
+  kalkan, can çalma), durum etkileri (sersemletme, kök, susturma, korku, dönüşüm …) ve statü direnci, yetenek seviyeleri
+  + 10/15/20/25 yetenek ağacı, 16 tarif eşyası, orman kampları ve 9 orman eşyası, gece-gündüz ve görüş, deny, geri alma,
+  5 boss; iki yeni kahraman (Şimşek Ruhu, Ağaç Bekçisi) → [oyunlar/arena.md](oyunlar/arena.md).
+- **Kalıcı ilerleme (C):** Parıltı Taşı, Aghanim Kütüphanesi (10.945 Parıltı’lık ağaç), 8 ustalık kademesi, 18 yetenek
+  varyantı, başlangıç çantaları, kozmetikler, 10 Lanet seviyesi, Kodeks; 6 yeni rozet (toplam 37) →
+  [ARENA-ILERLEME.md](ARENA-ILERLEME.md).
+- **Hikâye ve modlar (D):** “Dokuzun Laneti” — 5 bölüm, 15 görev, Kurye anlatıcı, diyalog kartları, yıldızlar, final;
+  mod merkezi (Hikâye / Sonsuz / Günlük / Kütüphane / Kodeks), günlük meydan okuma → [oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md).
+- **Görseller (E):** 6 yeni 3D model; galeride “Arena Hikâyesi” grubu (5 bölüm afişi + 5 boss portresi), 3D Müze Salon III.
+- **QA (F):** 13 hata düzeltildi (mobilde +N düğmesinin portreyi örtmesi, dükkân orman yuvası kırpılması, diyalogda
+  duraklatma, diyalog yarışı, bölümden çıkınca açık kalan pencere, kilitli görevin geri yüklenmesi, yatay telefon ve dar
+  pencere HUD’u, library.js’in her açılışta inmesi …) → [oyunlar/arena.md → Test notları (faz F)](oyunlar/arena.md#test-notları-faz-f).
+
+PLAN_TEST_PLACEHOLDER

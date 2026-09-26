@@ -39,7 +39,7 @@ Gezinme, Dota'nın yetenek çubuğunu taklit eder: ekranın altındaki slotlara 
 | `H` | **Üs** | `#ana` | Kahraman alanı ve "1 vs 9" 3D dioraması, canlı DOG sayacı, meme sözlüğü, günün esprisi, ziyaretçi defteri |
 | `Q` | **Espri Duvarı** | `#espriler` | Topluluk esprileri: yaz, DOG'la (beğen), yorumla |
 | `W` | **Mini Oyunlar** | `#oyunlar` | 14 oyun: DOGdle (günlük kahraman tahmini), Portre Avı, Invoker Kombo, Pudge Hook, DOG Bingo, Uçan Kurye, Techies Mayın Tarlası, Eşya 2048, 24 Saat Maraton, DOG Avı, DOG Hafıza, Last Hit, Rune Refleksi ve Arena — kişisel rekor defteri ve rozetler |
-| `R` | **1vDOQUZ Arena** | `#arena` (`#oyunlar--arena`) | three.js ile 3D arena: dokuz DOG'a karşı tek başına ("ultimate" slotu) |
+| `R` | **1vDOQUZ Arena** | `#arena` (`#oyunlar--arena`) | three.js ile 3D mini Dota ("ultimate" slotu): altı kahraman, dokuz DOG'a karşı tek başına. Hikâye modu **Dokuzun Laneti** (5 bölüm, 15 görev, diyaloglar, bosslar), Sonsuz mod (salon skoru, Lanet seviyeleri), Günlük meydan okuma; Aghanim Kütüphanesi ile kalıcı ilerleme (Parıltı Taşı, ustalık, Kodeks) |
 | `E` | **Quizler** | `#quizler` | Hangi DOG'sun?, Dota 2 Bilgi Yarışması, DOG mu Değil mi?, Gerçek Hayran Testi, Yetenek Avı (539 yetenek) |
 | `D` | **Karakter Analizleri** | `#karakterler` | DOG Arşivi (oyuncu türleri), kahraman potansiyeli, türleri karşılaştırma, kendi analizin |
 | `F` | **Soru-Cevap** | `#soru-cevap` | Topluluk soruları ve cevapları (kabul edilen cevap), SSS, DOG Kâhini (yerel, yapay zekâ yok) |

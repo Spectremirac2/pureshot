@@ -61,6 +61,9 @@ recordMission(id, { victory, stars, time }) // → { stars, newStars, firstWin, 
 ```
 
 - **Kilitler:** I. bölüm açık; N+1. bölüm, N’nin boss görevi (3. görev) kazanılınca. Bölüm içinde görevler sırayla.
+  Kilitli görev hiçbir yoldan başlatılamaz (faz F): oturumdan geri yüklenen eski seçim, başka sekmede sıfırlanan ilerleme ya
+  da elle değiştirilen kayıt kahraman seçimine değil haritaya döner; `startGame` de aynı denetimi yapar (yalnız geliştirme
+  kancası `D.story` atlar).
 - **Yıldızlar:** her görevde iki bonus hedef (`optional: true`); ★1 zafer, tamamlanan her bonus +1 yıldız (sırası
   önemsiz, en çok ★3).
   Bonus hedefler: son vuruş, “hiç ölme”, süre sınırı, tür avı, seviye, eşya (ward, Görüş Tozu), “en çok 3 REPORT”.
@@ -182,7 +185,7 @@ eksik kalırsa (ör. içe aktarılan profil) arena açılışında `reconcileSto
 
 | Anahtar | İçerik |
 |---|---|
-| `csk:arena:story:v1` | `{ v: 1, missions: { s1m1: { stars, wins, plays, best (sn), first } }, chapters: { 1: zaman }, finale, rewards: { hero_agac: zaman }, last }` (okurken temizlenir; bozuk kayıt boş profile döner) |
+| `csk:arena:story:v1` | `{ v: 1, missions: { s1m1: { stars, wins, plays, best (sn), first } }, chapters: { 1: zaman }, finale, rewards: { hero_agac: zaman }, last }` (okurken temizlenir; bozuk kayıt boş profile döner; zaferi olmayan görevin yıldızı 0 sayılır) |
 | `csk:arena:daily:v1` | bugünün günlük rekoru |
 | `sessionStorage csk:arena:ui` | son menü (`hub` · `select` + tür/görev · `campaign` + görev · `daily`) |
 | `csk:arena:meta:v1` | progression (yıldızlar `story`, bölüm kartları, ödüller) |
@@ -198,8 +201,11 @@ eksik kalırsa (ör. içe aktarılan profil) arena açılışında `reconcileSto
 - **Diyalog kartı:** sahnenin altında; konuşan portresi (Kurye `portrait-kurye`, bosslar `story-boss-*`, DOG’lar
   `portrait-<tür>`, kahraman glifi — görsel yoksa ya da yüklenemezse renkli glif, asla kırık görsel), ad + rol, daktilo
   efekti (azaltılmış harekette anında), sayaç, **Atla** (Esc) ve **Devam** (Enter/Boşluk; son kartta “Kapat”); karta
-  dokunmak da ilerletir. Açıkken simülasyon durur (`mode = 'talk'`), dokunmatik kontroller gizlenir. Erişilebilirlik:
-  tam metin `aria-live` ile tek seferde okunur (daktilo `aria-hidden`), açılınca odak “Devam”da, kapanınca sahnede.
+  dokunmak da ilerletir. Açıkken simülasyon durur (`mode = 'talk'`), dokunmatik kontroller gizlenir. Görev içi diyalog
+  **duraklatılabilir** (P ya da duraklat düğmesi): kart gizlenir, duraklatma menüsü açılır (Devam / Baştan başla / Haritaya
+  dön); Devam aynı karta döner, odak yine “Devam”da (faz F; öncesinde düğme diyalogda ölüydü). Çıkış diyaloğu duraklatılmaz.
+  Erişilebilirlik: tam metin `aria-live` ile tek seferde okunur (daktilo `aria-hidden`), açılınca odak “Devam”da, kapanınca
+  sahnede.
 - **Rapor:** yıldızlar (yeni yıldızlar sırayla “pop” eder + ses), hedef listesi (✓/✗, her tamamlanan bonus
   “+1 yıldız”), süre/öldürme/seviye/son vuruş, Kurye’nin sözü, bölüm tamam kartı (+50 Parıltı, katılan kahraman), ödül kartı.
 - **Sesler:** diyalog açılışında konuşana göre `courier` / `bark` / `roar`, zaferde `win`, bölüm ve finalde `record`,
@@ -335,3 +341,15 @@ mobilde +N düğmesi portreyi örttüğü için puan varken portreye dokunuş ç
 (öğrenme kipini) tetikliyor.
 
 Derleme: `VITE_API_BASE=none npx vite build` ve `npx vite build --mode artifact` hatasız (yukarıdaki boyutlar).
+
+### Faz F (QA, 26 Eylül 2026)
+
+Hikâye ve mod akışlarında bulunan ve düzeltilen hatalar (ayrıntı ve tüm liste: [arena.md → Test notları (faz F)](arena.md#test-notları-faz-f)):
+diyalogda duraklat düğmesi/P ölüydü ve diyalog perdesi HUD araçlarını örtüyordu (artık görev içi diyalog duraklatılır, aynı
+karttan sürer); yeniden başlatmada eski diyaloğun sözü oyunu yeni diyaloğun altında sürdürebiliyordu (`talkSeq`/`runSeq`);
+kilitli görev oturumdan geri yüklenen seçim ekranından başlatılabiliyordu; bozuk kayıtta zafersiz yıldızlar sayılıyordu;
+Kütüphane/Kodeks penceresi bölümden çıkınca açık kalıyordu ve Esc sonrası odak kayboluyordu; Günlük kutucuğunda geri sayım
+kesiliyordu; yatay telefonda görev hedefleri sahnenin altında kalıyordu.
+
+STORY_TEST_PLACEHOLDER
+

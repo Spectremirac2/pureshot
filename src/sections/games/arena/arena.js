@@ -305,7 +305,10 @@ export function mountArena(el, ctx = {}) {
   const joyZone = h('div', { class: 'ar-joyzone', 'aria-hidden': 'true' }, joyBase);
   const tbtns = h('div', { class: 'ar-tbtns' }, tslots.q.btn, tslots.w.btn, tslots.e.btn, tslots.r.btn);
   const titemsEl = h('div', { class: 'ar-titems' }, titems.map((s) => s.btn));
-  const touchLayer = h('div', { class: 'ar-touch' }, joyZone, titemsEl, tbtns);
+  // dokunmatikte yetenek puanı (+N) ve yetenek ağacı (T) düğmeleri yetenek kümesinin üstüne taşınır: portrede
+  // durduklarında 44 px'lik portreyi örtüyor, portreye dokunmak kahraman sayfası yerine öğrenme kipini açıyordu
+  const tlearn = h('div', { class: 'ar-tlearn' });
+  const touchLayer = h('div', { class: 'ar-touch' }, joyZone, titemsEl, tbtns, tlearn);
 
   // --- dükkân ve yetenek ağacı
   const shop = buildShop({
@@ -402,7 +405,7 @@ export function mountArena(el, ctx = {}) {
     h('li', null, h('b', null, 'Yetenek düğmeleri:'), ' dokun = en yakın hedefe; basılı tutup sürükle = yön ver, bırak = kullan.'),
     h('li', null, h('b', null, 'Okçu Q:'), ' basılı tut, şarj et; sağ tarafa dokunmak da ok atar.'),
     h('li', null, h('b', null, 'Altın düğmesi:'), ' dükkân. Etkin eşyalar yeteneklerin üstünde.'),
-    h('li', null, h('b', null, 'Yetenek puanı:'), ' portredeki yeşil “+” düğmesine dokun, sonra öğrenmek istediğin yeteneğe dokun.'),
+    h('li', null, h('b', null, 'Yetenek puanı:'), ' yetenek düğmelerinin üstündeki yeşil “+” düğmesine dokun, sonra öğrenmek istediğin yeteneğe dokun. Ağaç simgesi yetenek ağacını açar.'),
     h('li', null, h('b', null, 'Portre:'), ' dokun, kahraman sayfası (özellikler, yetenek ağacı) açılır.'),
   );
   const select = buildSelect({
@@ -553,6 +556,9 @@ export function mountArena(el, ctx = {}) {
   function setTouchMode(v) {
     touchMode = v;
     stage.classList.toggle('is-touch', v);
+    // tlearn sağdan sola dizer: +N hep aynı yerde (E'nin üstünde), T gerekince onun solunda
+    if (v && spBtn.parentNode !== tlearn) tlearn.append(spBtn, talentBtn);
+    else if (!v && spBtn.parentNode !== portraitBox) portraitBox.append(talentBtn, spBtn);
   }
   setTouchMode(touchMode);
 
@@ -618,7 +624,7 @@ export function mountArena(el, ctx = {}) {
       /** Görevi doğrudan başlat (isteğe bağlı kahramanla). */
       story: (id, heroId) => loadStory().then(() => loadStoryUi()).then(() => {
         if (heroId) { devUnlock(heroId); save.hero = heroId; select.setHero(heroId); game.attract(heroId); applyHeroUi(); }
-        run = { kind: 'story', missionId: id };
+        run = { kind: 'story', missionId: id, dev: true }; // test kancası: kilit denetimini atlar
         menu = 'select';
         refreshSelectContext();
         startGame();
@@ -688,6 +694,11 @@ export function mountArena(el, ctx = {}) {
     return false;
   }
   let stopCurse = null;
+  /** Lanet seçicisini (progression.mountCursePicker → tembel library.js) bir kez kur. */
+  function ensureCursePicker() {
+    if (stopCurse || !prog || !alive) return;
+    try { if (typeof prog.mountCursePicker === 'function') stopCurse = prog.mountCursePicker(select.curseHost, { onChange: () => { sound.click(); refreshSelectContext(); } }); } catch (e) { console.warn('Arena: mountCursePicker', e); }
+  }
   const progLoader = PROG_MOD['./progression.js'];
   if (progLoader) {
     progLoader().then((m) => {
@@ -697,8 +708,8 @@ export function mountArena(el, ctx = {}) {
       // İlerleme sözleşmesi (docs/ARENA-ILERLEME.md, madde 1): salon mağazası + oyun içi sayaçlar (kodeks, ustalık)
       try { if (typeof m.connectStore === 'function') m.connectStore(coreStore); } catch (e) { console.warn('Arena: connectStore', e); }
       try { if (typeof m.trackGame === 'function' && game) stopTrack = m.trackGame(game); } catch (e) { console.warn('Arena: trackGame', e); }
-      // madde 3: Sonsuz modun Lanet seçicisi (seçim ekranında, yalnız Sonsuz bağlamında görünür)
-      try { if (typeof m.mountCursePicker === 'function') stopCurse = m.mountCursePicker(select.curseHost, { onChange: () => { sound.click(); refreshSelectContext(); } }); } catch (e) { console.warn('Arena: mountCursePicker', e); }
+      // madde 3: Sonsuz modun Lanet seçicisi seçim ekranı ilk açılınca kurulur (library.js parçasını çeker; merkezde gerekmez)
+      if (menu === 'select') ensureCursePicker();
       ensureStoryCodex();
       refreshSelectContext();
       if (mode === 'start' && menu === 'hub') renderHub();
@@ -1752,12 +1763,14 @@ export function mountArena(el, ctx = {}) {
       eyebrow: 'Aghanim Kütüphanesi', title: 'Kütüphane',
       meta: shards == null ? 'Kahramanlar, çantalar, Lanetler' : `${fmtNum(shards)} Parıltı Taşı`,
       label: 'Aghanim Kütüphanesi', onClick: () => openPanel('library'),
+      prefetch: () => { import('./library.js').catch(() => { /* tıklamada yeniden denenir */ }); },
     }));
     hubGrid.appendChild(tile('is-codex', {
       icon: 'compass', color: '#5ab4ff',
       eyebrow: 'Koleksiyon', title: 'Kodeks',
       meta: codexCounts ? `${codexCounts.have}/${codexCounts.total} kayıt` : 'Birimler, bosslar, eşyalar, hikâye',
       label: 'Kodeks', onClick: () => openPanel('codex'),
+      prefetch: () => { import('./codex.js').catch(() => { /* tıklamada yeniden denenir */ }); },
     }));
   }
 
@@ -1799,10 +1812,13 @@ export function mountArena(el, ctx = {}) {
   }
 
   function openSelect(kind = 'endless', missionId = null) {
+    // kilitli görev (eski oturum kaydı, başka sekmede sıfırlanan ilerleme, elle değiştirilen kayıt) seçime açılmaz: harita
+    if (kind === 'story' && storyMod && storyMod.isMission(missionId) && !storyMod.missionUnlocked(missionId)) { openCampaign(null); return; }
     menu = 'select';
     attractHero(save.hero);
     run = kind === 'story' && storyMod && storyMod.isMission(missionId) ? { kind: 'story', missionId } : { kind: 'endless' };
     refreshSelectContext();
+    ensureCursePicker();
     select.setHero(save.hero);
     showScreen('start');
     writeUi({ menu: 'select', kind: run.kind, missionId: run.missionId || null });
@@ -1889,17 +1905,26 @@ export function mountArena(el, ctx = {}) {
   }, 1000);
 
   // ------------------------------------------------------------------ Kütüphane · Kodeks · ustalık (tembel ekranlar, pencerede)
+  /** Açık Kütüphane/Kodeks/ustalık penceresini kapatan işlev (fx.modal body'ye eklenir: bölümden çıkınca da kapanmalı). */
+  let closePanel = null;
   function openPanel(kind, arg) {
+    if (!alive) return;
     if (!prog) { fx.toast?.('Kalıcı ilerleme yükleniyor, birazdan tekrar dene.', 'ember'); return; }
+    if (closePanel) closePanel();
     if (isFs()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* yok say */ } }
     if (mode === 'playing') pause({ focus: false });
-    const host = h('div', { class: 'ar-panelhost' });
+    // Kütüphane/Kodeks/ustalık tembel parçalardır: parça inene kadar boş pencere yerine dönen gösterge
+    const spin = h('div', { class: 'ar-panel-loading', role: 'status', 'aria-label': 'Yükleniyor' }, h('div', { class: 'spinner' }));
+    const host = h('div', { class: 'ar-panelhost' }, spin);
+    const mo = new MutationObserver(() => { if (host.childElementCount > 1 || !host.contains(spin)) { spin.remove(); mo.disconnect(); } });
+    mo.observe(host, { childList: true });
     let inner = null;
     const label = kind === 'library' ? 'Aghanim Kütüphanesi' : kind === 'codex' ? 'Kodeks' : 'Kahraman ustalığı';
     const close = fx.modal(host, {
       label, cls: `arl-modal ar-modal-${kind}`,
-      onClose: () => { try { if (inner) inner(); } catch { /* yok say */ } inner = null; afterPanel(); },
+      onClose: () => { mo.disconnect(); if (closePanel === close) closePanel = null; try { if (inner) inner(); } catch { /* yok say */ } inner = null; afterPanel(); },
     });
+    closePanel = close;
     try {
       if (kind === 'library') inner = prog.mountLibrary(host, { branch: arg, onClose: close, onCodex: () => { close(); openPanel('codex'); } });
       else if (kind === 'codex') inner = prog.mountCodex(host, { kind: arg, onClose: close });
@@ -1908,10 +1933,16 @@ export function mountArena(el, ctx = {}) {
     sound.click();
   }
   function afterPanel() {
+    if (!alive) return;
+    // fx.modal odağı pencereyi açan düğmeye geri verir; merkez yeniden çizilince o düğme DOM'dan çıkıyordu (odak
+    // body'ye düşüyordu): aynı kutucuğu yeniden odakla
+    const a = document.activeElement;
+    const tileKey = a && hubGrid.contains(a) ? [...a.classList].find((c) => c.startsWith('is-')) : null;
     select.refresh();
     refreshSelectContext();
     if (mode === 'start' && menu === 'hub') renderHub();
     if (mode === 'start' && menu === 'daily') renderDaily();
+    if (tileKey && menu === 'hub') { try { hubGrid.querySelector(`.ar-hub-tile.${tileKey}`)?.focus({ preventScroll: true }); } catch { /* yok say */ } }
   }
 
   // ------------------------------------------------------------------ hikâye diyalogları
@@ -1919,6 +1950,17 @@ export function mountArena(el, ctx = {}) {
   let storyMission = null;
   const firedTriggers = new Set();
   let pendingTalk = [];
+  // her talk() çağrısı bir sıra numarası alır: yerine yenisi açılan (ya da koşu yeniden başlayınca kapanan) eski diyaloğun
+  // sözü çözülünce leaveTalk() yeni diyaloğun üstünde oyunu sürdürmesin
+  let talkSeq = 0;
+  let runSeq = 0; // her startGame bir artırır (eski koşunun gecikmeli işleri kendini tanır)
+  /** Görev içi diyalog açıkken duraklatıldı mı? (sürdürünce aynı karta dönülür) */
+  let pausedTalk = false;
+  const canPauseTalk = () => mode === 'talk' && !!(dlg && dlg.open) && !!game && (game.state === 'playing' || game.state === 'break');
+  function setTalkPaused(v) {
+    pausedTalk = !!v;
+    talkHost.classList.toggle('is-paused', pausedTalk);
+  }
   function ensureDlg(u) {
     if (dlg) return dlg;
     dlg = u.createDialogue(talkHost, {
@@ -1956,14 +1998,24 @@ export function mountArena(el, ctx = {}) {
    */
   function talk(cards, resume) {
     if (!cards || !cards.length) return Promise.resolve('done');
+    const seq = ++talkSeq;
+    setTalkPaused(false);
     if (resume) enterTalk(); else { mode = 'talk'; stage.classList.remove('is-playing'); }
     return loadStoryUi().then((u) => {
-      if (!alive) return 'skip';
+      if (!alive || seq !== talkSeq) return 'skip';
       ensureDlg(u);
       talkCue(cards[0]);
-      say(`Diyalog: ${cards.length} kart. Enter ya da Boşluk ile ilerle, Esc ile atla.`, true);
+      say(`Diyalog: ${cards.length} kart. Enter ya da Boşluk ile ilerle, Esc ile atla, P ile duraklat.`, true);
       return dlg.play(cards, { heroId: game.heroId });
-    }).then((how) => { if (resume) leaveTalk(); return how; });
+    }).then((how) => { if (resume && seq === talkSeq) leaveTalk(); return how; });
+  }
+  /** Açık diyaloğu kapat ve bekleyen talk() zincirlerini geçersiz kıl (yeni koşu / menü). */
+  function dropTalk() {
+    talkSeq += 1;
+    pendingTalk = [];
+    setTalkPaused(false);
+    if (dlg) dlg.close();
+    stage.classList.remove('in-talk');
   }
   /** Oyun olayı görev içi bir diyaloğu tetikliyor mu? (story.js triggerMatches) */
   function storyEvent(type, d) {
@@ -1993,6 +2045,11 @@ export function mountArena(el, ctx = {}) {
     let base;
     if (run.kind === 'story') {
       if (!storyMod || !storyMod.isMission(run.missionId)) { openCampaign(null); return; }
+      if (!storyMod.missionUnlocked(run.missionId) && !(import.meta.env.DEV && run.dev)) {
+        fx.toast?.('Bu görev henüz kilitli: haritadan sıradaki görevi seç.', 'ember');
+        if (mode === 'start' || mode === 'loading') openCampaign(null); else toMenu('campaign');
+        return;
+      }
       if (!select.allowed(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
       base = storyMod.storyRunConfig(run.missionId, save.hero);
     } else if (run.kind === 'daily') {
@@ -2015,7 +2072,8 @@ export function mountArena(el, ctx = {}) {
     if (import.meta.env.DEV && devMeta && typeof devMeta === 'object') cfg.meta = { ...(cfg.meta || {}), ...devMeta };
     game.autoSkill = autoLearn;
     lastRunEnd = null;
-    pendingTalk = [];
+    runSeq += 1;
+    dropTalk();
     firedTriggers.clear();
     storyMission = run.kind === 'story' ? storyMod.MISSIONS[run.missionId] : null;
     game.start(cfg);
@@ -2032,9 +2090,13 @@ export function mountArena(el, ctx = {}) {
     sound.click();
     if (storyMission) {
       const prep = cfg.mission && cfg.mission.prep > 0;
-      talk(storyMission.dialogue.intro, true).then(() => {
-        if (!alive || mode !== 'playing') return;
-        say(`${storyMission.name}. Hedef: ${storyMod.requiredGoals(run.missionId).join(', ')}.`, true);
+      const sm = storyMission;
+      const mid = run.missionId;
+      const myRun = runSeq;
+      talk(sm.dialogue.intro, true).then(() => {
+        // yeniden başlatılan / menüye dönülen koşunun eski giriş diyaloğu burada durur
+        if (!alive || mode !== 'playing' || runSeq !== myRun) return;
+        say(`${sm.name}. Hedef: ${storyMod.requiredGoals(mid).join(', ')}.`, true);
         // hazırlık molası: başlangıç seviyesi yetenek ağacı seçimi bekliyorsa önce o (kapanınca dükkân açılır)
         if (prep && game.state === 'break') later(() => {
           if (mode !== 'playing' || game.state !== 'break' || shop.open) return;
@@ -2046,7 +2108,10 @@ export function mountArena(el, ctx = {}) {
   }
 
   function pause({ focus = true } = {}) {
-    if (mode !== 'playing') return;
+    // görev içi diyalogda da duraklatılabilir (diyalog gizlenir, sürdürünce aynı karta dönülür); çıkış diyaloğunda değil
+    const fromTalk = canPauseTalk();
+    if (mode !== 'playing' && !fromTalk) return;
+    if (fromTalk) setTalkPaused(true);
     mode = 'paused';
     keys.clear();
     game.chargeCancel();
@@ -2060,6 +2125,15 @@ export function mountArena(el, ctx = {}) {
 
   function resume() {
     if (mode !== 'paused') return;
+    if (pausedTalk && dlg && dlg.open) {
+      setTalkPaused(false);
+      mode = 'talk';
+      showScreen(null);
+      later(() => { try { talkHost.querySelector('.ars-talk-next')?.focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
+      sound.click();
+      return;
+    }
+    setTalkPaused(false);
     mode = 'playing';
     showScreen(null);
     stage.classList.add('is-playing');
@@ -2074,8 +2148,8 @@ export function mountArena(el, ctx = {}) {
   function toMenu(target) {
     if (overLb) { overLb(); overLb = null; }
     clearOver();
-    if (dlg) dlg.close();
-    pendingTalk = [];
+    runSeq += 1;
+    dropTalk();
     setLearnMode(false);
     hideBuyback();
     hideNeutralChoice();
@@ -2284,11 +2358,13 @@ export function mountArena(el, ctx = {}) {
     const info = { r, id, M, C, rec, stars, victory, end, rewards, chapter, heroGift };
     if (victory) {
       snd('win', 0);
+      const myRun = runSeq;
+      const still = () => alive && runSeq === myRun; // bu arada yeni koşu/menü açıldıysa rapor çizilmez
       talk(M.dialogue.win, false).then(() => {
-        if (!alive) return;
+        if (!still()) return;
         if (rec && rec.finale) {
           try { sound.record(); } catch { /* yok say */ }
-          talk(S.FINALE.cards, false).then(() => { if (alive) showFinale(() => storyReport(info)); });
+          talk(S.FINALE.cards, false).then(() => { if (still()) showFinale(() => { if (still()) storyReport(info); }); });
         } else storyReport(info);
       });
     } else {
@@ -2422,7 +2498,7 @@ export function mountArena(el, ctx = {}) {
   resumeBtn.addEventListener('click', resume);
   restartBtn.addEventListener('click', startGame);
   menuBtn.addEventListener('click', toMenu);
-  pauseBtn.addEventListener('click', () => { if (mode === 'playing') pause(); else if (mode === 'paused') resume(); });
+  pauseBtn.addEventListener('click', () => { if (mode === 'playing' || canPauseTalk()) pause(); else if (mode === 'paused') resume(); });
   fsBtn.addEventListener('click', () => {
     toggleFs();
     if (mode === 'playing') focusStage();
@@ -2484,7 +2560,12 @@ export function mountArena(el, ctx = {}) {
     if (document.querySelector('.modal-backdrop')) return;
     const code = e.code;
     // hikâye diyaloğu açıkken: Boşluk/Enter ilerlet, Esc atla; oyun tuşları işlenmez
-    if (mode === 'talk') { if (dlg && dlg.key(e)) return; if (code === 'Escape' || code === 'Space' || code === 'Enter') e.preventDefault(); return; }
+    if (mode === 'talk') {
+      if (code === 'KeyP' && !e.ctrlKey && !e.metaKey && !e.altKey && canPauseTalk()) { e.preventDefault(); pause(); return; }
+      if (dlg && dlg.key(e)) return;
+      if (code === 'Escape' || code === 'Space' || code === 'Enter') e.preventDefault();
+      return;
+    }
     // Ctrl + Q/E/R (WASD düzeninde W = Ctrl+Boşluk): yetenek öğren (Dota'daki gibi). Ctrl+W tarayıcıya ayrılmıştır.
     if (e.ctrlKey && !e.metaKey && !e.altKey && (mode === 'playing' || mode === 'picking')) {
       const k = code === 'KeyW' ? null : keyOf(code);
@@ -3087,6 +3168,10 @@ export function mountArena(el, ctx = {}) {
       stage.classList.toggle('is-narrow', w < 560);
       stage.classList.toggle('is-mid', w >= 560 && w < 980);
       stage.classList.toggle('is-short', hh < 440 && w >= 560);
+      // yatay telefon + site çubukları: sahne ~220 px (tam ekranda değil) → dokunmatik yerleşim sıkıştırılır
+      stage.classList.toggle('is-tiny', hh < 300 && w >= 560);
+      // …ve joystick ile +N/T yuvası yan yana sığmıyorsa (sahne < 764 px) yuva dikey dizilir
+      stage.classList.toggle('is-tight', hh < 300 && w >= 560 && w < 764);
       if (view && view.setFrame) view.setFrame({ side: w < 760 || w / Math.max(1, hh) < 1.05 ? 'top' : 'right' });
     }
   }
@@ -3251,6 +3336,8 @@ export function mountArena(el, ctx = {}) {
   // ------------------------------------------------------------------ temizlik
   return () => {
     alive = false;
+    // açık pencere (Kütüphane/Kodeks/ustalık) bölümle birlikte kapanır: Geri tuşuyla çıkınca yeni sayfada kalıyordu
+    if (closePanel) { try { closePanel(); } catch { /* yok say */ } closePanel = null; }
     clearInterval(cdTimer);
     clearOver();
     if (stopCamp) { try { stopCamp(); } catch { /* yok say */ } stopCamp = null; }

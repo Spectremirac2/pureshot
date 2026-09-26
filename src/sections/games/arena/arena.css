@@ -506,13 +506,15 @@
 .ar-stage.is-touch .ar-portrait { width: 44px; height: 44px; }
 .ar-stage.is-touch .ar-portrait-i { inset: 3px; padding: 7px; }
 .ar-stage.is-touch .ar-portrait-lvl { font-size: 10px; height: 16px; min-width: 20px; bottom: -5px; }
-.ar-stage.is-touch .ar-talent-btn { width: 26px; height: 26px; right: -10px; top: -10px; }
 .ar-stage.is-touch .ar-panel-mid { flex: 1; min-width: 0; }
 .ar-stage.is-touch .ar-slots { display: none; }
 .ar-stage.is-touch .ar-items { display: none; }
 .ar-stage.is-touch .ar-panel-items { width: 100%; }
 .ar-stage.is-touch .ar-gold { height: 44px; width: 100%; font-size: 16px; justify-content: flex-start; }
 .ar-stage.is-touch .ar-bars { min-width: 0; }
+/* orta genişlikte (.is-mid, ör. yatay telefon ya da dikey tablet) masaüstü çubuk genişliği (212 px) dokunmatik panelden
+   taşıp can/mana sayılarını kırpıyordu: dokunmatik panelde çubuklar esnek kalır */
+.ar-stage.is-touch .ar-panel .ar-bars { min-width: 0; }
 .ar-stage.is-touch .ar-buffs { order: 2; min-height: 0; justify-content: flex-start; }
 .ar-stage.is-touch .ar-tool { width: 44px; height: 44px; }
 .ar-stage.is-touch .ar-scorebox { top: 8px; left: 8px; padding: 4px 10px 5px; }
@@ -553,11 +555,45 @@
 .ar-stage.is-short .ar-banner { top: 24%; }
 .ar-stage.is-short.is-touch .ar-minimap { width: 80px; height: 80px; }
 .ar-stage.is-short.is-touch .ar-feed { top: 146px; }
+/* Çok alçak sahne (yatay telefon, tam ekran değil, ~220 px): joystick şeridi 18 px'e iniyor ve panelin üstüne
+   çiziliyordu, görev hedefleri sahnenin altında kalıyordu. Skor kutusu ve özellik satırı gizlenir, panel yukarı çıkar,
+   hedefler panelin altında, joystick panelin sağında, etkin eşyalar mini haritanın solunda. */
+.ar-stage.is-tiny.is-touch .ar-scorebox { display: none; }
+.ar-stage.is-tiny.is-touch .ar-panel { top: 8px; }
+.ar-stage.is-tiny.is-touch .ar-attrs { display: none; }
+.ar-stage.is-tiny.is-touch:not(.is-narrow) .ar-objs { top: auto; bottom: 8px; left: 8px; max-width: min(34%, 220px); font-size: 10.5px; padding: 4px 6px; gap: 1px; }
+.ar-stage.is-tiny.is-touch .ar-joyzone { top: 64px; left: calc(min(34%, 220px) + 16px); width: auto; right: 50%; }
+.ar-stage.is-tiny.is-touch .ar-joy-base { left: 60px; top: calc(100% - 48px); width: 80px; height: 80px; margin: -40px 0 0 -40px; }
+.ar-stage.is-tiny.is-touch .ar-joy-knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
+.ar-stage.is-tiny.is-touch .ar-titems { right: 96px; }
+.ar-stage.is-tiny.is-touch .ar-objs .ar-obj-head { display: none; }
+.ar-stage.is-tiny.is-touch:not(.is-narrow) .ar-objs .ar-obj { line-height: 1.25; }
+.ar-stage.is-tiny.is-touch .ar-buffs { position: absolute; left: calc(100% + 8px); top: 60px; width: 150px; flex-wrap: wrap; }
+.ar-stage.is-tiny .ar-top-kills { display: none; }
+.ar-stage.is-tiny.is-touch .ar-top { left: calc(min(34%, 220px) + 16px); transform: none; }
+.ar-stage.is-tiny .ar-bossbar { left: calc(min(34%, 220px) + 16px); transform: none; width: min(360px, 44%); }
 
 /* Orta genişlik (küçük dizüstü): daha küçük mini harita ve slotlar */
 .ar-stage.is-mid .ar-minimap { width: 118px; height: 118px; }
 .ar-stage.is-mid .ar-slot { width: 50px; height: 50px; }
 .ar-stage.is-mid .ar-portrait { width: 62px; height: 62px; }
+
+/* Dar sahne + fare/klavye (ör. daraltılmış masaüstü penceresi, < 560 px): masaüstü paneli ~600 px'ti ve sahnenin iki
+   yanından taşıp kırpılıyordu. Panel tam genişlik ve iki sıra: portre · özellikler · yetenekler+çubuklar / eşyalar · altın. */
+.ar-stage.is-narrow:not(.is-touch) .ar-panel { left: 6px; right: 6px; bottom: 6px; transform: none; }
+.ar-stage.is-narrow:not(.is-touch) .ar-panel-box { flex-wrap: wrap; justify-content: center; gap: 6px 8px; padding: 6px 8px 7px; max-width: 100%; }
+.ar-stage.is-narrow:not(.is-touch) .ar-portrait { width: 52px; height: 52px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-portrait-i { inset: 3px; padding: 9px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-attrs { flex-direction: row; order: 3; width: 100%; min-width: 0; padding: 0; gap: 8px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-attrs-r { flex: 1; font-size: 11px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-attrs-k { display: none; }
+.ar-stage.is-narrow:not(.is-touch) .ar-panel-mid { flex: 1 1 200px; min-width: 0; gap: 5px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-slot { width: 44px; height: 44px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-bars { min-width: 0; }
+.ar-stage.is-narrow:not(.is-touch) .ar-panel-items { flex-direction: row; align-items: center; width: 100%; }
+.ar-stage.is-narrow:not(.is-touch) .ar-items { grid-template-columns: repeat(7, 34px); }
+.ar-stage.is-narrow:not(.is-touch) .ar-islot { width: 34px; }
+.ar-stage.is-narrow:not(.is-touch) .ar-buffs { min-height: 0; }
 .ar-stage.is-mid .ar-bars { min-width: 212px; }
 
 /* Dar sahne: iki satırlı üst HUD (sol: sayaçlar + çubuklar, sağ: araçlar + mini harita + skor) */
@@ -901,7 +937,7 @@
 @media (pointer: fine) { .ar-shop-buy { display: none; } }
 .ar-shop-baghead { display: flex; justify-content: space-between; gap: 8px; color: var(--text-3); }
 .ar-shop-bag { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.ar-shop-slot { position: relative; aspect-ratio: 88 / 64; min-height: 34px; padding: 0; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--bg) 80%, transparent); cursor: pointer; overflow: hidden; }
+.ar-shop-slot { position: relative; width: 100%; min-width: 0; aspect-ratio: 88 / 64; min-height: 34px; padding: 0; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--bg) 80%, transparent); cursor: pointer; overflow: hidden; }
 .ar-shop-slot .ar-item-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ar-shop-slot.confirm { border-color: var(--dire); }
 .ar-shop-slot.confirm::after { content: 'SAT?'; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(120, 10, 25, 0.7); color: #fff; font-size: 11px; font-weight: 800; }
@@ -1301,6 +1337,8 @@
 .ar-tree-plus svg { display: block; }
 .ar-shop-bag { grid-template-columns: repeat(6, minmax(0, 1fr)) 30px; }
 .ar-shop-neutral { border-radius: 15px; border-color: color-mix(in srgb, var(--radiant) 55%, var(--line-2)); cursor: default; display: block; }
+/* yuvarlak 30 px yuva: oran + min-height 30 px'lik sütuna ~47 px genişlik taşıyordu (390 px'te ve masaüstünde kırpılıyordu) */
+.ar-shop-neutral { width: 30px; height: 30px; min-height: 0; aspect-ratio: auto; align-self: center; justify-self: center; }
 .ar-shop-neutral .ar-item-img { width: 100%; height: 100%; }
 .ar-shop-slot.reserved { opacity: 0.55; outline: 1px dashed var(--aegis); outline-offset: -3px; }
 .ar-shop-stash { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -1408,7 +1446,18 @@
 .ar-stage.is-touch .ar-attrs { flex-direction: row; order: 3; width: 100%; min-width: 0; padding: 0; gap: 8px; }
 .ar-stage.is-touch .ar-attrs-r { flex: 1; font-size: 11px; }
 .ar-stage.is-touch .ar-attrs-k { display: none; }
-.ar-stage.is-touch .ar-sp-btn { min-width: 44px; height: 44px; left: -6px; top: -8px; border-radius: 22px; font-size: 15px; }
+/* +N ve T dokunmatikte portrede değil, yetenek kümesinin üstünde (E'nin üstü, R'nin solu): portre, +N ve T ayrı 44 px hedefler */
+.ar-tlearn {
+  position: absolute; right: 98px; bottom: 156px;
+  display: flex; flex-direction: row-reverse; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.ar-tlearn > * { pointer-events: auto; }
+.ar-stage.is-touch .ar-tlearn .ar-sp-btn { position: relative; left: auto; top: auto; min-width: 44px; height: 44px; border-radius: 22px; font-size: 15px; }
+.ar-stage.is-touch .ar-tlearn .ar-talent-btn { position: relative; right: auto; top: auto; width: 44px; height: 44px; padding: 10px; }
+.ar-stage.is-short .ar-tlearn { right: 278px; bottom: 10px; }
+/* çok alçak ve dar sahnede (< 764 px) +N ve T üst üste: yan yana dururken joystick bölgesine giriyordu */
+.ar-stage.is-tight .ar-tlearn { flex-direction: column-reverse; }
 .ar-stage.is-touch .ar-sp-plus { width: 14px; height: 14px; }
 .ar-stage.is-touch .ar-nslot { display: none; }
 .ar-tbtn .ar-slot-lv { bottom: 3px; }
@@ -1513,6 +1562,9 @@
 .ar-hub-eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ar-hub-meta { font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ar-hub-sub { font-size: 11.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Günlük kutucuğu: alt satırın sonu geri sayım; tek satırda üç nokta tam onu kesiyordu (1440'ta “yenilenme 13 sa 18…”) */
+.ar-hub-tile.is-daily .ar-hub-sub { white-space: normal; }
+.ar-hub-sub .ar-cd { white-space: nowrap; }
 .ar-hub-go { color: var(--tc); opacity: 0.8; }
 .ar-hub-tile.is-story { grid-column: 1 / -1; min-height: 96px; }
 .ar-hub-tile.is-story .ar-hub-title { font-size: 1.25rem; }
@@ -1593,6 +1645,13 @@
 .ar-obj-head { font-family: var(--font-lore); font-weight: 700; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--aegis); }
 .ar-talkhost { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
 .ar-talkhost > * { pointer-events: auto; }
+/* görev içi diyalog duraklatıldı: kart gizli, sürdürünce aynı karttan devam */
+.ar-talkhost.is-paused { visibility: hidden; }
+.ar-panel-loading { display: grid; place-items: center; min-height: 240px; }
+/* diyalog perdesi (tam sahne degrade) tıklamaları yutmasın: yalnız kart etkileşimli. Perde HUD araçlarını (duraklat, tam
+   ekran) örtüyordu; diyalogda sahnede başka etkin HUD denetimi yok (dokunmatik katman ve panel gizli, tuval tepki vermez). */
+.ar-talkhost > .ars-talk { pointer-events: none; }
+.ar-talkhost .ars-talk-card { pointer-events: auto; }
 .ar-stage.in-talk .ar-touch, .ar-stage.in-talk .ar-break, .ar-stage.in-talk .ar-panel { visibility: hidden; }
 .ar-screen.ar-finale-screen { background: var(--bg); }
 

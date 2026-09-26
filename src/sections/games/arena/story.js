@@ -867,9 +867,11 @@ export function loadStory() {
   if (isObj(raw.missions)) {
     for (const [id, m] of Object.entries(raw.missions)) {
       if (!isMission(id) || !isObj(m)) continue;
+      const wins = Math.max(0, Math.floor(num(m.wins)));
       S.missions[id] = {
-        stars: Math.max(0, Math.min(3, Math.floor(num(m.stars)))),
-        wins: Math.max(0, Math.floor(num(m.wins))),
+        // yıldız yalnız zaferle gelir: bozuk kayıttaki zafersiz yıldızlar toplam ★ ve bölüm yıldızlarına sayılmaz
+        stars: wins > 0 ? Math.max(0, Math.min(3, Math.floor(num(m.stars)))) : 0,
+        wins,
         plays: Math.max(0, Math.floor(num(m.plays))),
         best: num(m.best) > 0 ? Math.round(num(m.best)) : 0,
         first: Math.max(0, Math.floor(num(m.first))),

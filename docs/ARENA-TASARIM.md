@@ -140,4 +140,4 @@ Salon skor tablosu yalnızca Sonsuz modun puanıdır (`scores.arena`), anlamı d
 | B | Savaş derinliği: özellikler, hasar hattı, durum etkileri, yetenek seviyeleri, 10/15/20/25 ağaç, tarifli eşyalar, orman kampları ve eşyaları, gece-gündüz, deny/buyback, yeni iki kahramanın kitleri | Savaş ajanı |
 | C | Kalıcı ilerleme: ustalık, Kütüphane, Parıltı, Lanet seviyeleri, kodeks | İlerleme ajanı (D ile paralel) |
 | D | Hikâye: 5 bölüm, 15 görev, diyaloglar, bosslar, mod menüsü (Hikâye/Sonsuz/Günlük/Kütüphane) | ✅ Tamamlandı — [oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md) |
-| F | Denge, oynanış testi, performans, belgeler | QA ajanı |
+| F | Denge, oynanış testi, performans, belgeler | ✅ Tamamlandı — 10 hata düzeltildi (mobil +N/portre, dükkân orman yuvası, diyalogda duraklatma, sızan pencere, kilitli görev, yatay telefon ve dar pencere HUD’u …), test notları: [oyunlar/arena.md](oyunlar/arena.md#test-notları-faz-f) |
