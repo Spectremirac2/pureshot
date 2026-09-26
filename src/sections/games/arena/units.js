@@ -861,7 +861,7 @@ export function stepTowers(g, dt) {
     if (t.tgt && t.cd <= 0) {
       t.cd = U.atkRate;
       t.shotT = 0.25;
-      const dmg = U.dmg * (1 + (t.side === 'dire' ? 0.1 : 0.14) * (g.wave - 1)) * (t.side === 'dire' ? g.mods.enemyDmg || 1 : 1);
+      const dmg = U.dmg * (1 + (t.side === 'dire' ? 0.1 : 0.14) * ((g.scaleWave ? g.scaleWave() : g.wave) - 1)) * (t.side === 'dire' ? g.mods.enemyDmg || 1 : 1);
       g.fireProj({ from: t, kind: U.proj, target: t.tgt, dmg, type: DMG.PHYS, speed: 15, y: 3.1 });
       g.emit('towerShot', { tower: t, target: t.tgt });
     }

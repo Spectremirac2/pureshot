@@ -39,8 +39,9 @@ hep bu listeden türetilir; yeni eser eklemek için başka bir listeyi elle gün
 | XVIII | III · Dokuzun Laneti | Sonsuz Pub’ın Kalbi | `model-boss-ancient` | final boss’u | 768² |
 
 Eserler Dota arketiplerinden esinlenen özgün tasarımlardır; plaketlerde hiçbirine Valve kahraman adı verilmez
-(esprili göndermeler serbest). Salon III, Arena’nın yakında gelecek hikâye modunun ("Dokuzun Laneti": bitmeyen bir
-pub maçı oyuncuların ruhunu DOG’a çevirir, laneti 1vDOQUZ ile kırarsın; anlatıcı Kurye) kadrosudur.
+(esprili göndermeler serbest). Salon III, Arena’nın hikâye modunun ("Dokuzun Laneti": bitmeyen bir pub maçı
+oyuncuların ruhunu DOG’a çevirir, laneti 1vDOQUZ ile kırarsın; anlatıcı Kurye) kadrosudur; hikâye yayında olduğu için
+eserlerin hepsi `arena: true` (“Arena’da gör”). Bkz. [oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md).
 
 ### Eser alanları
 
@@ -52,7 +53,7 @@ pub maçı oyuncuların ruhunu DOG’a çevirir, laneti 1vDOQUZ ile kırarsın; 
 | `name`, `kicker`, `desc`, `icon` | plaket başlığı, rol satırı, esprili açıklama, slot ikonu (`core/icons.js`) |
 | `height`, `yaw` | kaide üstündeki yükseklik (birim) ve modeli kameraya çevirmek için y dönüşü (şu an hepsi 0: tüm modeller önden bakıyor) |
 | `pitch` | DOG! havlamasının perdesi (boss’lar kalın, harpi ince) |
-| `arena` | `true` → plakette "Arena’da gör" (`#oyunlar--arena`); `'soon'` → "Yakında hikâye modunda" rozeti + "Arena’ya git". Hikâye modu yayına girince Salon III eserlerinde `true` yapın. |
+| `arena` | `true` → plakette "Arena’da gör" (`#oyunlar--arena`); `'soon'` → "Yakında hikâye modunda" rozeti + "Arena’ya git" (hikâye yayına girdi: Salon III eserleri artık `true`). |
 | `fallbackArt`, `fallbackArch` | WebGL yokken gösterilecek 2D görsel (yoksa ikonlu kart çizilir) |
 
 ### Yeni eser eklemek

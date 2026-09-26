@@ -595,13 +595,13 @@ export class DogRig {
     this.label.mat.opacity = lop;
     lg.visible = lop > 0.02;
     this.label.draw({
-      name: DOG_TYPES[d.type].short,
+      name: d.label || DOG_TYPES[d.type].short,
       color: this.color,
       hp: d.hp,
       maxHp: d.maxHp,
       status: d.dead ? null : (d.st && d.st.hex > 0 ? 'hex' : d.status),
       elite: d.elite,
-      tag: execThr > 0 && !d.dead && d.hp <= execThr ? 'İNFAZ' : d.thief ? 'RAPIER!' : d.loot ? 'GANİMET' : d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.guardOf ? 'MUHAFIZ' : d.elite ? 'ELİT' : '',
+      tag: execThr > 0 && !d.dead && d.hp <= execThr ? 'İNFAZ' : d.thief ? 'RAPIER!' : d.loot ? 'GANİMET' : d.type === 'farm' && d.state === 'carry' ? '6 SLOT' : d.guardOf ? 'MUHAFIZ' : d.tag === 'lord' ? 'LORD' : d.elite ? 'ELİT' : '',
     });
   }
 }

@@ -273,25 +273,29 @@ Yeni görev: **arenaRoshan** “1vDOQUZ Arena’da Roshan’ı kes” (`picks['a
 Ayrıntı: [oyunlar/rozetler.md](oyunlar/rozetler.md), [PROFIL.md](PROFIL.md).
 
 ## Entegrasyon kontrol listesi (hikâye ajanı / entegrasyon)
-1. **mountArena:** `connectStore(coreStore)` (bir kez). `const stop = trackGame(game)` (oyun oluşturulunca; çıkışta `stop()`).
-2. **Koşu başlatma:** `game.start(applyMeta({ mode, heroId: save.hero, seed, curse, random, missionId, modifiers, mission }))`.
+**Durum (faz D):** 1–7’nin hepsi `arena.js`’e bağlandı (✅); ayrıntı ve ekran akışı:
+[oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md) → “İlerleme bağlantıları”. Madde 2’deki varyant/havuz/kozmetik
+etkileri faz B’de uygulanmıştı.
+
+1. ✅ **mountArena:** `connectStore(coreStore)` (bir kez). `const stop = trackGame(game)` (oyun oluşturulunca; çıkışta `stop()`).
+2. ✅ **Koşu başlatma:** `game.start(applyMeta({ mode, heroId: save.hero, seed, curse, random, missionId, modifiers, mission }))`.
    Arena 3.0 game.js zaten `config.curse`, `modifiers` (ustalık yüzdeleri `heroHp`/`heroDmg`/`gold` burada),
    `meta.startItems` ve `meta.variants` (ability id) okuyor; `meta.bonus` alanını progression boş bırakır.
    Kalan işler: **varyantların etkileri** (`abilities.js`, tablo yukarıda; `g.variant(abilityId)`), `meta.pools`
    (`neutralChoice` 2–3 seçenekli düşme, `neutralReroll` molada takas), `meta.cosmetics` (aura halkası rengi, iz
    parçacıkları, kurye rengi, damga — isteğe bağlı görsel), `meta.mastery.title` (HUD’da “Ölümsüz”).
-3. **Seçim ekranı:** `isHeroUnlocked(id)` ile kilit, `unlockCost(id)` ile fiyat; kilitli karta dokununca
+3. ✅ **Seçim ekranı:** `isHeroUnlocked(id)` ile kilit, `unlockCost(id)` ile fiyat; kilitli karta dokununca
    `mountLibrary(el, { branch: 'heroes' })` ya da `mountHeroMastery(el, id)` (kilit bandında “Aç” düğmesi var).
    `getProfile().unlocks.h_random` varsa “Rastgele” düğmesi → `applyMeta({ …, random: true })`.
    Başlangıç ekranına `mountCursePicker(el)` (yalnızca Sonsuz mod için).
-4. **Oyun sonu:** `const rw = grantRunRewards({ ...runEnd, stars, missionId })` → `mountRunRewards(el, rw, { onLibrary, onHero })`.
+4. ✅ **Oyun sonu:** `const rw = grantRunRewards({ ...runEnd, stars, missionId })` → `mountRunRewards(el, rw, { onLibrary, onHero })`.
    Salon skoru (`scores.arena`) Lanet `scoreMul`’lu skorla yazılır (Arena 3.0 kararı; rozet eşikleri buna göre).
-5. **Hikâye:** her bölümün ilk bitişinde `recordStoryChapter(n)`; kartları `registerCodex('story', [{ id, name, desc, group }])`
+5. ✅ **Hikâye:** her bölümün ilk bitişinde `recordStoryChapter(n)`; kartları `registerCodex('story', [{ id, name, desc, group }])`
    ve görüldükçe `markSeen('story', id)`; bölüm ödülü olarak kahraman vermek isterse `unlockHero('simsek', { free: true, source: 'bolum2' })`
    (bedelli sıralamayı bozmaz). `missionId` kararlı bir dizge olmalı (ilk kez yıldız bonusu ona bağlı).
-6. **Günlük:** `applyMeta({ mode: 'daily', heroId: günün kahramanı, curse: günün laneti, modifiers: günün değiştiricileri, allowLocked: true })`,
+6. ✅ **Günlük:** `applyMeta({ mode: 'daily', heroId: günün kahramanı, curse: günün laneti, modifiers: günün değiştiricileri, allowLocked: true })`,
    ödülde `day` (İstanbul günü) verilebilir.
-7. **Menü:** “Kütüphane” → `mountLibrary(el, { onClose, onHero, onCodex })`, “Kodeks” → `mountCodex(el, { onClose })`.
+7. ✅ **Menü:** “Kütüphane” → `mountLibrary(el, { onClose, onHero, onCodex })`, “Kodeks” → `mountCodex(el, { onClose })`.
 
 ## Testler
 - **Node** (`scratchpad/arenaC/tests/progression.test.mjs`, 17 test): sözleşme, boş profil, Arena 2.0 mirası, ödül

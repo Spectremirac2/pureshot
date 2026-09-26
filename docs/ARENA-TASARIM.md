@@ -88,6 +88,9 @@ kahraman, Kurye ve bosslar portreyle konuşur.
 | IV · Roshan’ın İni | Roshan çukuru | Aegis’i kazan · Chat DOG’larını sustur · Kaya Canavarı’nı yen | **Kaya Canavarı** (Roshan benzeri) |
 | V · 1vDOQUZ | Sonsuz Pub’ın kalbi | Dokuz DOG lordu · Son kule · Kalbi kır | **Sonsuz Pub’ın Kalbi** (Dire ancient benzeri çekirdek) |
 
+Uygulama (faz D): 15 görevin ayrıntısı, diyaloglar, yıldız kuralları, simülasyon sonuçları →
+[oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md). Bölüm ödülleri: II → Ağaç Bekçisi, IV → Şimşek Ruhu.
+
 Kapanış: lanet kırılınca DOG’lar yeniden takım arkadaşına dönüşür — sitenin sözü: *“Kahramanlar masumdur,
 DOG’luk oyuncudadır.”* Son sahnede Kurye: *“Yirmi dört saat oldu. Isınma turu bitti.”*
 
@@ -136,5 +139,5 @@ Salon skor tablosu yalnızca Sonsuz modun puanıdır (`scores.arena`), anlamı d
 | E | Yeni 3D modeller (6 adet) | Entegrasyon (fal.ai) |
 | B | Savaş derinliği: özellikler, hasar hattı, durum etkileri, yetenek seviyeleri, 10/15/20/25 ağaç, tarifli eşyalar, orman kampları ve eşyaları, gece-gündüz, deny/buyback, yeni iki kahramanın kitleri | Savaş ajanı |
 | C | Kalıcı ilerleme: ustalık, Kütüphane, Parıltı, Lanet seviyeleri, kodeks | İlerleme ajanı (D ile paralel) |
-| D | Hikâye: 5 bölüm, 15 görev, diyaloglar, bosslar, mod menüsü (Hikâye/Sonsuz/Günlük/Kütüphane) | Hikâye ajanı (C ile paralel) |
+| D | Hikâye: 5 bölüm, 15 görev, diyaloglar, bosslar, mod menüsü (Hikâye/Sonsuz/Günlük/Kütüphane) | ✅ Tamamlandı — [oyunlar/arena-hikaye.md](oyunlar/arena-hikaye.md) |
 | F | Denge, oynanış testi, performans, belgeler | QA ajanı |

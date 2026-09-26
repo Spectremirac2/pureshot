@@ -33,10 +33,15 @@ export function abilityRows(A) {
 }
 
 /**
- * opts: { heroId, bestFor(id) → number|null, onPick(id), onStart(), extras: [düğüm…] (ayarlar/kontroller), devUnlock? }
+ * opts: { heroId, bestFor(id) → number|null, onPick(id), onStart(), extras: [düğüm…] (ayarlar/kontroller), devUnlock?,
+ *         unlockCost?(id) → Parıltı, onUnlock?(id) (Kütüphane'yi açar), onMastery?(id), onBack?(), onRandom?() }
+ * setContext({ kind: 'endless'|'story', eyebrow, title, lead, goals: [metin], rec: [id], guest: id, startLabel, backLabel, random })
+ *   Hikâye görevinde başlık görev adı olur, önerilen kahramanlar rozetlenir, misafir kahraman kilitliyken de seçilebilir.
  */
 export function buildSelect(opts) {
   let current = HEROES[opts.heroId] ? opts.heroId : 'okcu';
+  let ctx = { kind: 'endless' };
+  const allowed = (id) => isHeroUnlocked(id) || (!!ctx.guest && ctx.guest === id);
   const tabs = {};
   const tabBest = {};
   const heroList = h('div', { class: 'ar-sel-heroes', role: 'radiogroup', 'aria-label': 'Kahraman seç' });
@@ -45,6 +50,7 @@ export function buildSelect(opts) {
     const best = h('span', { class: 'ar-hero-best num' });
     tabBest[id] = best;
     const lock = h('span', { class: 'ar-hero-lock', html: glyph('lock'), hidden: true });
+    const tag = h('span', { class: 'ar-hero-tag', hidden: true });
     const b = h('button', {
       class: 'ar-hero-tab', type: 'button', role: 'radio', 'aria-checked': 'false', dataset: { hero: id },
       style: { '--hc': H.color },
@@ -56,8 +62,10 @@ export function buildSelect(opts) {
         h('span', { class: 'ar-hero-meta' }, stars(H.diff), best),
       ),
       lock,
+      tag,
     );
     b._lock = lock;
+    b._tag = tag;
     b.addEventListener('click', () => pick(id, true));
     b.addEventListener('keydown', (e) => {
       const i = HERO_IDS.indexOf(current);
@@ -80,6 +88,19 @@ export function buildSelect(opts) {
   const emblem = h('div', { class: 'ar-sel-emblem', 'aria-hidden': 'true' });
   const lockNote = h('div', { class: 'ar-sel-locknote', hidden: true });
   const startBtn = h('button', { class: 'btn primary lg ar-start-btn', type: 'button', disabled: true }, icon('play', { size: 18 }), h('span', null, 'Yükleniyor…'));
+  const masteryBtn = opts.onMastery ? h('button', { class: 'btn ghost sm ar-sel-mastery', type: 'button', title: 'Kahraman ustalığı: rütbe, varyantlar, çanta, kozmetik' }, icon('medal', { size: 15 }), 'Ustalık') : null;
+  if (masteryBtn) masteryBtn.addEventListener('click', () => opts.onMastery(current));
+  const randomBtn = opts.onRandom ? h('button', { class: 'btn ghost sm ar-sel-random', type: 'button', hidden: true, title: 'Rastgele Seçim: açık kahramanlardan biri, +%15 Parıltı' }, icon('dice', { size: 15 }), 'Rastgele') : null;
+  if (randomBtn) randomBtn.addEventListener('click', () => opts.onRandom());
+  const backBtn = h('button', { class: 'btn ghost sm ar-sel-back', type: 'button', hidden: !opts.onBack }, icon('arrowLeft', { size: 15 }), h('span', null, 'Modlar'));
+  if (opts.onBack) backBtn.addEventListener('click', () => opts.onBack());
+  const ctxEyebrow = h('span', { class: 'eyebrow' }, '1vDOQUZ Arena 3.0 · mini Dota');
+  const ctxTitle = h('h2', { class: 'ar-start-title' }, '1vDO', h('em', null, 'Q'), 'UZ');
+  const ctxLead = h('p', { class: 'ar-sel-story small' });
+  const ctxGoals = h('ul', { class: 'ar-sel-goals', hidden: true, 'aria-label': 'Görev hedefleri' });
+  /** Sonsuz modda sonraki koşunun Lanet seçicisi buraya yerleşir (arena.js mountCursePicker). */
+  const curseHost = h('div', { class: 'ar-sel-curse', hidden: true }, h('span', { class: 'ar-sel-curse-l' }, 'Lanet · isteğe bağlı zorluk, skor çarpanı'));
+  const DEFAULT_LEAD = [h('span', null, 'Radiant tarafında tek başınasın: dokuz DOG, Dire creep’leri, orman kampları, gece ve bosslar. Yetenek öğren, eşya birleştir, geceyi ward’la. '), h('b', null, 'DOG DOG DOG.')];
   const bestTxt = h('span', { class: 'ar-start-best small muted' });
   let ready = false;
 
@@ -96,14 +117,20 @@ export function buildSelect(opts) {
 
   function render() {
     const H = HEROES[current];
-    const unlocked = isHeroUnlocked(current);
+    const unlocked = allowed(current);
     for (const id of HERO_IDS) {
       tabs[id].setAttribute('aria-checked', String(id === current));
       tabs[id].tabIndex = id === current ? 0 : -1;
-      const lk = !isHeroUnlocked(id);
+      const lk = !allowed(id);
+      const guest = !!ctx.guest && ctx.guest === id && !isHeroUnlocked(id);
+      const rec = Array.isArray(ctx.rec) && ctx.rec.includes(id);
       tabs[id].classList.toggle('locked', lk);
+      tabs[id].classList.toggle('guest', guest);
+      tabs[id].classList.toggle('rec', rec);
       tabs[id]._lock.hidden = !lk;
-      tabs[id].setAttribute('aria-label', `${HEROES[id].name}, ${HEROES[id].role}${lk ? ', kilitli' : ''}`);
+      tabs[id]._tag.hidden = !(guest || rec);
+      tabs[id]._tag.textContent = guest ? 'Misafir' : rec ? 'Önerilen' : '';
+      tabs[id].setAttribute('aria-label', `${HEROES[id].name}, ${HEROES[id].role}${lk ? ', kilitli' : ''}${guest ? ', misafir kahraman' : ''}${rec ? ', önerilen' : ''}`);
     }
     root.style.setProperty('--hc', H.color);
     name.textContent = H.name;
@@ -145,7 +172,13 @@ export function buildSelect(opts) {
     lockNote.hidden = unlocked;
     clear(lockNote);
     if (!unlocked) {
-      lockNote.append(h('span', { class: 'ar-sel-lockic', html: glyph('lock') }), h('span', null, h('b', null, 'Kilitli kahraman. '), 'Aghanım Kütüphanesi’nden Parıltı Taşı ile açılır. Şimdilik inceleyebilirsin.'));
+      const cost = opts.unlockCost ? opts.unlockCost(current) : 0;
+      lockNote.append(h('span', { class: 'ar-sel-lockic', html: glyph('lock') }), h('span', null, h('b', null, 'Kilitli kahraman. '), `Aghanım Kütüphanesi’nden ${cost ? `${fmtNum(cost)} ` : ''}Parıltı Taşı ile açılır. Şimdilik inceleyebilirsin.`));
+      if (opts.onUnlock) {
+        const ub = h('button', { class: 'btn gold sm ar-sel-unlock', type: 'button' }, icon('unlock', { size: 15 }), 'Kütüphane’de aç');
+        ub.addEventListener('click', () => opts.onUnlock(current));
+        lockNote.appendChild(ub);
+      }
       if (opts.devUnlock) {
         const dev = h('button', { class: 'btn ghost sm', type: 'button' }, 'Geliştirici: kilidi aç');
         dev.addEventListener('click', () => { opts.devUnlock(current); render(); });
@@ -157,10 +190,30 @@ export function buildSelect(opts) {
   }
 
   function updateStart() {
-    const unlocked = isHeroUnlocked(current);
+    const unlocked = allowed(current);
     startBtn.disabled = !ready || !unlocked;
-    const label = !ready ? 'Yükleniyor…' : unlocked ? 'Arenaya gir' : 'Kilitli';
+    const label = !ready ? 'Yükleniyor…' : unlocked ? (ctx.startLabel || 'Arenaya gir') : 'Kilitli';
     clear(startBtn).append(icon(unlocked ? 'play' : 'lock', { size: 18 }), h('span', null, label));
+    if (randomBtn) randomBtn.hidden = !(ctx.random && ready);
+  }
+
+  function renderContext() {
+    const story = ctx.kind === 'story';
+    root.classList.toggle('is-story', story);
+    root.dataset.kind = ctx.kind || 'endless';
+    ctxEyebrow.textContent = ctx.eyebrow || '1vDOQUZ Arena 3.0 · mini Dota';
+    clear(ctxTitle);
+    if (ctx.title) ctxTitle.textContent = ctx.title;
+    else ctxTitle.append('1vDO', h('em', null, 'Q'), 'UZ');
+    ctxTitle.classList.toggle('is-mission', !!ctx.title);
+    clear(ctxLead).append(...(ctx.lead ? [ctx.lead] : DEFAULT_LEAD));
+    clear(ctxGoals);
+    const goals = Array.isArray(ctx.goals) ? ctx.goals : [];
+    ctxGoals.hidden = !goals.length;
+    for (const g of goals) ctxGoals.appendChild(h('li', null, g));
+    curseHost.hidden = ctx.kind !== 'endless';
+    backBtn.querySelector('span').textContent = ctx.backLabel || 'Modlar';
+    root.setAttribute('aria-label', story ? `Kahraman seçimi: ${ctx.title || 'görev'}` : 'Kahraman seçimi');
   }
 
   function refreshBest() {
@@ -170,7 +223,8 @@ export function buildSelect(opts) {
       tabBest[id].title = v == null ? '' : `${HEROES[id].name} ile en iyin: ${fmtNum(v)} puan`;
     }
     const v = opts.bestFor(current);
-    bestTxt.textContent = v == null ? `${HEROES[current].name} ile henüz skorun yok.` : `${HEROES[current].name} ile en iyin: ${fmtNum(v)}`;
+    if (ctx.bestText != null) bestTxt.textContent = ctx.bestText;
+    else bestTxt.textContent = v == null ? `${HEROES[current].name} ile henüz skorun yok.` : `${HEROES[current].name} ile en iyin: ${fmtNum(v)}`;
   }
 
   function pick(id, user = false, focus = false) {
@@ -184,16 +238,16 @@ export function buildSelect(opts) {
 
   const root = h('div', { class: 'ar-screen ar-select', role: 'dialog', 'aria-label': 'Kahraman seçimi' },
     h('div', { class: 'ar-sel-card ar-card' },
-      h('div', { class: 'ar-sel-head' },
-        h('span', { class: 'eyebrow' }, '1vDOQUZ Arena 3.0 · mini Dota'),
-        h('h2', { class: 'ar-start-title' }, '1vDO', h('em', null, 'Q'), 'UZ'),
-      ),
-      h('p', { class: 'ar-sel-story small' }, 'Radiant tarafında tek başınasın: dokuz DOG, Dire creep’leri, orman kampları, gece ve bosslar. Yetenek öğren, eşya birleştir, geceyi ward’la. ', h('b', null, 'DOG DOG DOG.')),
+      h('div', { class: 'ar-sel-top' }, backBtn, ctxEyebrow),
+      h('div', { class: 'ar-sel-head' }, ctxTitle),
+      ctxLead,
+      ctxGoals,
       heroList,
-      h('div', { class: 'ar-start-cta' }, startBtn, bestTxt),
+      h('div', { class: 'ar-start-cta' }, startBtn, randomBtn, bestTxt),
       lockNote,
+      curseHost,
       h('div', { class: 'ar-sel-detail' },
-        h('div', { class: 'ar-sel-namebox' }, emblem, h('div', null, name, title)),
+        h('div', { class: 'ar-sel-namebox' }, emblem, h('div', { class: 'ar-sel-nametxt' }, name, title), masteryBtn),
         blurb,
         attrs,
         bars,
@@ -205,16 +259,22 @@ export function buildSelect(opts) {
       opts.extras ? h('details', { class: 'ar-sel-more' }, h('summary', null, icon('keyboard', { size: 16 }), 'Kontroller ve ayarlar'), ...opts.extras) : null,
     ),
   );
-  startBtn.addEventListener('click', () => { if (isHeroUnlocked(current) && opts.onStart) opts.onStart(); });
+  startBtn.addEventListener('click', () => { if (allowed(current) && opts.onStart) opts.onStart(); });
+  renderContext();
   render();
 
   return {
     el: root,
     startBtn,
+    curseHost,
     get hero() { return current; },
+    get context() { return ctx; },
+    /** Seçili kahraman bu bağlamda oynanabilir mi (açık ya da misafir)? */
+    allowed,
+    setContext(next = {}) { ctx = { kind: 'endless', ...next }; renderContext(); render(); },
     setHero: (id) => pick(id, false),
     refreshBest,
-    refresh: render,
+    refresh: () => { renderContext(); render(); },
     ready() {
       ready = true;
       updateStart();

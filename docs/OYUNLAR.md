@@ -8,7 +8,7 @@ rozetler: [oyunlar/rozetler.md](oyunlar/rozetler.md), mimari: [MIMARI.md](MIMARI
 
 | Oyun | Adres | Kategori | Skor | Özet | Belge |
 |---|---|---|---|---|---|
-| 1vDOQUZ Arena | `#oyunlar--arena` (R) | Refleks | puan ↑ | three.js Dota arenası: 4 kahraman, DOG sürüleri, Dire creep’leri, kuleler, Roshan, dükkân + kurye, yetenek ağacı, rünler | [arena](oyunlar/arena.md) · [tasarım](ARENA-TASARIM.md) |
+| 1vDOQUZ Arena | `#oyunlar--arena` (R) | Refleks | puan ↑ | three.js Dota arenası: 6 kahraman, DOG sürüleri, Dire creep’leri, kuleler, Roshan, dükkân + kurye, yetenek ağacı, rünler. Modlar: **Hikâye** (Dokuzun Laneti, 5 bölüm × 3 görev), **Sonsuz** (salon skoru), **Günlük** meydan okuma; Aghanim Kütüphanesi, Kodeks | [arena](oyunlar/arena.md) · [hikâye](oyunlar/arena-hikaye.md) · [tasarım](ARENA-TASARIM.md) |
 | DOG Avı | `#oyunlar--dogavi` | Refleks | puan ↑ | Çukurdan çıkan DOG’ları report et; Çift Hasar ve Aegis rünleri | [dogavi](oyunlar/dogavi.md) |
 | Last Hit Ustası | `#oyunlar--lasthit` | Refleks | altın ↑ | Creep’in son vuruşunu zamanla, deny et; LH verimi | [lasthit](oyunlar/lasthit.md) |
 | Rune Refleksi | `#oyunlar--rune` | Refleks | ms ↓ | Rune belirdiği an kap; DOG yemi erken tıklatır; son 10 ortalama grafiği | [rune](oyunlar/rune.md) |

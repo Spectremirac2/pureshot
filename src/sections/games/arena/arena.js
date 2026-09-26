@@ -1,5 +1,7 @@
-// 1vDOQUZ Arena 2.0 — sitenin imza 3D oyunu: mini Dota savaş alanı.
-// Dört kahraman, dokuz DOG, Dire creep'leri, kuleler, Roshan, dükkân, kurye, rünler, yetenek ağacı.
+// 1vDOQUZ Arena 3.0 — sitenin imza 3D oyunu: mini Dota savaş alanı.
+// Altı kahraman, dokuz DOG, Dire creep'leri, kuleler, Roshan, dükkân, kurye, rünler, yetenek ağacı.
+// Modlar (başlangıç merkezi): Hikâye (story.js + tembel storyui.js), Sonsuz (salon skoru), Günlük (daily.js),
+// Kütüphane / Kodeks / ustalık (progression.js'in tembel ekranları).
 // mountArena(el, ctx) oyunu kurar ve tam temizlik fonksiyonu döndürür.
 
 import './arena.css';
@@ -11,7 +13,7 @@ import { fx as coreFx } from '../../../core/fx.js';
 import { mountLeaderboard } from '../../../components/leaderboard.js';
 import { portraitEl } from '../../../components/portrait.js';
 import { haptic } from '../juice.js';
-import { createGame, STEP, BUYBACK_CD } from './game.js';
+import { createGame, STEP, BUYBACK_CD, CURSE_TEXT } from './game.js';
 import { DOG_TYPES, TYPE_IDS, archOf } from './dogs.js';
 import { HEROES, HERO_IDS, heroOf, xpFor, MAX_LEVEL, TALENT_LEVELS, ATTR_NAMES, ATTR_SHORT, isHeroUnlocked, devUnlock, registerUnlockCheck, abilityCap } from './heroes.js';
 import { ABILITIES, abilityInfo, abilityDisplay, targetingOf, STATS_BONUS } from './abilities.js';
@@ -22,6 +24,8 @@ import { glyph } from './glyphs.js';
 import { buildSelect, abilityTip, abilityRows } from './select.js';
 import { buildShop, itemImg } from './shop.js';
 import { createMinimap } from './minimap.js';
+import { artUrl } from '../../../core/assets.js';
+import { dailyChallenge, dailyRunConfig, dailyBest, recordDaily, msToReset, fmtCountdown } from './daily.js';
 
 // Kalıcı ilerleme (progression.js, İlerleme ajanı) varsa sözleşmeye göre bağlanır: applyMeta / grantRunRewards /
 // kahraman kilitleri. Dosya yoksa glob boş döner ve arena olduğu gibi çalışır.
@@ -29,6 +33,10 @@ const PROG_MOD = import.meta.glob('./progression.js');
 const HERO_ALIASES = { simsek: ['simsek', 'storm', 'simsek_ruhu', 'hero-storm'], agac: ['agac', 'treant', 'agac_bekcisi', 'hero-treant'] };
 
 const GAME_ID = 'arena';
+/** Oturumda son açılan menü (yenileyince aynı ekrana dönülür): sessionStorage 'csk:arena:ui' → { menu, missionId } */
+const UI_KEY = 'csk:arena:ui';
+const readUi = () => { try { const v = JSON.parse(sessionStorage.getItem(UI_KEY) || 'null'); return v && typeof v === 'object' ? v : null; } catch { return null; } };
+const writeUi = (v) => { try { sessionStorage.setItem(UI_KEY, JSON.stringify(v)); } catch { /* depolama kapalı */ } };
 /** Kayıt sürümü (localStorage 'csk:arena:v2'). Alanlar: { v, hero, bests: {kahraman: puan}, runs, roshans } */
 const SAVE_KEY = 'arena:v2';
 const SAVE_V = 2;
@@ -90,7 +98,10 @@ export function mountArena(el, ctx = {}) {
   if (ctx.hotkeys) ctx.hotkeys(false);
 
   let alive = true;
-  let mode = 'loading'; // loading | start | playing | paused | picking | over
+  let mode = 'loading'; // loading | start | playing | paused | picking | talk | over
+  let menu = 'hub'; // mode === 'start' iken görünen menü: hub | select | campaign | daily
+  /** Sıradaki/şimdiki koşunun türü: { kind: 'endless'|'story'|'daily', missionId?, daily? } */
+  let run = { kind: 'endless' };
   let view = null;
   let game = null;
   const save = loadSave();
@@ -131,7 +142,7 @@ export function mountArena(el, ctx = {}) {
     h('div', { class: 'ar-head-text' },
       h('span', { class: 'eyebrow' }, 'İmza oyun · 3D · mini Dota · hayran yapımı'),
       h('h1', { class: 'h1 ar-title' }, '1vDO', h('em', null, 'Q'), 'UZ Arena'),
-      h('p', { class: 'ar-lead muted' }, 'Dört kahraman, dokuz DOG, Dire kuleleri ve Roshan. Altın topla, eşya al, seviye atla; sürüyü tek başına dizle.'),
+      h('p', { class: 'ar-lead muted' }, 'Altı kahraman, dokuz DOG, Dire kuleleri ve Roshan. Hikâyede Dokuzun Laneti’ni kır, Sonsuz’da salon tablosuna yazıl, Günlük’te herkesle aynı koşulda yarış.'),
     ),
     h('div', { class: 'ar-head-best' }, icon('trophy', { size: 16 }), h('span', { class: 'small muted' }, 'En iyin'), headBest),
   );
@@ -190,7 +201,8 @@ export function mountArena(el, ctx = {}) {
   const breakTime = h('b', { class: 'num' }, '');
   const breakShop = h('button', { class: 'btn sm ar-break-shop', type: 'button' }, h('span', { class: 'ar-coin', html: glyph('shop') }), 'Dükkân', h('span', { class: 'kbd' }, 'B'));
   const breakReady = h('button', { class: 'btn primary sm ar-break-ready', type: 'button' }, icon('play', { size: 14 }), 'Hazırım', h('span', { class: 'kbd' }, 'Enter'));
-  const breakBar = h('div', { class: 'ar-break', hidden: true }, h('span', { class: 'ar-break-t' }, 'Mola · sıradaki dalga ', breakTime, ' sn'), breakShop, breakReady);
+  const breakLbl = h('span', null, 'Mola · sıradaki dalga ');
+  const breakBar = h('div', { class: 'ar-break', hidden: true }, h('span', { class: 'ar-break-t' }, breakLbl, breakTime, ' sn'), breakShop, breakReady);
 
   // yetenek slotları
   function makeSlot(key, cls, touch = false) {
@@ -399,12 +411,41 @@ export function mountArena(el, ctx = {}) {
     onPick: (id) => pickHero(id),
     onStart: () => startGame(),
     devUnlock: import.meta.env.DEV ? (id) => { devUnlock(id); } : null,
+    unlockCost: (id) => { try { return prog && prog.unlockCost ? prog.unlockCost(id) : 0; } catch { return 0; } },
+    onUnlock: () => openPanel('library', 'heroes'),
+    onMastery: (id) => openPanel('mastery', id),
+    onBack: () => { if (run.kind === 'story') openCampaign(run.missionId); else openHub(); },
+    onRandom: () => startGame({ random: true }),
     extras: [optionsBlock('s'), h('div', { class: 'ar-ctl-keys' }, keyTable), h('div', { class: 'ar-ctl-touch' }, touchHelp)],
   });
   const startScreen = select.el;
+  // --- mod merkezi (Hikâye · Sonsuz · Günlük · Kütüphane · Kodeks)
+  const hubGrid = h('div', { class: 'ar-hub-grid' });
+  const hubPurse = h('span', { class: 'ar-hub-purse', title: 'Parıltı Taşı: Kütüphane’de harcanır' });
+  const hubScreen = h('div', { class: 'ar-screen ar-hub', role: 'dialog', 'aria-label': 'Arena modları', hidden: true },
+    h('div', { class: 'ar-card ar-hub-card' },
+      h('div', { class: 'ar-hub-head' },
+        h('div', null,
+          h('span', { class: 'eyebrow' }, '1vDOQUZ Arena 3.0 · mini Dota'),
+          h('h2', { class: 'ar-start-title' }, '1vDO', h('em', null, 'Q'), 'UZ'),
+        ),
+        hubPurse,
+      ),
+      h('p', { class: 'ar-hub-lead small' }, 'Dokuz DOG, bir kahraman. Hikâyede laneti kır, Sonsuz’da salon tablosuna yazıl, Günlük’te herkesle aynı koşulda yarış. ', h('b', null, 'DOG DOG DOG.')),
+      hubGrid,
+    ),
+  );
+  // --- günlük meydan okuma
+  const dailyBody = h('div', { class: 'ar-card ar-daily-card' });
+  const dailyScreen = h('div', { class: 'ar-screen ar-daily', role: 'dialog', 'aria-label': 'Günlük meydan okuma', hidden: true }, dailyBody);
+  // --- hikâye: bölüm haritası (storyui.js tembel), final jeneriği
+  const campHost = h('div', { class: 'ar-camp-host' });
+  const campScreen = h('div', { class: 'ar-screen ar-camp-screen', role: 'dialog', 'aria-label': 'Hikâye: bölüm haritası', hidden: true }, campHost);
+  const finaleScreen = h('div', { class: 'ar-screen ar-finale-screen', role: 'dialog', 'aria-label': 'Final', hidden: true });
   const resumeBtn = h('button', { class: 'btn primary lg', type: 'button' }, icon('play', { size: 18 }), 'Devam');
   const restartBtn = h('button', { class: 'btn ghost', type: 'button' }, icon('refresh', { size: 16 }), 'Baştan başla');
-  const menuBtn = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 16 }), 'Kahraman seç');
+  const menuBtnLbl = h('span', null, 'Kahraman seç');
+  const menuBtn = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 16 }), menuBtnLbl);
   const pauseScreen = h('div', { class: 'ar-screen ar-pause', role: 'dialog', 'aria-label': 'Oyun duraklatıldı', hidden: true },
     h('div', { class: 'ar-card ar-pause-card' },
       h('span', { class: 'eyebrow' }, 'Pause'),
@@ -419,8 +460,10 @@ export function mountArena(el, ctx = {}) {
   const overScreen = h('div', { class: 'ar-screen ar-over', role: 'dialog', 'aria-label': 'Maç sonu raporu', hidden: true },
     h('div', { class: 'ar-over-grid' }, overBody, overLbHost),
   );
-  screens.append(startScreen, pauseScreen, overScreen, talentHost);
-  stage.append(hud, touchLayer, shop.el, buybackEl, ncEl, screens, live);
+  screens.append(hubScreen, startScreen, campScreen, dailyScreen, pauseScreen, overScreen, finaleScreen, talentHost);
+  // hikâye diyalogları (storyui.createDialogue) bu katmana kurulur; sahne tam ekrandayken de görünür
+  const talkHost = h('div', { class: 'ar-talkhost' });
+  stage.append(hud, touchLayer, shop.el, buybackEl, ncEl, screens, talkHost, live);
 
   // --- sahanın altı: rehber + skor tablosu
   const guide = h('div', { class: 'ar-guide-grid' });
@@ -560,10 +603,37 @@ export function mountArena(el, ctx = {}) {
       talents: (i = 0) => { game.dev.talents(i); },
       kill: () => game.dev.kill(),
       unlock: (id = 'all') => { devUnlock(id); select.refresh(); return HERO_IDS.filter((x) => isHeroUnlocked(x)); },
-      pickHero: (id) => { devUnlock(id); select.setHero(id); pickHero(id); },
-      start: (cfg) => startGame(cfg),
+      pickHero: (id) => { devUnlock(id); if (mode === 'start' && menu !== 'select') openSelect('endless'); select.setHero(id); pickHero(id); },
+      start: (cfg = {}) => { if (!cfg.mode || cfg.mode === 'endless') run = { kind: 'endless' }; return startGame(cfg); },
       sheet: (tab) => openSheet(tab),
       learnMode: (v = true) => setLearnMode(v),
+      // --- Faz D: modlar ve hikâye
+      menu: () => menu,
+      run: () => ({ ...run, daily: run.daily ? { ...run.daily } : null }),
+      hub: () => (mode === 'start' || mode === 'loading' ? openHub() : toMenu('hub')),
+      endless: () => openSelect('endless'),
+      campaign: (id = null) => loadStory().then(() => { if (mode === 'start' || mode === 'loading') openCampaign(id); else toMenu('campaign'); return menu; }),
+      daily: () => (mode === 'start' || mode === 'loading' ? openDaily() : toMenu('daily')),
+      startDaily: () => { openDaily(); startGame(); return mode; },
+      /** Görevi doğrudan başlat (isteğe bağlı kahramanla). */
+      story: (id, heroId) => loadStory().then(() => loadStoryUi()).then(() => {
+        if (heroId) { devUnlock(heroId); save.hero = heroId; select.setHero(heroId); game.attract(heroId); applyHeroUi(); }
+        run = { kind: 'story', missionId: id };
+        menu = 'select';
+        refreshSelectContext();
+        startGame();
+        return mode;
+      }),
+      /** Hikâye görevini zaferle bitir. all: bonus hedefler de tamam (3 yıldız). */
+      win: (all = true) => { for (const o of game.objectives) if (all || !o.optional) { if (!o.failed) { o.done = true; o.progress = o.n; } } game.finish(true); },
+      lose: () => game.finish(false),
+      talkOpen: () => !!(dlg && dlg.open),
+      talkNext: () => { const b = talkHost.querySelector('.ars-talk-next'); if (b) b.click(); return !!(dlg && dlg.open); },
+      talkSkip: () => { if (dlg) dlg.close(); },
+      storyProgress: () => loadStory().then((S) => S.storyProgress()),
+      storyUnlock: (n = 5, stars = 3) => loadStory().then((S) => S.devCompleteStory(n, stars)),
+      storyReset: () => loadStory().then((S) => S.resetStory()),
+      panel: (kind, arg) => openPanel(kind, arg),
     };
   }
 
@@ -617,6 +687,7 @@ export function mountArena(el, ctx = {}) {
     } catch (e) { console.warn('Arena: kilit kontrolü', e); }
     return false;
   }
+  let stopCurse = null;
   const progLoader = PROG_MOD['./progression.js'];
   if (progLoader) {
     progLoader().then((m) => {
@@ -626,9 +697,30 @@ export function mountArena(el, ctx = {}) {
       // İlerleme sözleşmesi (docs/ARENA-ILERLEME.md, madde 1): salon mağazası + oyun içi sayaçlar (kodeks, ustalık)
       try { if (typeof m.connectStore === 'function') m.connectStore(coreStore); } catch (e) { console.warn('Arena: connectStore', e); }
       try { if (typeof m.trackGame === 'function' && game) stopTrack = m.trackGame(game); } catch (e) { console.warn('Arena: trackGame', e); }
-      select.refresh();
+      // madde 3: Sonsuz modun Lanet seçicisi (seçim ekranında, yalnız Sonsuz bağlamında görünür)
+      try { if (typeof m.mountCursePicker === 'function') stopCurse = m.mountCursePicker(select.curseHost, { onChange: () => { sound.click(); refreshSelectContext(); } }); } catch (e) { console.warn('Arena: mountCursePicker', e); }
+      ensureStoryCodex();
+      refreshSelectContext();
+      if (mode === 'start' && menu === 'hub') renderHub();
+      if (mode === 'start' && menu === 'daily') renderDaily();
     }).catch((e) => console.warn('Arena: progression.js yüklenemedi', e));
   }
+
+  // ------------------------------------------------------------------ hikâye (tembel)
+  let storyMod = null;
+  let storyUi = null;
+  const loadStory = () => (storyMod ? Promise.resolve(storyMod) : import('./story.js').then((m) => { storyMod = m; ensureStoryCodex(); return m; }));
+  const loadStoryUi = () => (storyUi ? Promise.resolve(storyUi) : Promise.all([loadStory(), import('./storyui.js')]).then(([, u]) => { storyUi = u; return u; }));
+  let storyCodexDone = false;
+  /** madde 5: hikâye kartlarını Kodeks'e kaydet (her iki modül de yüklenince bir kez). */
+  function ensureStoryCodex() {
+    if (storyCodexDone || !prog || !storyMod || typeof prog.registerCodex !== 'function') return;
+    storyCodexDone = true;
+    try { prog.registerCodex('story', storyMod.STORY_CODEX); } catch (e) { console.warn('Arena: registerCodex', e); }
+    reconcileStory();
+  }
+  // merkezdeki Hikâye kartı ilerlemeyi gösterebilsin diye veri boşta yüklenir (küçük, ayrı parça)
+  loadStory().then(() => { if (alive && mode === 'start' && menu === 'hub') renderHub(); }).catch((e) => console.warn('Arena: story.js yüklenemedi', e));
 
   function pickHero(id) {
     if (!HEROES[id]) return;
@@ -741,9 +833,11 @@ export function mountArena(el, ctx = {}) {
   const barkPitch = { feed: 1.25, farm: 1.0, pause: 0.95, afk: 0.8, kurye: 1.45, rapier: 0.75, mid: 0.85, ward: 1.1, smurf: 1.15, chat: 1.35 };
 
   // ------------------------------------------------------------------ olaylar
+  const STORY_EVENTS = new Set(['waveStart', 'bossSpawn', 'bossPhase', 'bossShieldBreak', 'objective', 'story']);
   function onEvent(type, d) {
     if (!game) return; // kurulum sırasında (createGame içindeki ilk olaylar)
     if (view) view.event(type, d, game);
+    if (STORY_EVENTS.has(type)) storyEvent(type, d);
     const p = game.player;
     switch (type) {
       case 'waveStart':
@@ -1516,11 +1610,15 @@ export function mountArena(el, ctx = {}) {
     const list = game ? game.objectives : [];
     objList.hidden = !list.length || mode === 'start';
     clear(objList);
+    const story = run.kind === 'story' && storyMission;
+    if (list.length && story) objList.appendChild(h('li', { class: 'ar-obj-head' }, storyMission.name));
+    let oi = 0;
     for (const o of list) {
       const n = o.kind === 'survive' ? (o.t || o.n) : o.n;
+      const starN = o.optional && story ? (oi += 1) : 0;
       objList.appendChild(h('li', { class: `ar-obj${o.done ? ' done' : ''}${o.failed ? ' failed' : ''}${o.optional ? ' optional' : ''}` },
         h('span', { class: 'ar-obj-box', 'aria-hidden': 'true' }),
-        h('span', { class: 'ar-obj-t' }, objText(o), o.optional ? h('em', null, ' (bonus)') : null),
+        h('span', { class: 'ar-obj-t' }, objText(o), o.optional ? h('em', null, starN && starN <= 2 ? ' (+★)' : ' (bonus)') : null),
         n > 1 && !o.done && !o.failed && o.kind !== 'noDeath' && o.kind !== 'protect' ? h('b', { class: 'num' }, `${o.progress}/${n}`) : null,
       ));
     }
@@ -1534,18 +1632,29 @@ export function mountArena(el, ctx = {}) {
   }
 
   // ------------------------------------------------------------------ akış
+  /** which: 'hub' | 'start' (kahraman seçimi) | 'campaign' | 'daily' | 'pause' | 'over' | 'finale' | null */
   function showScreen(which) {
-    startScreen.hidden = which !== 'start';
-    pauseScreen.hidden = which !== 'pause';
-    overScreen.hidden = which !== 'over';
-    if (which) talentHost.hidden = true;
-    stage.classList.toggle('has-screen', !!which);
-    stage.classList.toggle('on-select', which === 'start');
-    if (view && view.setFrame) view.setFrame({ mode: which === 'start' ? 'select' : 'play', side: stageW < 760 || stageW / Math.max(1, stageH) < 1.05 ? 'top' : 'right' });
+    const w = which === 'select' ? 'start' : which;
+    hubScreen.hidden = w !== 'hub';
+    startScreen.hidden = w !== 'start';
+    campScreen.hidden = w !== 'campaign';
+    dailyScreen.hidden = w !== 'daily';
+    pauseScreen.hidden = w !== 'pause';
+    overScreen.hidden = w !== 'over';
+    finaleScreen.hidden = w !== 'finale';
+    if (w) talentHost.hidden = true;
+    const menuScreen = w === 'hub' || w === 'start' || w === 'campaign' || w === 'daily';
+    stage.classList.toggle('has-screen', !!w);
+    stage.classList.toggle('on-select', menuScreen);
+    stage.classList.toggle('on-menu', menuScreen && w !== 'start');
+    if (view && view.setFrame) view.setFrame({ mode: menuScreen ? 'select' : 'play', side: stageW < 760 || stageW / Math.max(1, stageH) < 1.05 ? 'top' : 'right' });
   }
 
   function focusStage() {
     try { stage.focus({ preventScroll: true }); } catch { /* yok say */ }
+  }
+  function focusIn(node, sel = 'button:not([disabled]), [href], [tabindex="0"]') {
+    later(() => { try { const t = node.querySelector(sel); if (t) t.focus({ preventScroll: true }); } catch { /* yok say */ } }, 30);
   }
 
   function scrollStageIntoView() {
@@ -1561,19 +1670,343 @@ export function mountArena(el, ctx = {}) {
     }
   }
 
+  // ------------------------------------------------------------------ menüler (merkez · seçim · harita · günlük)
+  const heroInfoOf = (id) => { const H = HEROES[id]; return H ? { name: H.name, color: H.color, role: H.role } : { name: id, color: '#43d6a0' }; };
+  let userNavigated = false;
+
+  function renderHub() {
+    clear(hubGrid);
+    let shards = null;
+    let codexCounts = null;
+    let curse = 0;
+    if (prog) {
+      try {
+        const pr = prog.getProfile();
+        shards = pr.shards;
+        curse = pr.curse || 0;
+        const c = pr.codex && pr.codex.counts;
+        if (c) codexCounts = Object.values(c).reduce((a, x) => ({ have: a.have + x.have, total: a.total + x.total }), { have: 0, total: 0 });
+      } catch (e) { console.warn('Arena: profil', e); }
+    }
+    clear(hubPurse).append(icon('shard', { size: 16 }), h('b', { class: 'num' }, shards == null ? '…' : fmtNum(shards)), h('span', null, ' Parıltı'));
+    const tile = (cls, o) => {
+      const b = h('button', { class: `ar-hub-tile ${cls}`, type: 'button', style: o.color ? { '--tc': o.color } : null, 'aria-label': o.label },
+        o.art ? h('span', { class: 'ar-hub-art', style: { backgroundImage: `url("${o.art}")` }, 'aria-hidden': 'true' }) : null,
+        h('span', { class: 'ar-hub-ico', 'aria-hidden': 'true', html: o.glyph ? glyph(o.glyph) : '' }, o.icon ? icon(o.icon, { size: 22 }) : null),
+        h('span', { class: 'ar-hub-txt' },
+          h('span', { class: 'ar-hub-eyebrow' }, o.eyebrow),
+          h('strong', { class: 'ar-hub-title' }, o.title),
+          o.meta ? h('span', { class: 'ar-hub-meta' }, o.meta) : null,
+          o.sub ? h('span', { class: 'ar-hub-sub' }, o.sub) : null,
+        ),
+        h('span', { class: 'ar-hub-go', 'aria-hidden': 'true' }, icon('arrowRight', { size: 18 })),
+      );
+      b.addEventListener('click', () => { userNavigated = true; sound.click(); o.onClick(); });
+      if (o.prefetch) {
+        // tembel parça: fare üstüne gelince / dokununca önceden yükle, tıklayınca harita beklemesin
+        const pre = () => { o.prefetch(); b.removeEventListener('pointerenter', pre); b.removeEventListener('touchstart', pre); };
+        b.addEventListener('pointerenter', pre);
+        b.addEventListener('touchstart', pre, { passive: true });
+      }
+      return b;
+    };
+    // Hikâye
+    const SP = storyMod ? storyMod.storyProgress() : null;
+    const C = storyMod ? storyMod.CHAPTERS[Math.max(0, (SP ? SP.chapter : 1) - 1)] : null;
+    const storyArt = artUrl(C ? C.art : 'story-ch1');
+    hubGrid.appendChild(tile('is-story', {
+      art: storyArt, glyph: 'courier', color: C ? C.color : 'var(--radiant)',
+      eyebrow: 'Hikâye · Dokuzun Laneti',
+      title: SP && SP.finished ? 'Lanet kırıldı' : C ? `${C.roman}. bölüm · ${C.name}` : 'Beş bölüm, on beş görev',
+      meta: SP ? `★ ${SP.stars}/${SP.maxStars} · ${SP.wins}/${SP.total} görev` : 'Kurye anlatıyor: dokuz DOG, bir kahraman.',
+      sub: SP && SP.finished ? 'Tüm görevler yeniden oynanabilir: üç yıldızı topla.' : SP && SP.wins ? 'Kaldığın yerden devam et' : 'İlk görev: Kıyıdaki Kurye',
+      label: `Hikâye modu: Dokuzun Laneti${SP ? `, ${SP.stars} yıldız, ${SP.wins}/${SP.total} görev` : ''}`,
+      onClick: () => openCampaign(null),
+      prefetch: () => { loadStoryUi().catch(() => { /* tıklamada yeniden denenir */ }); },
+    }));
+    // Sonsuz
+    const best = bestNow();
+    hubGrid.appendChild(tile('is-endless', {
+      icon: 'flame', color: 'var(--ember)',
+      eyebrow: 'Sonsuz', title: 'Dalga dalga',
+      meta: best == null ? 'Henüz skorun yok' : `Rekorun: ${fmtNum(best)} puan`,
+      sub: curse ? `Lanet ${curse} · skor ×${(1 + 0.12 * curse).toFixed(2).replace('.', ',')}` : 'Salon skoru · Lanet seçilebilir',
+      label: `Sonsuz mod${best == null ? '' : `, rekorun ${fmtNum(best)} puan`}`,
+      onClick: () => openSelect('endless'),
+    }));
+    // Günlük
+    const ch = dailyChallenge();
+    const DB = dailyBest();
+    const DH = HEROES[ch.heroId];
+    hubGrid.appendChild(tile('is-daily', {
+      glyph: ch.heroId, color: DH ? DH.color : 'var(--aegis)',
+      eyebrow: `Günlük · ${ch.dateText}`, title: DH ? DH.name : ch.heroId,
+      meta: `Lanet ${ch.curse} · ${ch.mods.map((m) => m.name).join(' · ')}`,
+      sub: h('span', null, DB.best ? `Bugün: ${fmtNum(DB.best)} · ` : 'Bugün denemedin · ', 'yenilenme ', h('span', { class: 'ar-cd num' }, fmtCountdown(msToReset()))),
+      label: `Günlük meydan okuma: ${DH ? DH.name : ''}, Lanet ${ch.curse}`,
+      onClick: () => openDaily(),
+    }));
+    // Kütüphane · Kodeks
+    hubGrid.appendChild(tile('is-lib', {
+      icon: 'book', color: 'var(--arcane)',
+      eyebrow: 'Aghanim Kütüphanesi', title: 'Kütüphane',
+      meta: shards == null ? 'Kahramanlar, çantalar, Lanetler' : `${fmtNum(shards)} Parıltı Taşı`,
+      label: 'Aghanim Kütüphanesi', onClick: () => openPanel('library'),
+    }));
+    hubGrid.appendChild(tile('is-codex', {
+      icon: 'compass', color: '#5ab4ff',
+      eyebrow: 'Koleksiyon', title: 'Kodeks',
+      meta: codexCounts ? `${codexCounts.have}/${codexCounts.total} kayıt` : 'Birimler, bosslar, eşyalar, hikâye',
+      label: 'Kodeks', onClick: () => openPanel('codex'),
+    }));
+  }
+
+  /** Menü arkasındaki 3D tanıtım sahnesinin kahramanı (günlük ekranında günün kahramanı görünür). */
+  function attractHero(id) {
+    if (!game || game.state !== 'idle' || !HEROES[id] || game.heroId === id) return;
+    game.attract(id);
+    applyHeroUi();
+    if (view && view.preload) view.preload([HEROES[id].model]);
+  }
+
+  function openHub({ persist = true } = {}) {
+    menu = 'hub';
+    attractHero(save.hero);
+    run = { kind: 'endless' };
+    renderHub();
+    showScreen('hub');
+    if (persist) writeUi({ menu: 'hub' });
+    focusIn(hubGrid);
+  }
+
+  /** Seçim ekranının bağlamı: Sonsuz (Lanet seçici, Rastgele) ya da hikâye görevi (hedefler, önerilen/misafir kahraman). */
+  function refreshSelectContext() {
+    if (run.kind === 'story' && storyMod && storyMod.isMission(run.missionId)) {
+      const id = run.missionId;
+      const M = storyMod.MISSIONS[id];
+      const C = storyMod.CHAPTER_OF[id];
+      const mp = storyMod.storyProgress().missions[id];
+      select.setContext({
+        kind: 'story', eyebrow: `Hikâye · ${C.roman}. bölüm · ${M.index}. görev · ${M.kicker}`, title: M.name, lead: M.brief,
+        goals: storyMod.requiredGoals(id), rec: (M.heroes && M.heroes.rec) || [], guest: (M.heroes && M.heroes.guest) || null,
+        startLabel: 'Göreve başla', backLabel: 'Harita', bestText: mp && mp.stars ? `En iyin: ${mp.stars}/3 yıldız` : 'Bu görevde henüz yıldızın yok.',
+      });
+    } else {
+      let random = false;
+      try { random = !!(prog && prog.getProfile().unlocks.h_random); } catch { random = false; }
+      select.setContext({ kind: 'endless', eyebrow: 'Sonsuz mod · salon skoru', random, startLabel: 'Arenaya gir', backLabel: 'Modlar' });
+    }
+  }
+
+  function openSelect(kind = 'endless', missionId = null) {
+    menu = 'select';
+    attractHero(save.hero);
+    run = kind === 'story' && storyMod && storyMod.isMission(missionId) ? { kind: 'story', missionId } : { kind: 'endless' };
+    refreshSelectContext();
+    select.setHero(save.hero);
+    showScreen('start');
+    writeUi({ menu: 'select', kind: run.kind, missionId: run.missionId || null });
+    later(() => select.focusCurrent(), 30);
+  }
+
+  let stopCamp = null;
+  function openCampaign(missionId = null) {
+    menu = 'campaign';
+    attractHero(save.hero);
+    run = { kind: 'story', missionId: missionId || (run.kind === 'story' ? run.missionId : null) || null };
+    showScreen('campaign');
+    writeUi({ menu: 'campaign', missionId: run.missionId });
+    if (stopCamp) { stopCamp(); stopCamp = null; }
+    clear(campHost).appendChild(h('div', { class: 'view-loading' }, h('div', { class: 'spinner' })));
+    loadStoryUi().then((u) => {
+      if (!alive || menu !== 'campaign' || (mode !== 'start' && mode !== 'loading')) return;
+      clear(campHost);
+      stopCamp = u.mountCampaign(campHost, {
+        mission: run.missionId, heroId: save.hero, heroInfo: heroInfoOf,
+        onPlay: (id) => { sound.click(); openSelect('story', id); },
+        onClose: () => { sound.click(); openHub(); },
+        onCodex: () => openPanel('codex', 'story'),
+      });
+    }).catch((e) => {
+      console.error(e);
+      clear(campHost).appendChild(h('div', { class: 'ar-card' }, h('p', null, 'Hikâye yüklenemedi. Sayfayı yenileyip tekrar dene.')));
+    });
+  }
+
+  function renderDaily() {
+    const ch = run.kind === 'daily' && run.daily && run.daily.day === dailyChallenge().day ? run.daily : dailyChallenge();
+    if (run.kind === 'daily') run.daily = ch;
+    const H = HEROES[ch.heroId];
+    const DB = dailyBest();
+    let C = { name: CURSE_TEXT[ch.curse] || '', description: '', scoreMult: 1 + 0.12 * ch.curse };
+    try { if (prog && prog.curseInfo) C = prog.curseInfo(ch.curse) || C; } catch { /* yok say */ }
+    const guest = !isHeroUnlocked(ch.heroId);
+    const back = h('button', { class: 'btn ghost sm', type: 'button' }, icon('arrowLeft', { size: 15 }), 'Modlar');
+    back.addEventListener('click', () => { sound.click(); openHub(); });
+    const go = h('button', { class: 'btn primary lg ar-daily-go', type: 'button', disabled: !view }, icon('play', { size: 18 }), h('span', null, view ? 'Meydan okumaya gir' : 'Yükleniyor…'));
+    go.addEventListener('click', () => startGame());
+    const stat = (label, value) => h('div', { class: 'ar-stat' }, h('dt', null, label), h('dd', { class: 'num' }, value));
+    clear(dailyBody).append(
+      h('div', { class: 'ar-daily-top' }, back, h('span', { class: 'eyebrow' }, `Günlük meydan okuma · ${ch.dateText}`)),
+      h('h2', { class: 'ar-daily-title' }, 'Günün koşulları'),
+      h('div', { class: 'ar-daily-hero', style: { '--hc': H ? H.color : 'var(--aegis)' } },
+        h('span', { class: 'ar-daily-emb', html: glyph(ch.heroId) }),
+        h('div', { class: 'ar-daily-htxt' }, h('span', { class: 'xsmall muted' }, 'Günün kahramanı'), h('strong', null, H ? H.name : ch.heroId), h('span', { class: 'xsmall' }, H ? H.role : '')),
+        guest ? h('span', { class: 'badge jade' }, icon('unlock', { size: 12 }), 'Bugün misafir') : null,
+      ),
+      h('ul', { class: 'ar-daily-rules' },
+        h('li', { class: 'is-curse' }, icon('skull', { size: 18 }), h('span', null, h('b', null, `Lanet ${ch.curse} · ${C.name}`), h('small', null, `${C.description ? `${C.description} ` : ''}Skor ×${String(Math.round((C.scoreMult || 1 + 0.12 * ch.curse) * 100) / 100).replace('.', ',')}`))),
+        ch.mods.map((m) => h('li', null, icon('dice', { size: 18 }), h('span', null, h('b', null, m.name), h('small', null, m.desc)))),
+        h('li', { class: 'is-fair' }, icon('shield', { size: 18 }), h('span', null, h('b', null, 'Herkes aynı koşulda'), h('small', null, 'Ustalık bonusu, yetenek varyantları ve özel çantalar kapalı; kozmetik açık. Salon tablosuna yazılmaz: günlük rekorun bu cihazda tutulur.'))),
+      ),
+      h('dl', { class: 'ar-stats ar-daily-stats' },
+        stat('Bugünkü rekor', DB.best ? fmtNum(DB.best) : '—'),
+        stat('Deneme', String(DB.runs)),
+        stat('Yenilenme', h('span', { class: 'ar-cd' }, fmtCountdown(msToReset()))),
+      ),
+      h('p', { class: 'xsmall muted ar-daily-note' }, 'Günün ilk koşusu +40 Parıltı Taşı. Meydan okuma İstanbul saatiyle gece yarısı yenilenir.'),
+      h('div', { class: 'ar-daily-cta' }, go),
+    );
+  }
+
+  function openDaily() {
+    menu = 'daily';
+    run = { kind: 'daily', daily: dailyChallenge() };
+    attractHero(run.daily.heroId);
+    renderDaily();
+    showScreen('daily');
+    writeUi({ menu: 'daily' });
+    focusIn(dailyBody, '.ar-daily-go:not([disabled]), button');
+  }
+
+  // geri sayımlar (merkez ve günlük ekranı): saniyede bir; gün dönünce ekran yenilenir
+  let cdDay = dailyChallenge().day;
+  const cdTimer = setInterval(() => {
+    if (!alive || mode !== 'start' && mode !== 'loading') return;
+    const d = dailyChallenge().day;
+    if (d !== cdDay) { cdDay = d; if (menu === 'hub') renderHub(); if (menu === 'daily') { run.daily = null; renderDaily(); } return; }
+    for (const n of root.querySelectorAll('.ar-cd')) n.textContent = fmtCountdown(msToReset());
+  }, 1000);
+
+  // ------------------------------------------------------------------ Kütüphane · Kodeks · ustalık (tembel ekranlar, pencerede)
+  function openPanel(kind, arg) {
+    if (!prog) { fx.toast?.('Kalıcı ilerleme yükleniyor, birazdan tekrar dene.', 'ember'); return; }
+    if (isFs()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* yok say */ } }
+    if (mode === 'playing') pause({ focus: false });
+    const host = h('div', { class: 'ar-panelhost' });
+    let inner = null;
+    const label = kind === 'library' ? 'Aghanim Kütüphanesi' : kind === 'codex' ? 'Kodeks' : 'Kahraman ustalığı';
+    const close = fx.modal(host, {
+      label, cls: `arl-modal ar-modal-${kind}`,
+      onClose: () => { try { if (inner) inner(); } catch { /* yok say */ } inner = null; afterPanel(); },
+    });
+    try {
+      if (kind === 'library') inner = prog.mountLibrary(host, { branch: arg, onClose: close, onCodex: () => { close(); openPanel('codex'); } });
+      else if (kind === 'codex') inner = prog.mountCodex(host, { kind: arg, onClose: close });
+      else inner = prog.mountHeroMastery(host, arg || save.hero, { onClose: close, onLibrary: () => { close(); openPanel('library', 'heroes'); } });
+    } catch (e) { console.error(e); close(); }
+    sound.click();
+  }
+  function afterPanel() {
+    select.refresh();
+    refreshSelectContext();
+    if (mode === 'start' && menu === 'hub') renderHub();
+    if (mode === 'start' && menu === 'daily') renderDaily();
+  }
+
+  // ------------------------------------------------------------------ hikâye diyalogları
+  let dlg = null;
+  let storyMission = null;
+  const firedTriggers = new Set();
+  let pendingTalk = [];
+  function ensureDlg(u) {
+    if (dlg) return dlg;
+    dlg = u.createDialogue(talkHost, {
+      heroInfo: heroInfoOf,
+      onSeen: (id) => { try { if (prog && prog.markSeen) prog.markSeen('story', id); } catch { /* yok say */ } },
+    });
+    return dlg;
+  }
+  function enterTalk() {
+    mode = 'talk';
+    keys.clear();
+    game.chargeCancel();
+    resetTouch();
+    setLearnMode(false);
+    closeShop(true);
+    stage.classList.remove('is-playing');
+    stage.classList.add('in-talk');
+  }
+  function leaveTalk() {
+    stage.classList.remove('in-talk');
+    if (!alive || mode !== 'talk' || game.state === 'over') return;
+    mode = 'playing';
+    stage.classList.add('is-playing');
+    focusStage();
+  }
+  function talkCue(c) {
+    if (!c) return;
+    if (c.who === 'kurye') snd('courier', 0, 1.15);
+    else if (c.who && c.who.startsWith('dog:')) snd('bark', 0, 1.2);
+    else if (c.who && c.who !== 'hero' && !c.who.startsWith('hero:')) snd('roar', 0, 1.25);
+  }
   /**
-   * Koşu başlat. extra: runConfig alanları (mode, curse, mission, modifiers…) — hikâye/günlük modları buradan girer.
-   * progression.js varsa applyMeta(runConfig) uygulanır (başlangıç eşyaları, ustalık, varyantlar).
+   * Diyalog kartlarını oynat; açıkken simülasyon durur (mode 'talk'). resume: oyun sürüyorsa bitince devam et.
+   * → Promise<'done'|'skip'>
+   */
+  function talk(cards, resume) {
+    if (!cards || !cards.length) return Promise.resolve('done');
+    if (resume) enterTalk(); else { mode = 'talk'; stage.classList.remove('is-playing'); }
+    return loadStoryUi().then((u) => {
+      if (!alive) return 'skip';
+      ensureDlg(u);
+      talkCue(cards[0]);
+      say(`Diyalog: ${cards.length} kart. Enter ya da Boşluk ile ilerle, Esc ile atla.`, true);
+      return dlg.play(cards, { heroId: game.heroId });
+    }).then((how) => { if (resume) leaveTalk(); return how; });
+  }
+  /** Oyun olayı görev içi bir diyaloğu tetikliyor mu? (story.js triggerMatches) */
+  function storyEvent(type, d) {
+    if (run.kind !== 'story' || !storyMission || !storyMod || !game || game.state === 'over') return;
+    const T = (storyMission.dialogue && storyMission.dialogue.triggers) || [];
+    for (let i = 0; i < T.length; i++) {
+      if (firedTriggers.has(i) || !storyMod.triggerMatches(T[i], type, d)) continue;
+      firedTriggers.add(i);
+      pendingTalk.push(...T[i].cards);
+    }
+  }
+  function flushTalk() {
+    if (!pendingTalk.length || mode !== 'playing' || bbOpen || !(game.state === 'playing' || game.state === 'break')) return;
+    const cards = pendingTalk;
+    pendingTalk = [];
+    talk(cards, true);
+  }
+
+  /**
+   * Koşu başlat. Türü `run` belirler: Sonsuz (seçili kahraman), hikâye görevi (story.storyRunConfig) ya da günlük
+   * (daily.dailyRunConfig). extra: ek runConfig alanları. progression.js varsa applyMeta uygulanır.
    */
   function startGame(extra = {}) {
     if (!view) return;
-    if (!isHeroUnlocked(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
-    if (overLb) { overLb(); overLb = null; }
-    keys.clear();
     const ex = extra && typeof extra === 'object' && !(extra instanceof Event) ? extra : {};
     const { devMeta, ...rest } = ex;
-    // allowLocked: kilit kapısı yukarıda geçildi (profil ya da geliştirici kilidi); applyMeta başka kahramana düşmesin
-    let cfg = { mode: 'endless', heroId: save.hero, meta: null, mission: null, waves: null, objectives: [], modifiers: {}, allowLocked: true, ...rest };
+    let base;
+    if (run.kind === 'story') {
+      if (!storyMod || !storyMod.isMission(run.missionId)) { openCampaign(null); return; }
+      if (!select.allowed(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
+      base = storyMod.storyRunConfig(run.missionId, save.hero);
+    } else if (run.kind === 'daily') {
+      if (!run.daily || run.daily.day !== dailyChallenge().day) run.daily = dailyChallenge();
+      base = dailyRunConfig(run.daily);
+    } else {
+      if (!isHeroUnlocked(save.hero)) { fx.toast?.(`${heroOf(save.hero).name} kilitli. Aghanım Kütüphanesi’nden açılır.`, 'ember'); return; }
+      // allowLocked: kilit kapısı yukarıda geçildi (profil ya da geliştirici kilidi); applyMeta başka kahramana düşmesin
+      base = { mode: 'endless', heroId: save.hero, allowLocked: true };
+    }
+    if (overLb) { overLb(); overLb = null; }
+    clearOver();
+    keys.clear();
+    let cfg = { meta: null, mission: null, waves: null, objectives: [], modifiers: {}, ...base, ...rest };
     if (prog && typeof prog.applyMeta === 'function') {
       try { cfg = prog.applyMeta(cfg) || cfg; } catch (e) { console.warn('Arena: applyMeta', e); }
     }
@@ -1582,6 +2015,9 @@ export function mountArena(el, ctx = {}) {
     if (import.meta.env.DEV && devMeta && typeof devMeta === 'object') cfg.meta = { ...(cfg.meta || {}), ...devMeta };
     game.autoSkill = autoLearn;
     lastRunEnd = null;
+    pendingTalk = [];
+    firedTriggers.clear();
+    storyMission = run.kind === 'story' ? storyMod.MISSIONS[run.missionId] : null;
     game.start(cfg);
     setLearnMode(false);
     applyHeroUi();
@@ -1589,10 +2025,24 @@ export function mountArena(el, ctx = {}) {
     stage.classList.add('is-playing');
     closeShop(true);
     showScreen(null);
+    renderObjectives();
     focusStage();
     scrollStageIntoView();
     acc = 0;
     sound.click();
+    if (storyMission) {
+      const prep = cfg.mission && cfg.mission.prep > 0;
+      talk(storyMission.dialogue.intro, true).then(() => {
+        if (!alive || mode !== 'playing') return;
+        say(`${storyMission.name}. Hedef: ${storyMod.requiredGoals(run.missionId).join(', ')}.`, true);
+        // hazırlık molası: başlangıç seviyesi yetenek ağacı seçimi bekliyorsa önce o (kapanınca dükkân açılır)
+        if (prep && game.state === 'break') later(() => {
+          if (mode !== 'playing' || game.state !== 'break' || shop.open) return;
+          if (game.player.talentPending.length) openTalents();
+          else if (autoShop) openShop();
+        }, 250);
+      });
+    }
   }
 
   function pause({ focus = true } = {}) {
@@ -1601,6 +2051,7 @@ export function mountArena(el, ctx = {}) {
     keys.clear();
     game.chargeCancel();
     resetTouch();
+    menuBtnLbl.textContent = run.kind === 'story' ? 'Haritaya dön' : run.kind === 'daily' ? 'Menü' : 'Kahraman seç';
     showScreen('pause');
     stage.classList.remove('is-playing');
     say('Oyun duraklatıldı.', true);
@@ -1616,20 +2067,31 @@ export function mountArena(el, ctx = {}) {
     sound.click();
   }
 
-  function toMenu() {
+  /**
+   * Menüye dön. target: 'hub' | 'select' (Sonsuz seçimi) | 'story' (görev seçimi) | 'campaign' | 'daily';
+   * verilmezse koşunun türüne göre (hikâye → harita, günlük → merkez, Sonsuz → kahraman seçimi).
+   */
+  function toMenu(target) {
     if (overLb) { overLb(); overLb = null; }
+    clearOver();
+    if (dlg) dlg.close();
+    pendingTalk = [];
     setLearnMode(false);
     hideBuyback();
     hideNeutralChoice();
     mode = 'start';
-    stage.classList.remove('is-playing');
+    stage.classList.remove('is-playing', 'in-talk');
     closeShop(true);
     game.attract(save.hero);
     applyHeroUi();
     select.setHero(save.hero);
-    showScreen('start');
     refreshBest();
-    later(() => select.focusCurrent(), 30);
+    const t = typeof target === 'string' ? target : run.kind === 'story' ? 'campaign' : run.kind === 'daily' ? 'hub' : 'select';
+    if (t === 'campaign') openCampaign(run.missionId || null);
+    else if (t === 'hub') openHub();
+    else if (t === 'daily') openDaily();
+    else if (t === 'story') openSelect('story', run.missionId);
+    else openSelect('endless');
   }
 
   function quipFor(r) {
@@ -1657,24 +2119,34 @@ export function mountArena(el, ctx = {}) {
     return pick(lines);
   }
 
-  function gameOver(r) {
+  // ------------------------------------------------------------------ koşu sonu (Sonsuz · hikâye · günlük)
+  let stopRewards = null;
+  let stopFinale = null;
+  function clearOver() {
+    if (stopRewards) { try { stopRewards(); } catch { /* yok say */ } stopRewards = null; }
+    if (stopFinale) { try { stopFinale(); } catch { /* yok say */ } stopFinale = null; }
+  }
+  /** madde 4: grantRunRewards sonucunu ödül kartıyla göster (progression.mountRunRewards, tembel). */
+  function mountRewards(host, rewards) {
+    if (!rewards || !prog || typeof prog.mountRunRewards !== 'function') return;
+    const wrap = h('div', { class: 'ar-card ar-rewards' });
+    host.appendChild(wrap);
+    try { stopRewards = prog.mountRunRewards(wrap, rewards, { onLibrary: () => openPanel('library'), onHero: (id) => openPanel('mastery', id) }); } catch (e) { console.warn('Arena: mountRunRewards', e); }
+  }
+  function grant(extra, r) {
+    if (!prog || typeof prog.grantRunRewards !== 'function') return null;
+    const base = lastRunEnd || { mode: r.mode, score: r.score, wave: r.wave, heroId: r.heroId, stats: r, victory: r.victory, objectives: r.objectives, curse: r.curse };
+    try { return prog.grantRunRewards({ ...base, ...extra }); } catch (e) { console.warn('Arena: grantRunRewards', e); return null; }
+  }
+  /** Tüm modlar: durum, yerel sayaçlar, profil seçimleri (Roshan/boss rozetleri her modda sayılır). */
+  function commonOver(r, endless) {
     mode = 'over';
-    stage.classList.remove('is-playing');
+    pendingTalk = [];
+    stage.classList.remove('is-playing', 'in-talk');
     keys.clear();
     resetTouch();
     closeShop(true);
-    const prev = bestNow();
-    const prevHero = bestFor(r.heroId);
-    let better = false;
-    const endless = !r.mode || r.mode === 'endless';
-    // Salon skor tablosu yalnızca Sonsuz modun puanıdır (scores.arena)
-    if (endless) { try { better = store.me.submitScore(GAME_ID, r.score); } catch { /* yok say */ } }
-    let rewards = null;
-    if (prog && typeof prog.grantRunRewards === 'function') {
-      try { rewards = prog.grantRunRewards(lastRunEnd || { mode: r.mode || 'endless', score: r.score, wave: r.wave, heroId: r.heroId, stats: r, victory: r.victory }); } catch (e) { console.warn('Arena: grantRunRewards', e); }
-    }
-    // kahraman başına en iyi skor (yerel, sürümlü) + rozetler için profil seçimleri
-    if (endless && (prevHero == null || r.score > prevHero)) save.bests[r.heroId] = r.score;
+    clearOver();
     save.runs += 1;
     save.roshans += r.roshans || 0;
     persist();
@@ -1688,28 +2160,55 @@ export function mountArena(el, ctx = {}) {
         if (endless && !(Number(P['arena:dalga']) >= r.wave)) P['arena:dalga'] = r.wave;
       });
     } catch { /* yok say */ }
+  }
+  const statEl = (label, value, cls = '') => h('div', { class: `ar-stat ${cls}` }, h('dt', null, label), h('dd', { class: 'num' }, value));
+  const reportBtn = (label, ic, primary, fn) => {
+    const b = h('button', { class: `btn ${primary ? 'primary lg' : 'ghost'}`, type: 'button' }, icon(ic, { size: primary ? 18 : 16 }), label);
+    b.addEventListener('click', fn);
+    return b;
+  };
+  function showOver(first) {
+    showScreen('over');
+    refreshBest();
+    later(() => { try { first.focus({ preventScroll: true }); } catch { /* yok say */ } }, 60);
+  }
+
+  function gameOver(r) {
+    if (run.kind === 'story' && storyMod && storyMod.isMission(run.missionId)) { storyOver(r); return; }
+    if (run.kind === 'daily') { dailyOver(r); return; }
+    endlessOver(r);
+  }
+
+  function endlessOver(r) {
+    const prev = bestNow();
+    const prevHero = bestFor(r.heroId);
+    commonOver(r, true);
+    let better = false;
+    // Salon skor tablosu yalnızca Sonsuz modun puanıdır (scores.arena)
+    try { better = store.me.submitScore(GAME_ID, r.score); } catch { /* yok say */ }
+    const rewards = grant({ mode: 'endless' }, r);
+    // kahraman başına en iyi skor (yerel, sürümlü)
+    if (prevHero == null || r.score > prevHero) { save.bests[r.heroId] = r.score; persist(); }
     snd('lose', 0);
     const H = heroOf(r.heroId);
     const pct = Math.round(r.acc * 100);
     const topD = r.topType ? archOf(r.topType) : null;
-    const stat = (label, value, cls = '') => h('div', { class: `ar-stat ${cls}` }, h('dt', null, label), h('dd', { class: 'num' }, value));
+    const stat = statEl;
     clear(overBody);
-    const again = h('button', { class: 'btn primary lg', type: 'button' }, icon('refresh', { size: 18 }), 'Tekrar oyna');
-    const menu = h('button', { class: 'btn ghost', type: 'button' }, icon('arrowLeft', { size: 16 }), 'Kahraman değiştir');
-    again.addEventListener('click', startGame);
-    menu.addEventListener('click', toMenu);
+    const again = reportBtn('Tekrar oyna', 'refresh', true, () => startGame());
+    const change = reportBtn('Kahraman değiştir', 'arrowLeft', false, () => toMenu('select'));
+    const hubB = reportBtn('Menü', 'grid', false, () => toMenu('hub'));
     const heroBest = bestFor(r.heroId);
     overBody.append(h('div', { class: 'ar-card ar-report', style: { '--hc': H.color } },
       h('div', { class: 'ar-report-head' },
-        h('span', { class: 'eyebrow' }, 'Maç sonu raporu'),
+        h('span', { class: 'eyebrow' }, 'Maç sonu raporu · Sonsuz'),
         better ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), prev == null ? 'İlk skor' : 'Yeni rekor') : (prevHero == null || r.score > prevHero) ? h('span', { class: 'badge jade' }, icon('star', { size: 12 }), `${H.name} rekoru`) : null,
       ),
       h('div', { class: 'ar-report-hero' },
         h('span', { class: 'ar-report-emb', html: glyph(H.id) }),
         h('div', null,
-          h('h2', { class: 'ar-report-title' }, r.victory ? 'Zafer!' : r.wave >= 5 ? `GG, efsane ${H.name}` : 'Sürü seni yakaladı'),
-          endless ? null : h('span', { class: 'badge' }, r.mode === 'story' ? 'Hikâye' : r.mode === 'daily' ? 'Günlük' : r.mode),
-          h('span', { class: 'xsmall muted' }, `${H.name} · Seviye ${r.level} · ${fmtNum(r.gold)} altın kazanıldı`),
+          h('h2', { class: 'ar-report-title' }, r.wave >= 5 ? `GG, efsane ${H.name}` : 'Sürü seni yakaladı'),
+          h('span', { class: 'xsmall muted' }, `${H.name} · Seviye ${r.level} · ${fmtNum(r.gold)} altın kazanıldı${r.curse ? ` · Lanet ${r.curse}` : ''}`),
         ),
       ),
       h('dl', { class: 'ar-stats' },
@@ -1727,22 +2226,197 @@ export function mountArena(el, ctx = {}) {
         stat(`${H.name} rekoru`, fmtNum(heroBest ?? r.score)),
         stat('Genel rekor', fmtNum(bestNow() ?? r.score)),
       ),
-      rewards && (rewards.text || rewards.shards || rewards.parilti) ? h('p', { class: 'ar-reward small' }, h('span', { class: 'ar-coin', html: glyph('shard') }), rewards.text || `+${rewards.shards || rewards.parilti} Parıltı Taşı`) : null,
       r.items.length || r.neutral ? h('div', { class: 'ar-report-items' }, h('span', { class: 'xsmall dim' }, 'Envanter'), h('div', { class: 'ar-report-inv' }, r.items.map((id) => (ITEMS[id] ? h('span', { class: 'ar-report-item', title: ITEMS[id].name }, itemImg(ITEMS[id])) : null)), r.neutral && NEUTRALS[r.neutral] ? h('span', { class: 'ar-report-item neutral', title: `Orman: ${NEUTRALS[r.neutral].name}` }, itemImg(NEUTRALS[r.neutral])) : null)) : null,
       topD ? h('div', { class: 'ar-top-kill', style: { '--tc': topD.color } },
         portraitEl(topD, { cls: 'ar-top-kill-img', alt: '' }),
         h('div', null, h('span', { class: 'xsmall dim' }, 'En çok indirilen tür'), h('strong', null, `${topD.name} × ${r.topN}`)),
       ) : null,
       h('p', { class: 'ar-quip' }, '“', quipFor(r), '”'),
-      h('div', { class: 'row ar-report-btns' }, again, menu),
+      h('div', { class: 'row ar-report-btns' }, again, change, hubB),
     ));
     if (overLb) overLb();
     clear(overLbHost);
-    overLb = mountLeaderboard(overLbHost, { gameId: GAME_ID, title: 'Arena Efsaneleri', format: (n) => `${fmtNum(n)} puan` });
-    showScreen('over');
-    refreshBest();
-    say(`Oyun bitti. ${H.name}, dalga ${r.wave}, skor ${fmtNum(r.score)}, ${r.kills} öldürme.`, true);
-    later(() => { try { again.focus({ preventScroll: true }); } catch { /* yok say */ } }, 60);
+    mountRewards(overLbHost, rewards);
+    const lbWrap = h('div');
+    overLbHost.appendChild(lbWrap);
+    overLb = mountLeaderboard(lbWrap, { gameId: GAME_ID, title: 'Arena Efsaneleri', format: (n) => `${fmtNum(n)} puan` });
+    say(`Oyun bitti. ${H.name}, dalga ${r.wave}, skor ${fmtNum(r.score)}, ${r.kills} öldürme.${rewards ? ` ${rewards.shards} Parıltı Taşı.` : ''}`, true);
+    showOver(again);
+  }
+
+  // ------------------------------------------------------------------ hikâye görevi sonu
+  /** Bölüm ödülleri kayıtla uyumlu mu? (bölüm bitti ama ödül/ilerleme kaydı eksikse tamamla — ör. içe aktarılan profil) */
+  function reconcileStory() {
+    if (!prog || !storyMod) return;
+    try {
+      const SP = storyMod.storyProgress();
+      for (const cp of SP.chapters) {
+        if (!cp.done) continue;
+        prog.recordStoryChapter(cp.n);
+        const R = storyMod.CHAPTERS[cp.n - 1].reward;
+        if (R && R.hero && !SP.rewards[`hero_${R.hero}`] && storyMod.markReward(`hero_${R.hero}`)) prog.unlockHero(R.hero, { free: true, source: `bolum${cp.n}` });
+      }
+    } catch (e) { console.warn('Arena: hikâye kaydı', e); }
+  }
+
+  function storyOver(r) {
+    commonOver(r, false);
+    const S = storyMod;
+    const id = run.missionId;
+    const M = S.MISSIONS[id];
+    const C = S.CHAPTER_OF[id];
+    const end = lastRunEnd || { mode: 'story', victory: !!r.victory, objectives: r.objectives };
+    const victory = !!end.victory;
+    const stars = S.starsFor(id, end);
+    const rec = S.recordMission(id, { victory, stars, time: r.time });
+    const rewards = grant({ mode: 'story', missionId: id, stars }, r);
+    // madde 5: bölüm ilk kez bitti → recordStoryChapter (+50 Parıltı, rozet seçimi) ve bölüm ödülü kahraman
+    let chapter = null;
+    let heroGift = null;
+    if (rec && rec.chapterDone) {
+      try { chapter = prog ? prog.recordStoryChapter(rec.chapterDone) : null; } catch (e) { console.warn('Arena: recordStoryChapter', e); }
+      const R = C.reward;
+      if (R && R.hero && prog && S.markReward(`hero_${R.hero}`)) {
+        try { const u = prog.unlockHero(R.hero, { free: true, source: `bolum${rec.chapterDone}` }); heroGift = { id: R.hero, ok: !!u.ok, owned: u.reason === 'owned' }; } catch (e) { console.warn('Arena: unlockHero', e); }
+        select.refresh();
+      }
+    }
+    const info = { r, id, M, C, rec, stars, victory, end, rewards, chapter, heroGift };
+    if (victory) {
+      snd('win', 0);
+      talk(M.dialogue.win, false).then(() => {
+        if (!alive) return;
+        if (rec && rec.finale) {
+          try { sound.record(); } catch { /* yok say */ }
+          talk(S.FINALE.cards, false).then(() => { if (alive) showFinale(() => storyReport(info)); });
+        } else storyReport(info);
+      });
+    } else {
+      snd('lose', 0);
+      storyReport(info);
+    }
+  }
+
+  function showFinale(next) {
+    mode = 'over';
+    clear(finaleScreen);
+    showScreen('finale');
+    loadStoryUi().then((u) => {
+      if (!alive) return;
+      const SP = storyMod.storyProgress();
+      stopFinale = u.mountFinale(finaleScreen, {
+        stars: SP.stars, maxStars: SP.maxStars, menuLabel: 'Devam',
+        onMenu: () => { sound.click(); if (stopFinale) { stopFinale(); stopFinale = null; } next(); },
+        onCodex: () => openPanel('codex', 'story'),
+      });
+    });
+  }
+
+  function storyReport(info) {
+    const { r, id, M, C, rec, stars, victory, rewards, chapter, heroGift } = info;
+    mode = 'over';
+    const H = heroOf(r.heroId);
+    clear(overBody);
+    const next = victory && rec && rec.next ? reportBtn('Sonraki görev', 'arrowRight', true, () => { run = { kind: 'story', missionId: rec.next }; toMenu('story'); }) : null;
+    const again = reportBtn(victory ? 'Tekrar oyna' : 'Tekrar dene', 'refresh', !next, () => startGame());
+    const map = reportBtn('Harita', 'flag', false, () => toMenu('campaign'));
+    const objs = (info.end.objectives || r.objectives || []);
+    const objById = Object.fromEntries((storyMod.missionConfig(id).objectives || []).map((o) => [o.id, o]));
+    const optIds = objs.filter((x) => x.optional).map((x) => x.id);
+    const starEls = [1, 2, 3].map((i) => h('span', { class: `ar-sr-star${i <= stars ? ' on' : ''}${rec && i > rec.prevStars && i <= stars ? ' new' : ''}`, style: { '--i': String(i) }, html: glyph('star') }));
+    const quote = victory ? (M.dialogue.win[M.dialogue.win.length - 1] || {}).text : M.dialogue.lose;
+    overBody.append(h('div', { class: `ar-card ar-report ar-sreport${victory ? ' won' : ' lost'}`, style: { '--hc': C.color } },
+      h('div', { class: 'ar-report-head' },
+        h('span', { class: 'eyebrow' }, `Hikâye · ${C.roman}. bölüm · ${M.index}. görev`),
+        rec && rec.firstWin ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), 'İlk zafer') : rec && rec.newStars ? h('span', { class: 'badge jade' }, icon('star', { size: 12 }), 'Yeni yıldız') : null,
+      ),
+      h('div', { class: 'ar-report-hero' },
+        h('span', { class: 'ar-report-emb', style: { '--hc': H.color }, html: glyph(H.id) }),
+        h('div', null,
+          h('h2', { class: 'ar-report-title' }, victory ? 'Görev tamam!' : 'Görev başarısız'),
+          h('span', { class: 'ar-sr-name' }, M.name),
+        ),
+      ),
+      h('div', { class: 'ar-sr-stars', role: 'img', 'aria-label': `${stars}/3 yıldız` }, starEls),
+      h('ul', { class: 'ar-sr-objs', 'aria-label': 'Hedefler' }, objs.map((o) => {
+        const def = objById[o.id] || {};
+        const st = o.done && !o.failed ? 'done' : o.failed ? 'failed' : 'open';
+        return h('li', { class: `ar-sr-obj ${st}${o.optional ? ' optional' : ''}` },
+          h('span', { class: 'ar-sr-obj-i', 'aria-hidden': 'true' }, st === 'done' ? icon('check', { size: 14 }) : st === 'failed' ? icon('cross', { size: 14 }) : null),
+          h('span', null, def.text || objText({ ...def, ...o }), o.optional ? h('em', null, optIds.indexOf(o.id) < 2 ? ' · +1 yıldız' : ' · bonus') : null),
+          h('span', { class: 'sr-only' }, st === 'done' ? 'tamam' : st === 'failed' ? 'kaçtı' : 'yapılmadı'),
+        );
+      })),
+      h('dl', { class: 'ar-stats ar-sr-stats' },
+        statEl('Süre', fmtT(r.time)),
+        statEl('Öldürme', String(r.kills)),
+        statEl('Seviye', String(r.level)),
+        statEl('Son vuruş', String(r.lastHits)),
+      ),
+      quote ? h('p', { class: 'ar-quip' }, h('b', null, 'Kurye: '), '“', quote, '”') : null,
+      h('div', { class: 'row ar-report-btns' }, next, again, map),
+    ));
+    // sağ sütun: bölüm ödülü + Parıltı kartı
+    if (overLb) { overLb(); overLb = null; }
+    clear(overLbHost);
+    if (rec && rec.chapterDone) {
+      const gift = heroGift && heroGift.id ? HEROES[heroGift.id] : null;
+      overLbHost.appendChild(h('div', { class: 'ar-card ar-chapdone', style: { '--hc': C.color } },
+        h('span', { class: 'eyebrow' }, `${C.roman}. bölüm tamamlandı`),
+        h('strong', { class: 'ar-chapdone-t' }, C.name),
+        chapter && chapter.shards ? h('span', { class: 'ar-chapdone-s' }, icon('shard', { size: 14 }), `Bölüm ödülü +${chapter.shards} Parıltı`) : null,
+        gift ? h('div', { class: 'ar-chapdone-hero', style: { '--hc': gift.color } }, h('span', { class: 'ar-report-emb', html: glyph(gift.id) }),
+          h('span', null, heroGift.ok ? h('b', null, `${gift.name} artık seninle!`) : h('b', null, `${gift.name} zaten seninleydi.`), h('small', null, heroGift.ok ? ' Kahraman seçiminde kilidi açıldı.' : ' Bölüm ödülü kayda geçti.'))) : null,
+      ));
+      try { sound.record(); } catch { /* yok say */ }
+    }
+    mountRewards(overLbHost, rewards);
+    say(`${victory ? 'Görev tamam' : 'Görev başarısız'}: ${M.name}. ${stars} yıldız.${rec && rec.chapterDone ? ` ${C.roman}. bölüm tamamlandı.` : ''}`, true);
+    if (victory && !reduced) {
+      starEls.forEach((el, i) => { if (i < stars) later(() => { el.classList.add('pop'); snd('good', 0); }, 350 + i * 260); });
+    }
+    showOver(next || again);
+  }
+
+  // ------------------------------------------------------------------ günlük meydan okuma sonu
+  function dailyOver(r) {
+    commonOver(r, false);
+    const ch = run.daily || dailyChallenge();
+    const res = recordDaily({ day: ch.day, score: r.score, wave: r.wave, heroId: r.heroId });
+    const rewards = grant({ mode: 'daily', day: ch.day }, r);
+    snd(res.isBest ? 'win' : 'lose', 0);
+    const H = heroOf(r.heroId);
+    clear(overBody);
+    const again = reportBtn('Tekrar dene', 'refresh', true, () => startGame());
+    const hubB = reportBtn('Menü', 'grid', false, () => toMenu('hub'));
+    overBody.append(h('div', { class: 'ar-card ar-report', style: { '--hc': H.color } },
+      h('div', { class: 'ar-report-head' },
+        h('span', { class: 'eyebrow' }, `Günlük meydan okuma · ${ch.dateText}`),
+        res.isBest ? h('span', { class: 'badge gold' }, icon('crown', { size: 12 }), res.prev ? 'Yeni günlük rekor' : 'Günün ilk skoru') : null,
+      ),
+      h('div', { class: 'ar-report-hero' },
+        h('span', { class: 'ar-report-emb', html: glyph(H.id) }),
+        h('div', null,
+          h('h2', { class: 'ar-report-title' }, res.isBest ? 'Günün rekoru!' : r.wave >= 5 ? `GG, ${H.name}` : 'Sürü bugün kazandı'),
+          h('span', { class: 'xsmall muted' }, `${H.name} · Lanet ${ch.curse}${ch.mods.length ? ` · ${ch.mods.map((m) => m.name).join(' · ')}` : ''}`),
+        ),
+      ),
+      h('dl', { class: 'ar-stats' },
+        statEl('Skor', fmtNum(r.score), 'gold big'),
+        statEl('Dalga', String(r.wave)),
+        statEl('Öldürme', String(r.kills)),
+        statEl('Bugünkü rekor', fmtNum(res.best)),
+        statEl('Deneme', String(res.runs)),
+        statEl('Yenilenme', h('span', { class: 'ar-cd' }, fmtCountdown(msToReset()))),
+      ),
+      h('p', { class: 'ar-quip' }, '“', res.isBest ? 'Bugünün tahtası senin. Yarın aynı koşullar başka biriyle; sen yine gel.' : quipFor(r), '”'),
+      h('div', { class: 'row ar-report-btns' }, again, hubB),
+    ));
+    if (overLb) { overLb(); overLb = null; }
+    clear(overLbHost);
+    mountRewards(overLbHost, rewards);
+    say(`Günlük meydan okuma bitti. Skor ${fmtNum(r.score)}, bugünkü rekorun ${fmtNum(res.best)}.`, true);
+    showOver(again);
   }
 
   resumeBtn.addEventListener('click', resume);
@@ -1809,6 +2483,8 @@ export function mountArena(el, ctx = {}) {
     if (isTyping(e.target)) return;
     if (document.querySelector('.modal-backdrop')) return;
     const code = e.code;
+    // hikâye diyaloğu açıkken: Boşluk/Enter ilerlet, Esc atla; oyun tuşları işlenmez
+    if (mode === 'talk') { if (dlg && dlg.key(e)) return; if (code === 'Escape' || code === 'Space' || code === 'Enter') e.preventDefault(); return; }
     // Ctrl + Q/E/R (WASD düzeninde W = Ctrl+Boşluk): yetenek öğren (Dota'daki gibi). Ctrl+W tarayıcıya ayrılmıştır.
     if (e.ctrlKey && !e.metaKey && !e.altKey && (mode === 'playing' || mode === 'picking')) {
       const k = code === 'KeyW' ? null : keyOf(code);
@@ -1868,7 +2544,7 @@ export function mountArena(el, ctx = {}) {
     } else if (mode === 'start' || mode === 'over') {
       const t = e.target;
       const onButton = t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY');
-      if (code === 'Enter' && !onButton && stageVisible) { e.preventDefault(); startGame(); }
+      if (code === 'Enter' && !onButton && stageVisible && finaleScreen.hidden && (mode === 'over' || menu === 'select')) { e.preventDefault(); startGame(); }
     }
   }
   function onKeyUp(e) {
@@ -2235,7 +2911,7 @@ export function mountArena(el, ctx = {}) {
     setText(nKills, String(g.kills));
     setText(nWave, String(Math.max(1, g.wave)));
     setText(nDogs, `${g.dogsLeft}/${g.dogsTotal}`);
-    setText(dogsLbl, g.bossWave ? 'ROSHAN+' : 'DOG');
+    setText(dogsLbl, g.bossWave ? (g.bossId === 'boss_roshan' ? 'ROSHAN+' : 'BOSS+') : 'DOG');
     setText(nScore, fmtNum(g.score));
     if (g.heroId === 'okcu') setText(nAcc, g.shots ? `%${Math.round((g.hitShots / g.shots) * 100)}` : '—');
     else setText(nAcc, `%${Math.round(Math.max(0, 1 - g.waveDamage / Math.max(1, p.maxHp * 1.5)) * 100)}`);
@@ -2282,9 +2958,9 @@ export function mountArena(el, ctx = {}) {
       dayCell.querySelector('.ar-day-l').textContent = night ? 'Gece' : 'Gündüz';
       dayCell.title = night ? 'Gece: görüş kısa, Wardsız DOG’lar güçlü' : 'Gündüz';
     }
-    setCls(stage, 'is-night', night && (mode === 'playing' || mode === 'paused' || mode === 'picking'));
+    setCls(stage, 'is-night', night && (mode === 'playing' || mode === 'paused' || mode === 'picking' || mode === 'talk'));
     // boss çubuğu
-    const boss = mode === 'playing' || mode === 'picking' || mode === 'paused' ? g.activeBoss() : null;
+    const boss = mode === 'playing' || mode === 'picking' || mode === 'paused' || mode === 'talk' ? g.activeBoss() : null;
     setHidden(bossBar, !boss || boss.spawnT > 0.8);
     if (boss) {
       if (bossBar.dataset.id !== String(boss.id)) {
@@ -2341,7 +3017,10 @@ export function mountArena(el, ctx = {}) {
     // mola şeridi
     const brk = mode === 'playing' && g.state === 'break';
     setHidden(breakBar, !brk || shop.open);
-    if (brk) setText(breakTime, String(Math.max(0, Math.ceil(g.breakT))));
+    if (brk) {
+      setText(breakTime, String(Math.max(0, Math.ceil(g.breakT))));
+      setText(breakLbl, g.wave === 0 ? 'Hazırlık · ilk dalga ' : 'Mola · sıradaki dalga ');
+    }
     stage.classList.toggle('in-break', brk);
     // duyuru zamanları
     const now = performance.now();
@@ -2351,7 +3030,7 @@ export function mountArena(el, ctx = {}) {
       if (now > feedItems[i].t) { feedItems[i].li.remove(); feedItems.splice(i, 1); }
     }
     if (shop.open) shop.update();
-    if (mode === 'playing' || mode === 'paused' || mode === 'picking') minimap.draw(g, dt);
+    if (mode === 'playing' || mode === 'paused' || mode === 'picking' || mode === 'talk') minimap.draw(g, dt);
   }
 
   // ekran dışı düşman okları
@@ -2479,13 +3158,16 @@ export function mountArena(el, ctx = {}) {
       acc += dt * devSpeed;
       let n = 0;
       const maxN = 5 * devSpeed;
-      while (acc >= STEP && n < maxN) {
+      const m0 = mode;
+      // olay bir diyalog/ekran açtıysa (mode değiştiyse) aynı karede simülasyonu ilerletme
+      while (acc >= STEP && n < maxN && mode === m0) {
         game.step(STEP, input);
         acc -= STEP;
         n += 1;
         simDt += STEP;
       }
-      if (n >= maxN) acc = 0;
+      if (n >= maxN || mode !== m0) acc = 0;
+      if (pendingTalk.length) flushTalk();
       const p = game.player;
       if (mode === 'playing' && p.charging) {
         chargeSndT -= dt;
@@ -2506,20 +3188,30 @@ export function mountArena(el, ctx = {}) {
       if (now - lastRender < 60) return;
     }
     lastRender = performance.now();
-    view.render(game, dt, mode === 'paused' || mode === 'picking' ? 0 : simDt);
+    view.render(game, dt, mode === 'paused' || mode === 'picking' || mode === 'talk' ? 0 : simDt);
     updateHud(dt);
     updateEdges();
   }
 
   // ------------------------------------------------------------------ görüntü kurulumu
   function setStartReady() {
+    const wasMenu = menu;
     mode = 'start';
     select.ready();
-    showScreen('start');
+    // yenilemede aynı menüye dön (oturum içi); kullanıcı yüklenirken gezindiyse onun seçimi kalır
+    const ui = userNavigated ? null : readUi();
+    if (ui && ui.menu === 'campaign') openCampaign(ui.missionId || null);
+    else if (ui && ui.menu === 'daily') openDaily();
+    else if (ui && ui.menu === 'select' && ui.kind === 'story' && ui.missionId) loadStory().then(() => { if (alive && mode === 'start' && !userNavigated) openSelect('story', ui.missionId); });
+    else if (ui && ui.menu === 'select') openSelect('endless');
+    else if (wasMenu === 'daily') openDaily(); // "Yükleniyor…" düğmesini etkinleştir
+    else if (wasMenu === 'select') showScreen('start');
+    else if (wasMenu === 'campaign') showScreen('campaign');
+    else openHub();
   }
 
   (async () => {
-    showScreen('start');
+    openHub({ persist: false });
     let v = null;
     try {
       if (!webglOk()) throw new Error('WebGL desteklenmiyor');
@@ -2559,6 +3251,11 @@ export function mountArena(el, ctx = {}) {
   // ------------------------------------------------------------------ temizlik
   return () => {
     alive = false;
+    clearInterval(cdTimer);
+    clearOver();
+    if (stopCamp) { try { stopCamp(); } catch { /* yok say */ } stopCamp = null; }
+    if (stopCurse) { try { stopCurse(); } catch { /* yok say */ } stopCurse = null; }
+    if (dlg) { try { dlg.destroy(); } catch { /* yok say */ } dlg = null; }
     if (stopTrack) { try { stopTrack(); } catch { /* yok say */ } stopTrack = null; }
     if (stopLoop) stopLoop();
     for (const off of offs) off();

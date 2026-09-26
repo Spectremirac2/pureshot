@@ -2,7 +2,8 @@
 
 **Rota:** `#oyunlar--arena` (kısayol **R**) · **Tür:** Ultimate · 3D · mini Dota · **Skor:** puan (yüksek iyi, tek skor tablosu `scores.arena`, yalnızca Sonsuz mod yazar)
 **Dosyalar:** `src/sections/games/arena/` (ayrıntı: [Mimari](#mimari--genişletme-noktaları)). Salon, arenayı ilk açılışta tembel yükler.
-**İlgili:** kalıcı ilerleme (Aghanım Kütüphanesi, ustalık, varyantlar, lanetler) → [../ARENA-ILERLEME.md](../ARENA-ILERLEME.md).
+**İlgili:** kalıcı ilerleme (Aghanım Kütüphanesi, ustalık, varyantlar, lanetler) → [../ARENA-ILERLEME.md](../ARENA-ILERLEME.md) ·
+hikâye modu, mod merkezi ve günlük meydan okuma → [arena-hikaye.md](arena-hikaye.md).
 
 ## Fikir
 Radiant tarafında tek başınasın. Nehrin ikiye böldüğü küçük bir Dota savaş alanında dokuz DOG, Dire creep’leri,
@@ -12,6 +13,13 @@ Dire kuleleri, orman kampları, gece ve her 5. dalgada bir boss üstüne gelir. 
 ward’la, ölünce **geri al** (buyback). Dokuz DOG’u indirmek bir dalgayı temizler: **1vDOQUZ**.
 
 Kahramanlar Dota arketiplerinden esinlenen özgün karakterlerdir; arayüzde yalnızca Türkçe lakaplarıyla anılırlar.
+
+## Modlar (faz D)
+Arena açılınca **mod merkezi** gelir: **Hikâye** (Dokuzun Laneti: 5 bölüm × 3 görev, diyaloglar, yıldızlar),
+**Sonsuz** (bu belgenin anlattığı dalga modu; Lanet seçici; salon skoru yalnızca buradan), **Günlük** (İstanbul
+gününün tohumuyla herkes için aynı kahraman + Lanet + değiştiriciler; yerel günlük rekor), **Kütüphane** ve
+**Kodeks** (kalıcı ilerleme ekranları, pencerede). Kahraman seçiminde “Ustalık” düğmesi, kilitli kahramanlarda bedel
+ve “Kütüphane’de aç”. Her koşudan sonra Parıltı/ustalık ödül kartı. Ayrıntı: [arena-hikaye.md](arena-hikaye.md).
 
 ## Kahramanlar
 Seçim ekranında sahne döner tabladır. Kart: ad, rol, zorluk, en iyi skor, özellik satırı (1. seviye + seviye başı
@@ -251,7 +259,8 @@ dalga temizleme `300 × dalga` + verim bonusu `verim × 400`. Lanet çarpanı `1
 
 ## Arayüz (HUD)
 Alt ortada Dota paneli: portre + XP halkası + seviye + yetenek puanı rozeti, G/Ç/Z, Q W E R (seviye noktaları,
-bekleme, mana, “+”), can/mana, 6 eşya yuvası + orman yuvası, altın. Üstte dalga/DOG/öldürme + gün/gece hücresi;
+bekleme, mana, “+”), can/mana, 6 eşya yuvası + orman yuvası, altın. Üstte dalga/DOG/öldürme + gün/gece hücresi
+(boss dalgasında sayaç etiketi Roshan için “ROSHAN+”, diğer bosslar için “BOSS+”);
 boss varken tepede boss çubuğu (ad, evre, kalkan). Sağda görev hedefleri listesi (varsa). Sol altta mini harita
 (kamplar dolu/boş, ward, orman eşyası, boss rengi, gece karartması). Buyback kartı, orman seçimi kartı, kahraman sayfası.
 390 px’te panel sıkışır (G/Ç/Z tek satır, eşyalar yetenek kümesinin üstünde), yatay taşma yok.
@@ -275,6 +284,7 @@ WebGL yoksa `view2d.js`: nehir, ağaçlar, kuleler, çeşme, çukur, rünler, DO
 | `view2d.js` · `minimap.js` | WebGL’siz yedek · mini harita |
 | `arena.js` · `select.js` · `shop.js` · `glyphs.js` · `arena.css` | Arayüz |
 | `progression.js` · `library.js` · `mastery.js` · `codex.js` | Kalıcı ilerleme (İlerleme ajanı; bkz. ARENA-ILERLEME.md) |
+| `story.js` · `storyui.js` · `story.css` · `daily.js` | Hikâye verisi/ilerlemesi (saf), harita + diyalog + final (tembel), günlük meydan okuma (bkz. arena-hikaye.md) |
 
 ### Koşu ayarı (`g.start(config)` / `createGame(emit, config)`)
 ```js
@@ -294,14 +304,25 @@ WebGL yoksa `view2d.js`: nehir, ağaçlar, kuleler, çeşme, çukur, rünler, DO
 
 **Dalga şeması** (`mission.waves[i]`, yoksa `defaultWave(n)`):
 ```js
-{ dogs: ['feed', 'mid', …], elites: 2, creepSquads: 1,
+{ lvl: 8 /* ölçek dalgası: DOG/creep/orman gücü, öldürme altını/XP'si, kule gücü; yoksa dalga numarası */,
+  dogs: ['feed', 'mid', …], elites: 2, creepSquads: 1,
   boss: null | 'roshan' | 'boss_general' | 'Dire Generali',   bossLevel: 1, bossAt: 'pit' | 'center' | 'dire' | 'gate' | {x, z},
   units: [{ id: 'neutral_alpha' | 'creep_melee' | 'dog_feed' | 'boss_shadow' | …, n: 2, at: 'center' | 'camp:kurt' | {x,z},
-            elite, counted: true, delay: 5 /* sn */, k: 1, aggro: true }],
+            elite, counted: true, delay: 5 /* sn */, k: 1, aggro: true,
+            hpMul, dmgMul, scale, bountyMul, tag: 'lord', label /* hikâye: güçlendirilmiş/etiketli birim */ }],
   night: true | false, camps: true, text: 'Dalga duyurusu' }
 ```
 Birim kimlikleri kısa adla da çözülür (`unitId('ROSHAN')`). `counted: false` birimler dalgayı bitirmeyi beklemez.
-Liste bitince hikâyede zafer (`runEnd.victory`).
+Liste bitince hikâyede zafer (`runEnd.victory`); hedefle kazanılan görevde (`victory: 'objectives'`) zorunlu hedef
+sürüyorsa son dalga bosssuz ve ölçeği birer artarak yinelenir. `g.lvl` / `g.scaleWave()` ölçek dalgasıdır (Sonsuz’da
+her zaman `g.wave`, dolayısıyla Sonsuz dengesi değişmedi). İlk dalga `lvl > 1` ise kuleler o ölçekle kurulur.
+
+**Görev ek alanları (faz D):** `mission.prep` (sn; ilk dalgadan önce dükkân molası, “Hazırlık · ilk dalga”),
+`mission.setup(g)` (görev betiği; `g.on` / `g.later` / `g.hooks`; kapatma fonksiyonu döndürür, sonraki `start`/
+`attract`’ta çağrılır), başlangıç seviyesi > 1 ise başlangıç yetenek puanları otomatik dağıtılır. **Özel hedefler:**
+`kind: 'custom'` → `g.objSet(id, v)`, `g.objAdd(id, n)`, `g.objFail(id)`; `hold: true` hedef (“en çok 3 REPORT ye”)
+noDeath gibi zaferde tamamlanır. Hazırlık molası (dalga 0) `time`/`survive` sayacına girmez. `kill` hedefinde `unit`
+birimin `tag`’ine de uyar.
 
 **Görev hedefleri** (`mission.objectives`): `{ id, kind, n, optional, text, … }` — `kill` (`unit`: kimlik/kind/tür),
 `boss` (`boss`: kimlik), `waves`, `survive` (`t` sn), `time` (`t` sn içinde bitir; aşılırsa başarısız), `runes`,
@@ -334,6 +355,9 @@ dalga/görev → `mission`.
 `wave(n)`, `clear()`, `gold(n)`, `level(n)`, `learnAll()`, `talents(i)`, `roshan()`, `boss(id, {at, k})`,
 `unit(id, o)`, `camps()`, `neutral(id?)`, `night(true|false|null)`, `rune(k)`, `creeps()`, `heal()`, `god(v)`,
 `kill()`, `unlock(id|'all')`, `pickHero(id)`, `start(config)`, `sheet(tab)`, `learnMode(v)`, `speed(k)`, `mode()`.
+Faz D: `menu()`, `run()`, `hub()`, `endless()`, `campaign(id?)`, `daily()`, `startDaily()`, `story(id, heroId?)`,
+`win(all?)`, `lose()`, `talkOpen()`, `talkNext()`, `talkSkip()`, `storyProgress()`, `storyUnlock(n, yıldız)`,
+`storyReset()`, `panel('library'|'codex'|'mastery', arg)`.
 
 ### Kayıtlar (localStorage, `csk:` önekiyle)
 | Anahtar | İçerik |
@@ -342,6 +366,7 @@ dalga/görev → `mission`.
 | `arena:keys` · `arena:auto` · `arena:autoshop` · `arena:autolearn` | Tuş düzeni, otomatik nişan, molada dükkân, otomatik öğrenme |
 | profil `scores.arena` · `picks['arena:h:<id>']` · `picks['arena:roshan']` · `picks['arena:dalga']` | Sonsuz mod skorları |
 | `devUnlock` | yalnızca bellek içi (kalıcı değil) |
+| `arena:story:v1` · `arena:daily:v1` · (oturum) `arena:ui` | Hikâye ilerlemesi, günlük rekor, son açılan menü — bkz. [arena-hikaye.md](arena-hikaye.md) |
 
 ## Denge notları (Arena 3.0)
 Başsız bot (`game.js` DOM’suz; kaçan/yaklaşan bot, otomatik öğrenme, sabit eşya planı, 25–30 dk sınır, her kahraman
@@ -379,8 +404,8 @@ Feed Alfa dalışı her menzilde; Roshan kükremesine ccCap.
 - `runEnd` yükü `grantRunRewards` için yeterlidir (`stats.bosses`, `stats.bossKills`, `items`, `kills`, `time`).
   Yalnızca `mode: 'endless'` salon skoruna yazar.
 - arena.js `progression.js` varsa: `registerUnlockCheck`, `connectStore(coreStore)`, `trackGame(game)` (çıkışta
-  durdurulur), her başlatmada `applyMeta(config)`, oyun sonunda `grantRunRewards(runEnd)`. Kütüphane / lanet seçici /
-  ödül ekranı menüleri henüz bağlı değil (hikâye ajanı).
+  durdurulur), her başlatmada `applyMeta(config)`, oyun sonunda `grantRunRewards(runEnd)`. **Faz D:** Kütüphane,
+  Kodeks, ustalık, Lanet seçici, ödül kartı ve hikâye/günlük akışı bağlandı ([arena-hikaye.md](arena-hikaye.md)).
 - Uygulanan meta alanları: `variants` (18/18), `pools.neutralChoice` (1–3), `pools.neutralReroll` (0–3/mola),
   `startItems`, `startGold`, `cosmetics.aura/trail` (halka + iz), `cosmetics.courier` (kurye izi rengi),
   `cosmetics.stamp` (üçlü öldürmede “DOG DOG DOG” damgası), `cosmetics.title` / `mastery.title` (sayfada unvan,

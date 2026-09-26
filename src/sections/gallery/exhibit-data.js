@@ -1,6 +1,6 @@
 // 3D Müze eser meta verileri (three.js içermez; galeri, katalog ve "Nasıl yapıldı?" sayfası da kullanır).
 // Üç salon: Salon I · Efsaneler (sitenin ilk üç eseri), Salon II · Arena (1vDOQUZ Arena kadrosu) ve
-// Salon III · Dokuzun Laneti (Arena'nın yakında gelecek hikâye modunun kahramanları, kampları ve boss'ları).
+// Salon III · Dokuzun Laneti (Arena'nın hikâye modunun kahramanları, kampları ve boss'ları).
 // Alanlar:
 //   key      fal GLB anahtarı (src/assets/fal/<key>.glb)     id     prosedürel yedeğin kimliği (exhibits.js)
 //   no       Roma rakamıyla genel eser numarası               wing   salon kimliği (WINGS)
@@ -30,7 +30,7 @@ export const WINGS = [
     no: 'III',
     name: 'Dokuzun Laneti',
     label: 'Salon III · Dokuzun Laneti',
-    lore: 'Arena’nın yakında gelecek hikâye modu: bitmeyen bir pub maçı, ruhları DOG’a dönen oyuncular ve laneti kıracak tek bir 1vDOQUZ. Anlatıcı: Kurye.',
+    lore: 'Arena’nın hikâye modu: bitmeyen bir pub maçı, ruhları DOG’a dönen oyuncular ve laneti kıracak tek bir 1vDOQUZ. Anlatıcı: Kurye.',
   },
 ];
 
@@ -231,14 +231,14 @@ export const EXHIBITS = [
     no: 'XIII',
     wing: 'lanet',
     name: 'Şimşek Ruhu',
-    kicker: 'Hikâye modu · açılabilir kahraman',
+    kicker: 'Hikâye modu · IV. bölüm ödülü',
     icon: 'bolt',
     height: 1.55,
     yaw: 0,
     pitch: 1.35,
-    arena: 'soon',
+    arena: true,
     desc:
-      'Mavi tenli, saçları kıvılcım saçan şimşek büyücüsü; atkısı ve minik bıyığıyla fazla ciddi görünmemeye çalışıyor. Haritanın bir ucundan öbürüne göz açıp kapayana kadar varıyor, sonra “Ben mi yaptım?” diye soruyor. Laneti kıranlara katılmak için sırada.',
+      'Mavi tenli, saçları kıvılcım saçan şimşek büyücüsü; atkısı ve minik bıyığıyla fazla ciddi görünmemeye çalışıyor. Haritanın bir ucundan öbürüne göz açıp kapayana kadar varıyor, sonra “Ben mi yaptım?” diye soruyor. IV. bölümün sonunda laneti kıranlara katılıyor.',
   },
   {
     key: 'model-hero-treant',
@@ -246,12 +246,12 @@ export const EXHIBITS = [
     no: 'XIV',
     wing: 'lanet',
     name: 'Ağaç Bekçisi',
-    kicker: 'Hikâye modu · açılabilir kahraman',
+    kicker: 'Hikâye modu · II. bölüm ödülü',
     icon: 'treant',
     height: 1.55,
     yaw: 0,
     pitch: 0.62,
-    arena: 'soon',
+    arena: true,
     desc:
       'Fıçı gövdeli yaşlı bir ağaç: yosun sakal, sonbahar yapraklarından taç, omuzlarda mantarlar, göğsünde yanan bir fener ve kabuktan kalkan. Müzenin en ağır eseri; acelesi yok, zaten yüz yıldır aynı koridoru bekliyor.',
   },
@@ -266,7 +266,7 @@ export const EXHIBITS = [
     height: 1.15,
     yaw: 0,
     pitch: 0.95,
-    arena: 'soon',
+    arena: true,
     desc:
       'Koyu gri-mavi postlu, kemik kolyeli, sarı gözleri karanlıkta parlayan orman kurdu. Kurye’nin anlattığına göre o da bir zamanlar pub maçındaki oyunculardanmış; DOG olmasına bir adım kala ormana kaçmış. Kampını farm’layana hâlâ aynı bakışı atıyor: “Yine mi sen?”',
   },
@@ -281,9 +281,9 @@ export const EXHIBITS = [
     height: 1.35,
     yaw: 0,
     pitch: 1.5,
-    arena: 'soon',
+    arena: true,
     desc:
-      'Turkuaz ve mor tüylü, pençeli, kanatlı kuş-kadın. Kampına yaklaşanı önce tepeden süzer, sonra bütün sürüyle dalar. Hikâye modunda farm’ın bedava olmadığını ilk o öğretecek.',
+      'Turkuaz ve mor tüylü, pençeli, kanatlı kuş-kadın. Kampına yaklaşanı önce tepeden süzer, sonra bütün sürüyle dalar. Hikâye modunda farm’ın bedava olmadığını ilk o öğretiyor.',
   },
   {
     key: 'model-boss-general',
@@ -296,7 +296,7 @@ export const EXHIBITS = [
     height: 1.6,
     yaw: 0,
     pitch: 0.6,
-    arena: 'soon',
+    arena: true,
     desc:
       'Kara-kızıl dikenli zırhıyla goblin-ork komutan ve boyundan büyük tırtıklı kılıcı. Dokuzun Laneti’nin üçüncü bölümünde dokuz DOG’un başında o duruyor. Emirleri kısa: “Dalın.” Tanıdık geldiyse Salon II’deki Balta’ya selam söyle.',
   },
@@ -311,7 +311,7 @@ export const EXHIBITS = [
     height: 1.6,
     yaw: 0,
     pitch: 0.45,
-    arena: 'soon',
+    arena: true,
     desc:
       'Kökleri yere işlemiş, boynuzlu obsidyen bir anıt; ortasında kızıl bir kalp kristali atıyor. Hiç bitmeyen pub maçının laneti buradan yayılıyor, ruhları DOG’a çeviren de bu kalp. 1vDOQUZ’un son durağı: kalp kırılınca maç biter, herkes insan olarak evine döner.',
   },
